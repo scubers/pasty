@@ -7,13 +7,19 @@ import Foundation
 
 class AppDelegate: NSObject, NSApplicationDelegate {
 
+    // MARK: - Properties
+
+    private var statusItem: NSStatusItem?
+
     // MARK: - Application Lifecycle
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        NSLog("PastyApp launched successfully")
+
         // Initialize the Rust core
         do {
             try PastyFFIBridge.shared.initialize()
-            print("Pasty core initialized successfully")
+            NSLog("Pasty core initialized successfully")
         } catch {
             let error = PastyFFIBridge.shared.getLastError() ?? "Unknown error"
             NSLog("Failed to initialize Pasty core: \(error)")
@@ -50,10 +56,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Menu Bar Setup
 
     private func setupMenuBar() {
-        let menuBar = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        NSLog("Setting up menu bar...")
 
-        if let button = menuBar.button {
-            button.title = "📋"
+        // Create status item
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+
+        guard let statusItem = statusItem else {
+            NSLog("Failed to create status bar item")
+            return
+        }
+
+        NSLog("Status bar item created successfully")
+
+        if let button = statusItem.button {
+            button.title = "Pasty"
+            NSLog("Status bar button title set to: Pasty")
         }
 
         let menu = NSMenu()
@@ -78,7 +95,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         quitItem.target = self
         menu.addItem(quitItem)
 
-        menuBar.menu = menu
+        statusItem.menu = menu
+        NSLog("Menu bar setup complete")
     }
 
     // MARK: - Menu Actions
