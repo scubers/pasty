@@ -119,6 +119,11 @@ impl ClipboardStore {
         self.db.get_entry_by_hash(hash)
     }
 
+    /// Get entry by ID
+    pub fn get_entry_by_id(&self, id: uuid::Uuid) -> Result<Option<ClipboardEntry>, DatabaseError> {
+        self.db.get_entry_by_id(id)
+    }
+
     /// Check if entry with given hash exists
     pub fn entry_exists(&self, hash: &str) -> Result<bool, DatabaseError> {
         self.db.entry_exists(hash)

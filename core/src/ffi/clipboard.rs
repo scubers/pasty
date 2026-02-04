@@ -27,6 +27,13 @@ pub struct FfiClipboardEntry {
     pub source_pid: u32,
 }
 
+/// FFI representation of a clipboard entry list
+#[repr(C)]
+pub struct FfiClipboardEntryList {
+    pub count: usize,
+    pub entries: *mut *mut FfiClipboardEntry,
+}
+
 /// Global clipboard store (initialized once)
 static CLIPBOARD_STORE: Mutex<Option<ClipboardStore>> = Mutex::new(None);
 
@@ -292,4 +299,139 @@ pub extern "C" fn pasty_shutdown() -> FfiErrorCode {
     let mut store_guard = CLIPBOARD_STORE.lock().unwrap();
     *store_guard = None;
     FfiErrorCode::Success
+}
+
+/// Get clipboard history with pagination
+///
+/// # Arguments
+/// * `limit` - Maximum number of entries to return
+/// * `offset` - Number of entries to skip
+///
+/// # Returns
+/// Pointer to FfiClipboardEntryList (must be freed with pasty_list_free), or null on error
+#[no_mangle]
+pub extern "C" fn pasty_get_clipboard_history(
+    limit: usize,
+    offset: usize,
+) -> *mut FfiClipboardEntryList {
+    let store_guard = CLIPBOARD_STORE.lock().unwrap();
+    let store = match store_guard.as_ref() {
+        Some(s) => s,
+        None => {
+            set_error("Clipboard store not initialized. Call pasty_init first.");
+            return ptr::null_mut();
+        }
+    };
+
+    match store.get_history(limit, offset) {
+        Ok(entries) => {
+            let count = entries.len();
+            if count == 0 {
+                // Return empty list
+                let list = Box::new(FfiClipboardEntryList {
+                    count: 0,
+                    entries: ptr::null_mut(),
+                });
+                return Box::into_raw(list);
+            }
+
+            // Convert entries to FFI format
+            let mut ffi_entries: Vec<*mut FfiClipboardEntry> = Vec::with_capacity(count);
+            for entry in entries {
+                ffi_entries.push(Box::into_raw(Box::new(entry_to_ffi(entry))));
+            }
+
+            // Create list
+            let list = Box::new(FfiClipboardEntryList {
+                count,
+                entries: ffi_entries.as_mut_ptr(),
+            });
+
+            // Leak the vector to keep the data valid
+            std::mem::forget(ffi_entries);
+
+            Box::into_raw(list)
+        }
+        Err(e) => {
+            set_error(&e.to_string());
+            ptr::null_mut()
+        }
+    }
+}
+
+/// Get entry by ID
+///
+/// # Arguments
+/// * `id` - UUID string of the entry to retrieve
+///
+/// # Returns
+/// Pointer to FfiClipboardEntry (must be freed with pasty_clipboard_entry_free), or null if not found
+#[no_mangle]
+pub extern "C" fn pasty_get_entry_by_id(
+    id: *const c_char,
+) -> *mut FfiClipboardEntry {
+    if id.is_null() {
+        set_error("Null ID argument");
+        return ptr::null_mut();
+    }
+
+    let id_str = unsafe { CStr::from_ptr(id) }.to_str().unwrap_or("");
+
+    // Parse UUID
+    let entry_id = match uuid::Uuid::parse_str(id_str) {
+        Ok(uuid) => uuid,
+        Err(_) => {
+            set_error("Invalid UUID format");
+            return ptr::null_mut();
+        }
+    };
+
+    let store_guard = CLIPBOARD_STORE.lock().unwrap();
+    let store = match store_guard.as_ref() {
+        Some(s) => s,
+        None => {
+            set_error("Clipboard store not initialized. Call pasty_init first.");
+            return ptr::null_mut();
+        }
+    };
+
+    match store.get_entry_by_id(entry_id) {
+        Ok(Some(entry)) => Box::into_raw(Box::new(entry_to_ffi(entry))),
+        Ok(None) => ptr::null_mut(), // Not found is not an error
+        Err(e) => {
+            set_error(&e.to_string());
+            ptr::null_mut()
+        }
+    }
+}
+
+/// Free a clipboard entry list
+///
+/// # Arguments
+/// * `list` - Pointer to FfiClipboardEntryList to free
+#[no_mangle]
+pub extern "C" fn pasty_list_free(list: *mut FfiClipboardEntryList) {
+    if list.is_null() {
+        return;
+    }
+
+    unsafe {
+        let list_ref = &*list;
+
+        // Free all entries
+        if !list_ref.entries.is_null() {
+            for i in 0..list_ref.count {
+                let entry_ptr = *list_ref.entries.add(i);
+                if !entry_ptr.is_null() {
+                    pasty_clipboard_entry_free(entry_ptr);
+                }
+            }
+
+            // Reconstruct the vector to free it properly
+            let _ = Vec::from_raw_parts(list_ref.entries, list_ref.count, list_ref.count);
+        }
+
+        // Free the list struct itself
+        let _ = Box::from_raw(list);
+    }
 }

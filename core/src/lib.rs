@@ -14,6 +14,9 @@ pub use ffi::clipboard::{
     pasty_clipboard_store_image,
     pasty_clipboard_entry_free,
     pasty_get_last_error,
+    pasty_get_clipboard_history,
+    pasty_get_entry_by_id,
+    pasty_list_free,
     // Backward compatibility (Feature 001)
     pasty_init,
     pasty_get_version,
@@ -25,7 +28,7 @@ pub use ffi::types::{
     FfiContentType,
     FfiErrorCode,
 };
-pub use ffi::clipboard::FfiClipboardEntry;
+pub use ffi::clipboard::{FfiClipboardEntry, FfiClipboardEntryList};
 
 // Note: Tests are in the tests/ directory, not inline
 

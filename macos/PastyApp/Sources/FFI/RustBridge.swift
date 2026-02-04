@@ -111,6 +111,7 @@ enum ClipboardFfiErrorCode: Int32 {
 /// Clipboard FFI entry structure
 struct ClipboardFfiEntry {
     var id: UnsafeMutablePointer<CChar>
+    var content_hash: UnsafeMutablePointer<CChar>
     var content_type: ClipboardFfiContentType
     var timestamp_ms: Int64
     var text_content: UnsafeMutablePointer<CChar>
@@ -151,5 +152,20 @@ func pasty_clipboard_store_image(
 
 @_silgen_name("pasty_clipboard_entry_free")
 func pasty_clipboard_entry_free(_ entry: UnsafeMutablePointer<ClipboardFfiEntry>)
+
+@_silgen_name("pasty_get_clipboard_history")
+func pasty_get_clipboard_history(_ limit: Int, _ offset: Int) -> UnsafeMutablePointer<ClipboardFfiEntryList>?
+
+@_silgen_name("pasty_get_entry_by_id")
+func pasty_get_entry_by_id(_ id: UnsafePointer<CChar>) -> UnsafeMutablePointer<ClipboardFfiEntry>?
+
+@_silgen_name("pasty_list_free")
+func pasty_list_free(_ list: UnsafeMutablePointer<ClipboardFfiEntryList>)
+
+/// FFI entry list structure
+struct ClipboardFfiEntryList {
+    var count: Int
+    var entries: UnsafeMutablePointer<UnsafeMutablePointer<ClipboardFfiEntry>?>
+}
 
 // Note: pasty_get_last_error is declared in PastyApp/FFIBridge.swift

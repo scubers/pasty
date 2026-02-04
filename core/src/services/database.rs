@@ -127,6 +127,26 @@ impl Database {
         }
     }
 
+    /// Get entry by ID
+    pub fn get_entry_by_id(&self, id: uuid::Uuid) -> Result<Option<ClipboardEntry>, DatabaseError> {
+        let query = "
+            SELECT id, content_hash, content_type, timestamp, latest_copy_time_ms,
+                   text_content, image_path, source_bundle_id, source_app_name, source_pid
+            FROM clipboard_entries
+            WHERE id = ?1
+        ";
+
+        let result = self.conn.query_row(query, params![id.to_string()], |row| {
+            Ok(Self::row_to_entry(row)?)
+        });
+
+        match result {
+            Ok(entry) => Ok(Some(entry)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(DatabaseError::Sqlite(e)),
+        }
+    }
+
     /// Update latest copy time for existing entry
     pub fn update_latest_copy_time(&self, hash: &str, new_time: DateTime<Utc>) -> Result<(), DatabaseError> {
         self.conn.execute(
