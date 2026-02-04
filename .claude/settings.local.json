@@ -26,7 +26,8 @@
       "Bash(./run.sh:*)",
       "Bash(otool:*)",
       "Bash(log show:*)",
-      "Bash(/Users/bytedance/Desktop/workspace/wjr/pasty/macos/PastyApp/build/PastyApp.app/Contents/MacOS/PastyApp:*)"
+      "Bash(/Users/bytedance/Desktop/workspace/wjr/pasty/macos/PastyApp/build/PastyApp.app/Contents/MacOS/PastyApp:*)",
+      "Bash(git add:*)"
     ]
   }
 }
