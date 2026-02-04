@@ -22,10 +22,7 @@ targets:
     platform: macOS
     deploymentTarget: "11.0"
     sources:
-      - path: PastyApp
-        type: folder
-        includes:
-          - "*.swift"
+      - PastyApp
     settings:
       PRODUCT_NAME: PastyApp
       PRODUCT_BUNDLE_IDENTIFIER: com.pasty.PastyApp
