@@ -791,6 +791,355 @@ log stream --predicate 'process == "PastyApp"'
 
 ---
 
+## Validation Checklist
+
+Use this checklist to verify that the clipboard history feature is working correctly after setup or changes.
+
+### ✅ Prerequisites Verification
+
+- [ ] Rust 1.70+ installed (`rustc --version`)
+- [ ] Cargo available (`cargo --version`)
+- [ ] Swift 5.9+ available (`swift --version`)
+- [ ] Xcode 15.0+ installed (`xcodebuild -version`)
+- [ ] Git repository cloned locally
+
+### ✅ Build Verification
+
+#### Rust Core Layer
+
+- [ ] `cd core && cargo build` succeeds without errors
+- [ ] `cd core && cargo test` passes all tests (77+ tests expected)
+- [ ] Static library generated: `core/target/release/libpasty_core.a`
+- [ ] No compiler warnings about unused dependencies
+
+#### Swift/macOS Layer
+
+- [ ] `cd macos/PastyApp && xcodegen generate` creates Xcode project
+- [ ] `cd macos/PastyApp && xcodebuild build` succeeds
+- [ ] App bundle created: `build/macos/PastyApp.app`
+- [ ] No Swift compiler errors or warnings
+
+### ✅ Functional Testing
+
+#### Clipboard Monitoring (User Story 1)
+
+**Test 1: Text Content**
+
+```bash
+# 1. Build and run the app
+open build/macos/PastyApp.app
+
+# 2. Copy some text (e.g., "Test clipboard entry")
+echo "Test clipboard entry" | pbcopy
+
+# 3. Verify in logs or database
+# Expected: Entry should be stored with deduplication
+```
+
+- [ ] Text is captured when copied
+- [ ] Duplicate text is detected (same hash)
+- [ ] Source application is recorded
+- [ ] Timestamp is accurate
+
+**Test 2: Image Content**
+
+```bash
+# 1. Copy an image (screenshot or image file)
+screenshot -c /tmp/test.png
+pngpaste /tmp/test.png | pbcopy
+
+# 2. Verify storage
+# Expected: Image file stored in images directory with hash-based sharding
+```
+
+- [ ] Image is captured when copied
+- [ ] Image file is saved with correct permissions (600)
+- [ ] Duplicate images are detected (same hash)
+- [ ] Image path is stored in database
+
+**Test 3: File References**
+
+```bash
+# Copy a file reference
+echo "test" > /tmp/test.txt
+osascript -e 'tell application "Finder" to set the clipboard to (POSIX file "/tmp/test.txt")'
+
+# Expected: File references are logged but not stored
+```
+
+- [ ] File references are detected
+- [ ] File references are logged (console output)
+- [ ] File references are NOT stored in database
+
+**Test 4: Deduplication**
+
+```bash
+# Copy same text twice
+echo "Duplicate test" | pbcopy
+# Wait 1 second
+echo "Duplicate test" | pbcopy
+
+# Expected: Only one entry, with updated timestamp
+```
+
+- [ ] Second copy updates `latest_copy_time_ms`
+- [ ] Only one database entry exists
+- [ ] Same content hash is used
+
+#### Clipboard Retrieval (User Story 2)
+
+**Test 5: Retrieve All Entries**
+
+```bash
+# Copy multiple items
+for i in {1..5}; do
+    echo "Entry $i" | pbcopy
+    sleep 0.5
+done
+
+# Query history (via API or direct database query)
+# Expected: 5 entries returned, ordered by most recent
+```
+
+- [ ] `get_history(10, 0)` returns 5 entries
+- [ ] Entries are ordered by timestamp DESC
+- [ ] All metadata fields are populated
+- [ ] Text content is accessible
+- [ ] Image paths are accessible
+
+**Test 6: Filter by Content Type**
+
+```bash
+# Copy some text and images
+echo "Text only" | pbcopy
+screenshot -c /tmp/test.png && pngpaste /tmp/test.png | pbcopy
+
+# Query for text entries only
+# Expected: Only text entries returned
+```
+
+- [ ] `get_history_filtered(ContentType::Text, 10, 0)` returns only text
+- [ ] `get_history_filtered(ContentType::Image, 10, 0)` returns only images
+- [ ] Filter results are accurate
+
+**Test 7: Retrieve by ID**
+
+```bash
+# Get an entry ID from database (or store a new entry and note the ID)
+# Query for that specific ID
+# Expected: Entry is returned or None if not found
+```
+
+- [ ] `get_entry_by_id(uuid)` returns correct entry
+- [ ] `get_entry_by_id(fake_uuid)` returns None
+- [ ] Retrieved entry has all fields
+
+**Test 8: Pagination**
+
+```bash
+# Copy 10 entries
+for i in {1..10}; do
+    echo "Entry $i" | pbcopy
+    sleep 0.5
+done
+
+# Get first page (limit=3, offset=0)
+# Expected: 3 entries (most recent)
+
+# Get second page (limit=3, offset=3)
+# Expected: 3 entries (next most recent)
+
+# Get third page (limit=3, offset=6)
+# Expected: 3 entries (oldest of 10)
+```
+
+- [ ] Page 1 returns entries 10, 9, 8 (most recent)
+- [ ] Page 2 returns entries 7, 6, 5
+- [ ] Page 3 returns entries 4, 3, 2
+- [ ] Fourth page returns entry 1
+- [ ] Pagination is consistent
+
+### ✅ Performance Verification
+
+**Test 9: Database Query Performance**
+
+```bash
+# Insert 10,000 entries (via test script)
+# Query history with various limits
+# Expected: Queries complete in < 50ms
+```
+
+- [ ] Query with limit=100 completes in < 50ms
+- [ ] Query with filter by type completes in < 50ms
+- [ ] No performance degradation with large datasets
+
+**Test 10: Clipboard Change Detection Latency**
+
+```bash
+# Copy content and measure time to detection
+# Expected: < 100ms detection latency
+```
+
+- [ ] Clipboard changes are detected within 500ms (polling interval)
+- [ ] Processing is complete within 100ms after detection
+- [ ] No clipboard changes are missed
+
+### ✅ Security & Privacy Verification
+
+**Test 11: File Permissions**
+
+```bash
+# Check database and image file permissions
+ls -l ~/Library/Application\ Support/Pasty/clipboard.db
+ls -l ~/Library/Application\ Support/Pasty/images/*/*
+
+# Expected: Database and images have 600 permissions (rw-------)
+```
+
+- [ ] Database file has permissions 600 (owner read/write only)
+- [ ] Image files have permissions 600
+- [ ] Images directory has permissions 700
+- [ ] No sensitive data in logs (no clipboard content in log output)
+
+**Test 12: Error Handling**
+
+```bash
+# Trigger various error conditions
+# Expected: Graceful error handling, no crashes
+```
+
+- [ ] Database is locked → automatic retry works
+- [ ] Invalid data → handled gracefully, logged
+- [ ] Disk full → error message, app continues running
+- [ ] All operations have proper error logging
+
+### ✅ Integration Testing
+
+**Test 13: FFI Contract Tests**
+
+```bash
+cd core
+cargo test --test retrieve_test -- --test-threads=1
+```
+
+- [ ] All contract tests pass (6 tests)
+- [ ] Memory management tests pass (no leaks)
+- [ ] Null pointer handling works correctly
+
+**Test 14: Cross-Layer Integration**
+
+```bash
+# Run full app test suite
+cargo test
+xcodebuild test -scheme PastyApp
+```
+
+- [ ] All Rust tests pass
+- [ ] All Swift tests pass
+- [ ] No integration errors between Rust and Swift
+- [ ] FFI calls work correctly in both directions
+
+### ✅ Data Integrity Verification
+
+**Test 15: Database Consistency**
+
+```bash
+# Query database directly to verify data integrity
+sqlite3 ~/Library/Application\ Support/Pasty/clipboard.db "SELECT COUNT(*) FROM clipboard_entries;"
+
+# Verify indexes are present
+sqlite3 ~/Library/Application\ Support/Pasty/clipboard.db ".indexes"
+```
+
+- [ ] Entry count matches expected number
+- [ ] Indexes exist on key columns (content_hash, content_type, timestamp)
+- [ ] No orphaned records (all images have corresponding files)
+- [ ] No missing files (all database entries have files if applicable)
+
+**Test 16: Hash Consistency**
+
+```bash
+# Verify hash calculation is consistent
+# Store same content, verify hash matches
+```
+
+- [ ] Same text always produces same hash
+- [ ] Text trimming is applied before hashing
+- [ ] Same image data produces same hash
+- [ ] Different content produces different hash
+
+### ✅ Production Readiness Checklist
+
+- [ ] All critical bugs are fixed
+- [ ] Performance meets success criteria (SC-001 through SC-010)
+- [ ] Security audit passed (no clipboard content leaks)
+- [ ] Documentation is complete and accurate
+- [ ] Tests cover all critical code paths
+- [ ] Error handling is robust
+- [ ] Logging is comprehensive but not excessive
+- [ ] Memory leaks are addressed
+- [ ] Build process is automated and reproducible
+
+---
+
+## Success Criteria Validation
+
+Each success criterion (SC-001 through SC-010 from spec.md) should be validated:
+
+| Criterion | Description | Validation Method | Status |
+|-----------|-------------|-------------------|--------|
+| SC-001 | Clipboard change detection latency < 100ms | Performance test with timing | [ ] |
+| SC-002 | Database query performance < 50ms | Query timing tests | [ ] |
+| SC-003 | Support 10k+ entries | Stress test with 10k entries | [ ] |
+| SC-004 | Deduplication works correctly | Unit tests for deduplication | [ ] |
+| SC-005 | Text and image support | Functional tests | [ ] |
+| SC-006 | File reference logging | Manual test with file copies | [ ] |
+| SC-007 | Pagination support | Functional tests with pagination | [ ] |
+| SC-008 | Database permissions check | File permission verification | [ ] |
+| SC-009 | FFI integration | Contract tests pass | [ ] |
+| SC-010 | Cross-platform compatibility | Works on macOS 14+ | [ ] |
+
+---
+
+## Troubleshooting Validation Failures
+
+### If Build Fails
+
+1. **Check Rust version**: `rustc --version` (must be 1.70+)
+2. **Check Swift version**: `swift --version` (must be 5.9+)
+3. **Clean and rebuild**:
+   ```bash
+   cd core && cargo clean && cargo build
+   cd ../macos/PastyApp && rm -rf build && xcodegen generate
+   ```
+4. **Check dependencies**: `cargo tree` or `swift package show dependencies`
+
+### If Tests Fail
+
+1. **Run tests individually** to identify specific failures:
+   ```bash
+   cargo test test_name
+   ```
+2. **Check test logs**: `RUST_BACKTRACE=1 cargo test`
+3. **Verify test data**: Ensure test database is clean
+4. **Run tests sequentially**: `cargo test -- --test-threads=1`
+
+### If Functional Tests Fail
+
+1. **Check logs**: Console output from macOS app or `RUST_LOG=debug`
+2. **Verify database**: Check if entries are being stored
+3. **Test FFI directly**: Run contract tests to verify Rust-Swift communication
+4. **Check permissions**: Verify database and image file permissions
+
+### If Performance Tests Fail
+
+1. **Check database indexes**: Ensure `idx_clipboard_entries_type_timestamp` exists
+2. **Verify prepared statement cache**: Check for cache capacity = 100
+3. **Profile**: Use `cargo flamegraph` or Instruments to identify bottlenecks
+4. **Check for locking**: Reduce concurrent access if database locks are frequent
+
+---
+
 ## Summary
 
 This quick start guide provides:
@@ -801,5 +1150,8 @@ This quick start guide provides:
 - ✅ Testing and debugging strategies
 - ✅ Common issue resolutions
 - ✅ Links to detailed documentation
+- ✅ **NEW**: Comprehensive validation checklist with 16 test scenarios
+- ✅ **NEW**: Success criteria validation table
+- ✅ **NEW**: Troubleshooting guide for validation failures
 
-**Ready to implement**: Follow the phases in order, run tests frequently, and refer to design artifacts for detailed specifications.
+**Ready to implement**: Follow the phases in order, run tests frequently, use the validation checklist to verify functionality, and refer to design artifacts for detailed specifications.
