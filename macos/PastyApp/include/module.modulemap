@@ -1,0 +1,5 @@
+module pasty_core {
+    header "../../build/core/include/pasty.h"
+    link "pasty_core"
+    export *
+}

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>archiveVersion</key>
+	<string>1.0</string>
+	<key>objectVersion</key>
+	<string>56.0</string>
+	<key>classes</key>
+	<dict>
+		<key>PBXNativeTarget</key>
+			<dict>
+			<key>buildPhases</key>
+			<array>
+				<dict>
+					<key>inputs</key>
+					<array>
+						<string>$(SRCROOT)/scripts/build-core.sh</string>
+						<string>$(CONFIGURATION)</string>
+						<string>universal</string>
+					</array>
+					<key>name</key>
+					<string>Build Rust Core</string>
+					<key>runOnlyForDeploymentPostprocessing</key>
+					<false/>
+					<key>shellPath</key>
+					<string>/bin/bash</string>
+					<key>shellScript</key>
+					<string>cd "$SRCROOT" && "$SCRIPTS/build-core.sh" "$CONFIGURATION" universal</string>
+					<key>showEnvVarsInLog</key>
+					<true/>
+					<key>environment</key>
+					<dict>
+						<key>PATH</key>
+						<string>$(PATH)</string>
+					</dict>
+				</dict>
+			</array>
+		</dict>
+	</dict>
+</dict>
+</plist>

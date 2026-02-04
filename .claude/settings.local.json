@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git fetch:*)",
+      "Bash(ls:*)",
+      "Bash(.specify/scripts/bash/create-new-feature.sh:*)",
+      "Bash(.specify/scripts/bash/setup-plan.sh:*)",
+      "WebSearch",
+      "Bash(.specify/scripts/bash/update-agent-context.sh:*)",
+      "Bash(.specify/scripts/bash/check-prerequisites.sh:*)",
+      "Bash(cargo init:*)",
+      "Bash(chmod:*)",
+      "Bash(curl:*)",
+      "Bash(sh:*)",
+      "Bash(source:*)",
+      "Bash(rustc:*)",
+      "Bash(cargo:*)",
+      "Bash(./scripts/check-prereqs.sh:*)",
+      "Bash(./scripts/build.sh:*)",
+      "Bash(export:*)",
+      "Bash(cbindgen:*)",
+      "Bash(swift package init:*)",
+      "Bash(swift build:*)",
+      "Bash(./scripts/build-core.sh:*)",
+      "Bash(./build.sh:*)",
+      "Bash(./run.sh:*)",
+      "Bash(otool:*)",
+      "Bash(log show:*)",
+      "Bash(/Users/bytedance/Desktop/workspace/wjr/pasty/macos/PastyApp/build/PastyApp.app/Contents/MacOS/PastyApp:*)"
+    ]
+  }
+}

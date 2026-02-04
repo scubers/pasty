@@ -1,0 +1,24 @@
+# Build artifacts
+build/
+target/
+
+# macOS
+.DS_Store
+*.dmg
+
+# Swift
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+
+# Rust
+Cargo.lock
+
+# Xcode
+*.xcuserstate
+xcuserdata/
+DerivedData/
