@@ -2,6 +2,10 @@
 build/
 target/
 
+# Test executables (compiled test binaries, but keep source code)
+tests/**/test_*_ffi
+tests/integration/test_*
+
 # macOS
 .DS_Store
 *.dmg
