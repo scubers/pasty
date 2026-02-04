@@ -5,16 +5,17 @@ struct SearchBarView: View {
     @ObservedObject var viewModel: MainPanelViewModel
 
     var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass")
-                .foregroundColor(Color(red: 0.4, green: 0.4, blue: 0.4))
-                .font(.system(size: 14))
+        HStack(spacing: 10) {
+            // Command key icon
+            Image(systemName: "command")
+                .foregroundColor(Color(red: 0.5, green: 0.5, blue: 0.5))
+                .font(.system(size: 16, weight: .medium))
 
             TextField("Search clipboard...", text: $viewModel.searchText)
                 .textFieldStyle(.plain)
-                .font(.system(size: 13))
-                .foregroundColor(.white)
-                .accentColor(Color(red: 0.345, green: 0.337, blue: 0.839))  // Purple
+                .font(.system(size: 15))
+                .foregroundColor(Color(red: 0.7, green: 0.7, blue: 0.7))
+                .accentColor(Color(red: 0.8, green: 0.4, blue: 0.6))  // Pink/purple accent
 
             if !viewModel.searchText.isEmpty {
                 Button(action: {
@@ -28,14 +29,10 @@ struct SearchBarView: View {
                 .help("Clear search")
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(Color(red: 0.165, green: 0.165, blue: 0.165))  // #2a2a2a
-        .cornerRadius(8)
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color(red: 0.2, green: 0.2, blue: 0.2), lineWidth: 1)  // #333333
-        )
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(Color(red: 0.12, green: 0.12, blue: 0.14))  // Darker background #1f1f24
+        .cornerRadius(10)
     }
 }
 

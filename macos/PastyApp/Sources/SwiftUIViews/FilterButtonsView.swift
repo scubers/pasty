@@ -5,7 +5,7 @@ struct FilterButtonsView: View {
     @ObservedObject var viewModel: MainPanelViewModel
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             // Content type filter buttons
             ForEach(ContentFilter.allCases, id: \.self) { filter in
                 FilterButton(
@@ -16,12 +16,11 @@ struct FilterButtonsView: View {
                 }
             }
 
-            // Pinned filter toggle (square icon, orange/yellow)
+            // Pinned filter toggle (square icon with yellow/orange background)
             PinnedFilterButton(isActive: viewModel.isPinnedFilterActive) {
                 viewModel.handle(.togglePinnedFilter)
             }
         }
-        .padding(.horizontal, 4)
     }
 }
 
@@ -34,13 +33,13 @@ struct FilterButton: View {
 
     var body: some View {
         Button(action: action) {
-            Text(title.uppercased())
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(isSelected ? Color.white : Color(white: 0.5))
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
+            Text(title)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(isSelected ? Color.white : Color(red: 0.6, green: 0.6, blue: 0.6))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
                 .background(
-                    RoundedRectangle(cornerRadius: 6)
+                    RoundedRectangle(cornerRadius: 8)
                         .fill(isActiveColor)
                 )
         }
@@ -49,11 +48,11 @@ struct FilterButton: View {
 
     private var isActiveColor: Color {
         if isSelected {
-            // Purple for active state (#5856d6)
-            return Color(red: 0.345, green: 0.337, blue: 0.839)
+            // Pink/magenta for active state matching design
+            return Color(red: 0.93, green: 0.25, blue: 0.98)  // #ec3dfa
         } else {
-            // Dark gray for inactive state (#2a2a2a)
-            return Color(red: 0.165, green: 0.165, blue: 0.165)
+            // Darker background for inactive state
+            return Color(red: 0.18, green: 0.18, blue: 0.20)  // #2e2e33
         }
     }
 }
@@ -67,19 +66,14 @@ struct PinnedFilterButton: View {
     var body: some View {
         Button(action: action) {
             ZStack {
-                RoundedRectangle(cornerRadius: 4)
+                RoundedRectangle(cornerRadius: 8)
                     .fill(isActive ? activeColor : inactiveColor)
-                    .frame(width: 28, height: 28)
+                    .frame(width: 36, height: 36)
 
-                if isActive {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(.white)
-                } else {
-                    Image(systemName: "pin")
-                        .font(.system(size: 12))
-                        .foregroundColor(Color(white: 0.5))
-                }
+                // Yellow/orange square icon matching design
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(isActive ? Color(red: 1.0, green: 0.92, blue: 0.4) : Color(red: 0.5, green: 0.5, blue: 0.5))
+                    .frame(width: 16, height: 16)
             }
         }
         .buttonStyle(.plain)
@@ -87,13 +81,13 @@ struct PinnedFilterButton: View {
     }
 
     private var activeColor: Color {
-        // Orange for active (#ff9500)
-        Color(red: 1.0, green: 0.584, blue: 0.0)
+        // Yellow/orange background for active (#fbbf24)
+        Color(red: 0.98, green: 0.75, blue: 0.14)
     }
 
     private var inactiveColor: Color {
-        // Dark gray for inactive (#2a2a2a)
-        Color(red: 0.165, green: 0.165, blue: 0.165)
+        // Dark background for inactive
+        Color(red: 0.18, green: 0.18, blue: 0.20)
     }
 }
 

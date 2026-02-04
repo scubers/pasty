@@ -42,8 +42,8 @@ class ClipboardPanelWindow: NSPanel {
 
         // Initialize panel - 40/60 split layout
         super.init(
-            contentRect: NSRect(x: 0, y: 0, width: 1000, height: 600),
-            styleMask: [.borderless, .fullSizeContentView],
+            contentRect: NSRect(x: 0, y: 0, width: 760, height: 450),
+            styleMask: [.borderless, .fullSizeContentView, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
@@ -61,29 +61,35 @@ class ClipboardPanelWindow: NSPanel {
     // MARK: - Setup
 
     private func setupPanel() {
-        // Floating panel behavior - but allow keyboard input
         isFloatingPanel = true
-        level = .popUpMenu  // Use popUpMenu level for highest priority
+        level = .popUpMenu
         isMovableByWindowBackground = true
         hidesOnDeactivate = false
-
-        // IMPORTANT: Allow panel to become key window for keyboard input
         worksWhenModal = true
 
-        // Appearance - Dark theme matching design
-        backgroundColor = NSColor(hex: "#1a1a1a")
-        alphaValue = 0.98
+        // ✅ 关键：Window 本体透明（不要用 window.backgroundColor 来画半透明背景）
+        isOpaque = false
+        backgroundColor = .clear
+        alphaValue = 1.0
+        hasShadow = true
+
+        // ✅ 背景、圆角都在 contentView 上画
         if let contentView = contentView {
             contentView.wantsLayer = true
-            contentView.layer?.cornerRadius = 12
+            contentView.layer?.cornerRadius = 16
+            contentView.layer?.masksToBounds = true
+
+            contentView.layer?.backgroundColor = NSColor(hex: "#1a1a1e")
+                .withAlphaComponent(0.98)
+                .cgColor
+
+            contentView.layer?.borderWidth = 0
+            contentView.layer?.borderColor = nil
         }
 
-        // NO title bar
         titleVisibility = .hidden
         titlebarAppearsTransparent = true
         isMovable = true
-
-        // Collection behavior - allow keyboard input and participate in window cycle
         collectionBehavior = [.fullScreenAuxiliary, .canJoinAllSpaces]
     }
 
@@ -127,10 +133,10 @@ class ClipboardPanelWindow: NSPanel {
         tv.delegate = self
         tv.dataSource = self
         tv.headerView = nil
-        tv.intercellSpacing = NSSize(width: 0, height: 8)
+        tv.intercellSpacing = NSSize(width: 0, height: 4)
         tv.backgroundColor = .clear
-        tv.selectionHighlightStyle = .regular
-        tv.rowHeight = 64
+        tv.selectionHighlightStyle = .none
+        tv.rowHeight = 48
         tv.usesAutomaticRowHeights = false
         tv.allowsMultipleSelection = true
         tv.style = .plain
@@ -188,7 +194,7 @@ class ClipboardPanelWindow: NSPanel {
 
     private func setupTopBar() {
         topBarView.wantsLayer = true
-        topBarView.layer?.backgroundColor = NSColor(hex: "#1a1a1a").cgColor
+        topBarView.layer?.backgroundColor = NSColor(hex: "#1a1a1e").cgColor
     }
 
     private func setupSwiftUIHosts() {
@@ -215,14 +221,14 @@ class ClipboardPanelWindow: NSPanel {
         searchHostView.snp.makeConstraints { make in
             make.left.equalToSuperview().offset(16)
             make.centerY.equalToSuperview()
-            make.height.equalTo(36)
+            make.right.equalTo(filterHostView.snp.left).offset(-16)
+            make.height.equalTo(40)
         }
 
         filterHostView.snp.makeConstraints { make in
-            make.left.equalTo(searchHostView.snp.right).offset(12)
-            make.right.lessThanOrEqualToSuperview().offset(-16)
+            make.right.equalToSuperview().offset(-16)
             make.centerY.equalToSuperview()
-            make.height.equalTo(32)
+            make.height.equalTo(40)
         }
     }
 
@@ -232,9 +238,9 @@ class ClipboardPanelWindow: NSPanel {
         previewHost = NSHostingController(rootView: previewPanelView)
         previewContainerView.addSubview(previewHost!.view)
 
-        // Setup divider
+        // Setup divider - subtle separator matching design
         dividerView.wantsLayer = true
-        dividerView.layer?.backgroundColor = NSColor(hex: "#333333").cgColor
+        dividerView.layer?.backgroundColor = NSColor(hex: "#2a2a2e").cgColor
 
         // Layout with SnapKit
         previewHost!.view.snp.makeConstraints { make in
@@ -245,35 +251,35 @@ class ClipboardPanelWindow: NSPanel {
     private func setupLayout() {
         guard let contentView = contentView else { return }
 
-        // Top bar (search + filters, full width)
+        // Top bar (search + filters, full width) - increased height for larger controls
         topBarView.snp.makeConstraints { make in
             make.top.equalToSuperview()
             make.left.equalToSuperview()
             make.right.equalToSuperview()
-            make.height.equalTo(48)
+            make.height.equalTo(60)
         }
 
-        // Table view (left side, 40%)
+        // Table view (left side, 40%) - adjusted margins
         scrollView.snp.makeConstraints { make in
-            make.top.equalTo(topBarView.snp.bottom).offset(12)
-            make.left.equalToSuperview().offset(16)
-            make.bottom.equalToSuperview().offset(-16)
-            make.width.equalTo(contentView.snp.width).multipliedBy(0.40).offset(-32)  // 40% minus margins
+            make.top.equalTo(topBarView.snp.bottom).offset(8)
+            make.left.equalToSuperview().offset(12)
+            make.bottom.equalToSuperview().offset(-12)
+            make.width.equalTo(contentView.snp.width).multipliedBy(0.40)
         }
 
-        // Divider (vertical)
+        // Divider (vertical) - subtle separator
         dividerView.snp.makeConstraints { make in
-            make.top.equalTo(scrollView.snp.top)
-            make.left.equalTo(scrollView.snp.right).offset(12)
-            make.bottom.equalTo(scrollView.snp.bottom)
+            make.top.equalTo(scrollView.snp.top).offset(4)
+            make.left.equalTo(scrollView.snp.right).offset(8)
+            make.bottom.equalTo(scrollView.snp.bottom).offset(-4)
             make.width.equalTo(1)
         }
 
-        // Preview container (right side, 60%)
+        // Preview container (right side, 60%) - adjusted margins
         previewContainerView.snp.makeConstraints { make in
             make.top.equalTo(scrollView.snp.top)
-            make.left.equalTo(dividerView.snp.right).offset(12)
-            make.right.equalToSuperview().offset(-16)
+            make.left.equalTo(dividerView.snp.right).offset(8)
+            make.right.equalToSuperview().offset(-12)
             make.bottom.equalTo(scrollView.snp.bottom)
         }
 
@@ -720,13 +726,15 @@ extension ClipboardPanelWindow: NSTableViewDelegate {
         if let clipboardCell = cellView as? ClipboardTableCellView {
             clipboardCell.viewModel = mainPanelViewModel
             clipboardCell.configure(with: entry)
+            // Set selected state based on current table view selection
+            clipboardCell.isSelected = tableView.selectedRowIndexes.contains(row)
         }
 
         return cellView
     }
 
     func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
-        return 64
+        return 56
     }
 
     func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool {
@@ -738,6 +746,26 @@ extension ClipboardPanelWindow: NSTableViewDelegate {
         mainPanelViewModel.handle(.selectEntry(id: entry.id))
 
         return true
+    }
+
+    func tableViewSelectionDidChange(_ notification: Notification) {
+        // Update all visible cells to reflect selection state
+        let visibleRows = tableView.visibleRows
+        for row in visibleRows {
+            if let cellView = tableView.view(atColumn: 0, row: row, makeIfNecessary: false) as? ClipboardTableCellView {
+                cellView.isSelected = tableView.selectedRowIndexes.contains(row)
+            }
+        }
+    }
+}
+
+// MARK: - NSTableView Extension
+
+extension NSTableView {
+    var visibleRows: IndexSet {
+        guard let visibleRect = superview?.visibleRect else { return IndexSet() }
+        let rows = rows(in: visibleRect)
+        return IndexSet(rows.lowerBound..<rows.upperBound)
     }
 }
 

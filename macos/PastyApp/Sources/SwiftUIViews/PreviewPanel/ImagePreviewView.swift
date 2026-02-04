@@ -12,13 +12,15 @@ struct ImagePreviewView: View {
                     .resizable()
                     .scaledToFit()
                     .frame(
-                        maxWidth: geometry.size.width - 32,
-                        maxHeight: geometry.size.height - 32
+                        maxWidth: geometry.size.width - 40,
+                        maxHeight: geometry.size.height - 40,
+                        alignment: .topLeading
                     )
-                    .padding(16)
+                    .padding(20)
             }
         }
-        .background(Color(NSColor.textBackgroundColor))
+        .background(Color(red: 0.14, green: 0.14, blue: 0.16))
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
 

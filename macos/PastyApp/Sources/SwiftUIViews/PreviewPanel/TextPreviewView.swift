@@ -7,16 +7,17 @@ struct TextPreviewView: View {
     var body: some View {
         ScrollView([.horizontal, .vertical]) {
             Text(text)
-                .font(.system(size: 13, design: .monospaced))
-                .foregroundColor(.primary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(16)
+                .font(.system(size: 15, design: .monospaced))
+                .foregroundColor(Color(red: 0.9, green: 0.9, blue: 0.9))
+                .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity, alignment: .topLeading)
+                .padding(20)
         }
-        .background(Color(NSColor.textBackgroundColor))
+        .background(Color(red: 0.14, green: 0.14, blue: 0.16))
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
 
 #Preview {
-    TextPreviewView(text: "This is a sample text content that will be displayed in the preview panel.")
+    TextPreviewView(text: "Update shared data dir should prompt restart...\n\nAlso keep scroll position when reopening panel.")
         .frame(width: 400, height: 300)
 }

@@ -30,43 +30,35 @@ class ClipboardTableCellView: NSTableCellView {
 
     private let titleLabel: NSTextField = {
         let textField = NSTextField(labelWithString: "")
-        textField.font = NSFont.systemFont(ofSize: 13, weight: .medium)
+        textField.font = NSFont.systemFont(ofSize: 14, weight: .medium)
         textField.textColor = NSColor(hex: "#ffffff")
         textField.lineBreakMode = .byTruncatingTail
+        textField.maximumNumberOfLines = 1
         textField.isEditable = false
         textField.isSelectable = false
         textField.setContentHuggingPriority(.defaultLow, for: .horizontal)
         return textField
     }()
 
-    private let subtitleLabel: NSTextField = {
-        let textField = NSTextField(labelWithString: "")
-        textField.font = NSFont.systemFont(ofSize: 11, weight: .regular)
-        textField.textColor = NSColor(hex: "#999999")
-        textField.lineBreakMode = .byTruncatingTail
-        textField.isEditable = false
-        textField.isSelectable = false
-        return textField
-    }()
-
     private let timestampLabel: NSTextField = {
         let textField = NSTextField(labelWithString: "")
-        textField.font = NSFont.systemFont(ofSize: 10, weight: .regular)
-        textField.textColor = NSColor(hex: "#666666")
+        textField.font = NSFont.systemFont(ofSize: 12, weight: .regular)
+        textField.textColor = NSColor(hex: "#888888")
+        textField.alignment = .right
         textField.isEditable = false
         textField.isSelectable = false
         return textField
     }()
 
-    private let typeIndicatorView: TypeIndicatorView = {
-        let view = TypeIndicatorView()
-        return view
-    }()
-
-    private let pinnedIndicatorView: PinnedIndicatorView = {
-        let view = PinnedIndicatorView()
-        view.isHidden = true
-        return view
+    private let enterIconView: NSImageView = {
+        let imageView = NSImageView()
+        imageView.imageScaling = .scaleProportionallyUpOrDown
+        imageView.contentTintColor = NSColor(hex: "#888888")
+        imageView.isHidden = true
+        if let icon = NSImage(systemSymbolName: "return", accessibilityDescription: "Enter") {
+            imageView.image = icon
+        }
+        return imageView
     }()
 
     // MARK: - Initialization
@@ -85,16 +77,15 @@ class ClipboardTableCellView: NSTableCellView {
 
     private func setupUI() {
         wantsLayer = true
-        layer?.cornerRadius = 8
-        layer?.backgroundColor = NSColor(hex: "#252525").withAlphaComponent(0.5).cgColor
+        layer?.cornerRadius = 10
+        layer?.masksToBounds = true
+        layer?.backgroundColor = NSColor(hex: "#1e1e22").cgColor
 
         // Add subviews
         addSubview(iconImageView)
         addSubview(titleLabel)
-        addSubview(subtitleLabel)
         addSubview(timestampLabel)
-        addSubview(typeIndicatorView)
-        addSubview(pinnedIndicatorView)
+        addSubview(enterIconView)
 
         setupLayout()
     }
@@ -103,36 +94,25 @@ class ClipboardTableCellView: NSTableCellView {
         iconImageView.snp.makeConstraints { make in
             make.left.equalToSuperview().offset(12)
             make.centerY.equalToSuperview()
-            make.width.height.equalTo(32)
+            make.width.height.equalTo(24)
         }
 
         titleLabel.snp.makeConstraints { make in
-            make.left.equalTo(iconImageView.snp.right).offset(12)
-            make.top.equalToSuperview().offset(10)
-            make.right.lessThanOrEqualTo(typeIndicatorView.snp.left).offset(-8)
-        }
-
-        subtitleLabel.snp.makeConstraints { make in
-            make.left.equalTo(iconImageView.snp.right).offset(12)
-            make.top.equalTo(titleLabel.snp.bottom).offset(2)
-            make.right.lessThanOrEqualTo(typeIndicatorView.snp.left).offset(-8)
+            make.left.equalTo(iconImageView.snp.right).offset(10)
+            make.centerY.equalToSuperview()
+            make.right.lessThanOrEqualTo(timestampLabel.snp.left).offset(-12)
         }
 
         timestampLabel.snp.makeConstraints { make in
-            make.left.equalTo(iconImageView.snp.right).offset(12)
-            make.bottom.equalToSuperview().offset(-10)
+            make.right.equalTo(enterIconView.snp.left).offset(-10)
+            make.centerY.equalToSuperview()
+            make.width.lessThanOrEqualTo(70)
         }
 
-        typeIndicatorView.snp.makeConstraints { make in
-            make.right.equalTo(pinnedIndicatorView.snp.left).offset(-6)
+        enterIconView.snp.makeConstraints { make in
+            make.right.equalToSuperview().offset(-16)
             make.centerY.equalToSuperview()
-            make.width.height.equalTo(20)
-        }
-
-        pinnedIndicatorView.snp.makeConstraints { make in
-            make.right.equalToSuperview().offset(-12)
-            make.centerY.equalToSuperview()
-            make.width.height.equalTo(16)
+            make.width.height.equalTo(14)
         }
     }
 
@@ -147,7 +127,6 @@ class ClipboardTableCellView: NSTableCellView {
             iconImageView.image = icon
             iconImageView.isHidden = false
         } else {
-            // Default app icon
             if let defaultIcon = NSImage(systemSymbolName: "app.dashed", accessibilityDescription: "Application") {
                 iconImageView.image = defaultIcon
                 iconImageView.contentTintColor = NSColor(hex: "#666666")
@@ -158,18 +137,8 @@ class ClipboardTableCellView: NSTableCellView {
         // Configure title
         titleLabel.stringValue = entry.title
 
-        // Configure subtitle (source app + content type)
-        let contentTypeStr = entry.contentType == .text ? "Text" : "Image"
-        subtitleLabel.stringValue = "\(entry.sourceApp) • \(contentTypeStr)"
-
         // Configure timestamp
         timestampLabel.stringValue = entry.timestamp
-
-        // Configure type indicator
-        typeIndicatorView.setContentType(entry.contentType)
-
-        // Configure pinned indicator
-        pinnedIndicatorView.isHidden = !entry.isPinned
 
         // Update background for selected state
         updateSelectionState()
@@ -206,80 +175,23 @@ class ClipboardTableCellView: NSTableCellView {
 
     private func updateSelectionState() {
         if isSelected {
-            layer?.backgroundColor = NSColor(hex: "#3a3a3a").cgColor
+            // Selected state with orange/yellow border matching design
+            layer?.backgroundColor = NSColor(hex: "#2a2520").cgColor
+            layer?.borderColor = NSColor(hex: "#f59e0b").cgColor
+            layer?.borderWidth = 2
+            enterIconView.isHidden = false
         } else if isPinned {
-            layer?.backgroundColor = NSColor(hex: "#2a2a20").withAlphaComponent(0.8).cgColor
-            layer?.borderColor = NSColor(hex: "#ff9500").cgColor
+            // Pinned state with subtle orange tint
+            layer?.backgroundColor = NSColor(hex: "#2a2520").withAlphaComponent(0.6).cgColor
+            layer?.borderColor = NSColor(hex: "#f59e0b").cgColor
             layer?.borderWidth = 1
+            enterIconView.isHidden = true
         } else {
-            layer?.backgroundColor = NSColor(hex: "#252525").withAlphaComponent(0.5).cgColor
+            // Normal state
+            layer?.backgroundColor = NSColor(hex: "#1e1e22").cgColor
             layer?.borderWidth = 0
+            enterIconView.isHidden = true
         }
-    }
-}
-
-// MARK: - Type Indicator View
-
-class TypeIndicatorView: NSView {
-    private var contentType: ContentType = .text
-
-    override func draw(_ dirtyRect: NSRect) {
-        super.draw(dirtyRect)
-
-        guard let context = NSGraphicsContext.current?.cgContext else { return }
-
-        let rect = bounds
-        let color: NSColor
-
-        switch contentType {
-        case .text:
-            color = NSColor(hex: "#5856d6")  // Purple
-        case .image:
-            color = NSColor(hex: "#34c759")  // Green
-        }
-
-        context.setFillColor(color.cgColor)
-        context.fillEllipse(in: rect.insetBy(dx: 2, dy: 2))
-    }
-
-    func setContentType(_ type: ContentType) {
-        self.contentType = type
-        needsDisplay = true
-    }
-}
-
-// MARK: - Pinned Indicator View
-
-class PinnedIndicatorView: NSView {
-    override func draw(_ dirtyRect: NSRect) {
-        super.draw(dirtyRect)
-
-        guard let context = NSGraphicsContext.current?.cgContext else { return }
-
-        let rect = bounds
-
-        context.setFillColor(NSColor(hex: "#ff9500").cgColor)  // Orange
-
-        // Pin head (square with checkmark, matching design)
-        let headRect = NSRect(
-            x: rect.minX + 2,
-            y: rect.minY + 2,
-            width: rect.width - 4,
-            height: rect.height - 4
-        )
-
-        // Draw rounded rectangle
-        let path = NSBezierPath(roundedRect: headRect, xRadius: 2, yRadius: 2)
-        path.fill()
-
-        // Draw checkmark
-        context.setStrokeColor(NSColor.white.cgColor)
-        context.setLineWidth(1.5)
-        let checkPath = NSBezierPath()
-        checkPath.move(to: NSPoint(x: headRect.minX + 3, y: headRect.midY))
-        checkPath.line(to: NSPoint(x: headRect.midX - 1, y: headRect.maxY - 3))
-        checkPath.line(to: NSPoint(x: headRect.maxX - 3, y: headRect.minY + 3))
-        checkPath.stroke()
     }
 }
 

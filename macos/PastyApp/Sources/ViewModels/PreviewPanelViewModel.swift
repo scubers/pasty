@@ -22,6 +22,12 @@ class PreviewPanelViewModel: ObservableObject {
     /// Error message
     @Published var errorMessage: String? = nil
 
+    /// Current entry metadata for display
+    @Published var sourceAppName: String = ""
+    @Published var sourceAppIcon: NSImage?
+    @Published var timestamp: String = ""
+    @Published var isPinned: Bool = false
+
     // MARK: - Dependencies
 
     private let clipboardHistory: ClipboardHistory
@@ -82,6 +88,12 @@ class PreviewPanelViewModel: ObservableObject {
                     return
                 }
 
+                // Set entry metadata
+                self.sourceAppName = entry.source.appName
+                self.timestamp = entry.timestamp.formatAsTimeAgo()
+                // TODO: isPinned not yet implemented in ClipboardEntry
+                self.isPinned = false
+
                 // Set preview content based on type
                 switch entry.content {
                 case .text(let text):
@@ -112,6 +124,10 @@ class PreviewPanelViewModel: ObservableObject {
         copyButtonEnabled = false
         pasteButtonEnabled = false
         errorMessage = nil
+        sourceAppName = ""
+        sourceAppIcon = nil
+        timestamp = ""
+        isPinned = false
     }
 
     // MARK: - Private Methods
