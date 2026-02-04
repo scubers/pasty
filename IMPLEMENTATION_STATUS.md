@@ -2,13 +2,13 @@
 
 **Feature**: 001 - Cross-Platform Framework Infrastructure
 **Date**: 2026-02-04
-**Status**: Phase 1, 2, & 3 Complete (macOS Layer Working!)
+**Status**: ✅ COMPLETE - All 4 User Stories Implemented!
 
 ---
 
 ## Summary
 
-✅ **macOS Swift layer is now functional!**
+✅ **All user stories complete!**
 
 The framework has been successfully implemented with:
 - Rust core library with FFI exports
@@ -16,6 +16,7 @@ The framework has been successfully implemented with:
 - Complete build automation scripts
 - App bundle with menu bar integration
 - FFI communication between Swift and Rust
+- DMG packaging for distribution
 
 ## What's Been Implemented
 
@@ -59,6 +60,15 @@ The framework has been successfully implemented with:
 - [x] FFI interoperability verified (app calls Rust functions)
 - [x] Application lifecycle management (init/shutdown)
 
+### ✅ Phase 4: DMG Packaging and Distribution (COMPLETE - 15/15 tasks)
+
+- [x] T091-T100: `package.sh` script with argument parsing
+- [x] Code signing certificate detection
+- [x] App bundle signing with codesign (optional)
+- [x] DMG creation using hdiutil (with create-dmg fallback)
+- [x] Applications shortcut in DMG
+- [x] DMG mounting and installation verified
+
 ---
 
 ## Quick Start
@@ -67,14 +77,24 @@ The framework has been successfully implemented with:
 
 ```bash
 # From project root
-cd macos/PastyApp
-./build.sh    # Builds the app bundle
-./run.sh      # Launches the app
+./scripts/build.sh release    # Build the app
+./scripts/run.sh release      # Launch the app
 ```
 
 The app will appear in your menu bar with a 📋 icon. Click it to see:
 - **About Pasty** - Shows the Rust core version
 - **Quit Pasty** - Exits the application
+
+### Package for Distribution
+
+```bash
+# Create DMG for distribution
+./scripts/package.sh release sign    # With code signing (if certificate available)
+./scripts/package.sh release nosign  # Without code signing (ad-hoc)
+
+# Install from DMG
+open build/macos/dmg/PastyApp-0.1.0.dmg
+```
 
 ---
 
@@ -122,33 +142,33 @@ pasty/
 │   ├── build-core.sh              ✅ Rust library builder
 │   ├── build.sh                   ✅ Main orchestrator
 │   ├── run.sh                     ✅ App launcher
-│   └── test-core.sh               ✅ Test runner
+│   ├── test-core.sh               ✅ Test runner
+│   └── package.sh                 ✅ DMG packager
 │
 └── build/                         ✅ Build artifacts
-    └── core/
-        ├── include/
-        │   └── pasty.h             ✅ Generated C header
-        └── universal/
-            └── release/
-                └── libpasty_core.a ✅ Static library (arm64)
+    ├── core/
+    │   ├── include/
+    │   │   └── pasty.h             ✅ Generated C header
+    │   └── universal/
+    │       └── release/
+    │           └── libpasty_core.a ✅ Static library (arm64)
+    └── macos/
+        └── dmg/
+            └── PastyApp-0.1.0.dmg  ✅ Distributable disk image
 ```
 
 ---
 
-## What Remains (Not Yet Implemented)
+## Optional Enhancements (Future Work)
 
-### User Story 4: DMG Packaging (P3)
+### Potential Improvements
 
-**Status**: Not started
-
-Remaining tasks:
-- [ ] Create `package.sh` script
-- [ ] Implement code signing detection
-- [ ] Add app bundle signing with codesign
-- [ ] Integrate create-dmg for DMG creation
-- [ ] Test DMG mounting and installation
-
-**Estimated Effort**: 2-3 hours
+- [ ] Universal binary support (x86_64 + arm64)
+- [ ] Automated CI/CD pipeline
+- [ ] Code signing with developer certificate
+- [ ] Sparkle update framework integration
+- [ ] DMG background image customization
+- [ ] Notarization for macOS distribution
 
 ---
 
@@ -161,7 +181,7 @@ From spec.md, 8 success criteria defined:
 | SC-001 | Build from clean state in <5 min | ✅ Working |
 | SC-002 | Zero manual steps for build | ✅ Scripts automate everything |
 | SC-003 | Swift calls 3+ Rust FFI functions | ✅ Implemented (init, shutdown, get_version) |
-| SC-004 | DMG mounts and installs | ⏳ User Story 4 |
+| SC-004 | DMG mounts and installs | ✅ Verified |
 | SC-005 | Clear error messages | ✅ Implemented |
 | SC-006 | 80% test coverage in <30 sec | ✅ Tests pass (7/7) |
 | SC-007 | Build completes <3 min | ✅ Optimized build scripts |
@@ -209,58 +229,50 @@ This approach avoids needing an Objective-C bridging header and provides type-sa
 
 ## Next Steps
 
-### Immediate: Test the App
+### Test the DMG
 
-The app should be running in your menu bar right now. Try:
-1. Click the 📋 icon in the menu bar
-2. Select "About Pasty" to see the version
-3. Select "Quit Pasty" to exit
-
-### Next: DMG Packaging
-
-To complete User Story 4, implement DMG packaging:
-
+The DMG has been created and tested:
 ```bash
-# Install create-dmg
-brew install create-dmg
+# Mount and install
+open build/macos/dmg/PastyApp-0.1.0.dmg
 
-# Create package.sh script (to be implemented)
-./scripts/package.sh
+# Drag PastyApp.app to Applications folder
+# Launch from Applications
 ```
 
 ---
 
 ## Summary
 
-**Progress**: ~75% complete (50/65 tasks for MVP)
+**Progress**: ✅ 100% COMPLETE (65/65 tasks)
 - ✅ Setup & Foundation: 100% complete
 - ✅ User Story 1: 100% complete (Rust core working)
 - ✅ User Story 2: 100% complete (Build automation working)
 - ✅ User Story 3: 100% complete (macOS app functional!)
-- ⏳ User Story 4: 0% complete (DMG packaging)
+- ✅ User Story 4: 100% complete (DMG packaging working!)
 
-**Estimated Time to Full Completion**:
+**All 4 User Stories Complete!**
 - MVP (User Stories 1-3): ✅ COMPLETE
-- All 4 stories: 2-3 hours (DMG packaging only)
+- All 4 stories: ✅ COMPLETE
 
 ---
 
 ## Files Ready to Commit
 
 ```bash
-git add .
+git add scripts/package.sh IMPLEMENTATION_STATUS.md
 git status
-git commit -m "feat: implement macOS Swift layer with menu bar integration
+git commit -m "feat: implement DMG packaging and distribution
 
-- Build Swift macOS app using swiftc
-- Link against Rust static library via FFI
-- Implement menu bar with NSStatusBar
-- Add About and Quit menu items
-- Create app bundle with proper structure
-- Verify FFI interoperability (Swift calls Rust)
+- Create package.sh script with argument parsing
+- Add code signing certificate detection
+- Implement app bundle signing with codesign (optional)
+- Create DMG using hdiutil with create-dmg fallback
+- Add Applications shortcut to DMG
+- Verify DMG mounting and installation
 
-Completes User Story 3 - macOS Swift Platform Layer.
-App now builds and runs with menu bar icon.
+Completes User Story 4 - DMG Packaging and Distribution.
+All 4 user stories for 001-rust-swift-framework are now complete!
 
 Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"
 ```
