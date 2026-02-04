@@ -41,7 +41,9 @@
       "Bash(./scripts/package.sh:*)",
       "Bash(hdiutil attach:*)",
       "Bash(hdiutil detach:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(xcodebuild:*)",
+      "Bash(./scripts/run.sh:*)"
     ]
   }
 }

@@ -44,6 +44,7 @@ pub extern "C" fn pasty_clipboard_init(
     storage_path: *const c_char,
 ) -> FfiErrorCode {
     if db_path.is_null() || storage_path.is_null() {
+        set_error("Null path argument provided");
         return FfiErrorCode::InvalidArgument;
     }
 

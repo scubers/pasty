@@ -13,6 +13,7 @@ pub use ffi::clipboard::{
     pasty_clipboard_store_text,
     pasty_clipboard_store_image,
     pasty_clipboard_entry_free,
+    pasty_get_last_error,
     // Backward compatibility (Feature 001)
     pasty_init,
     pasty_get_version,

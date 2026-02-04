@@ -109,26 +109,26 @@ This project uses a cross-platform architecture:
 
 #### Rust Core Tests
 
-- [ ] T046 [P] [US1] Unit test for hash calculation in core/tests/unit/deduplication_test.rs
-- [ ] T047 [P] [US1] Unit test for text normalization in core/tests/unit/deduplication_test.rs
-- [ ] T048 [P] [US1] Unit test for duplicate detection in core/tests/unit/clipboard_store_test.rs
-- [ ] T049 [P] [US1] Unit test for image file storage with sharding in core/tests/unit/storage_test.rs
-- [ ] T050 [P] [US1] Integration test for database insert and retrieve in core/tests/integration/database_test.rs
-- [ ] T051 [P] [US1] Integration test for database migration in core/tests/integration/database_test.rs
+- [x] T046 [P] [US1] Unit test for hash calculation in core/tests/unit/deduplication_test.rs
+- [x] T047 [P] [US1] Unit test for text normalization in core/tests/unit/deduplication_test.rs
+- [x] T048 [P] [US1] Unit test for duplicate detection in core/tests/unit/clipboard_store_test.rs
+- [x] T049 [P] [US1] Unit test for image file storage with sharding in core/tests/unit/storage_test.rs
+- [x] T050 [P] [US1] Integration test for database insert and retrieve in core/tests/integration/database_test.rs
+- [x] T051 [P] [US1] Integration test for database migration in core/tests/integration/database_test.rs
 
 #### Swift/macOS Tests
 
-- [ ] T052 [P] [US1] Unit test for NSPasteboard change detection in macos/PastyApp/Tests/ClipboardMonitorTests/MonitorTest.swift
-- [ ] T053 [P] [US1] Unit test for content type detection with priority in macos/PastyApp/Tests/ClipboardMonitorTests/ContentTypeDetectorTest.swift
-- [ ] T054 [P] [US1] Unit test for text handler extraction in macos/PastyApp/Tests/ClipboardMonitorTests/TextHandlerTest.swift
-- [ ] T055 [P] [US1] Unit test for image handler processing in macos/PastyApp/Tests/ClipboardMonitorTests/ImageHandlerTest.swift
-- [ ] T056 [P] [US1] Unit test for source app extraction in macos/PastyApp/Tests/ClipboardMonitorTests/MetadataExtractorTest.swift
+- [x] T052 [P] [US1] Unit test for NSPasteboard change detection in macos/PastyApp/Tests/ClipboardMonitorTests/MonitorTest.swift
+- [x] T053 [P] [US1] Unit test for content type detection with priority in macos/PastyApp/Tests/ClipboardMonitorTests/ContentTypeDetectorTest.swift
+- [x] T054 [P] [US1] Unit test for text handler extraction in macos/PastyApp/Tests/ClipboardMonitorTests/TextHandlerTest.swift
+- [x] T055 [P] [US1] Unit test for image handler processing in macos/PastyApp/Tests/ClipboardMonitorTests/ImageHandlerTest.swift
+- [x] T056 [P] [US1] Unit test for source app extraction in macos/PastyApp/Tests/ClipboardMonitorTests/MetadataExtractorTest.swift
 
 #### Contract Tests
 
-- [ ] T057 [P] [US1] Contract test for pasty_store_clipboard_entry FFI in tests/contract/store_entry_test.rs
-- [ ] T058 [P] [US1] Contract test for duplicate detection via FFI in tests/contract/store_entry_test.rs
-- [ ] T059 [P] [US1] Contract test for memory management (entry_free) in tests/contract/memory_test.rs
+- [x] T057 [P] [US1] Contract test for pasty_store_clipboard_entry FFI in tests/contract/store_entry_test.rs
+- [x] T058 [P] [US1] Contract test for duplicate detection via FFI in tests/contract/store_entry_test.rs
+- [x] T059 [P] [US1] Contract test for memory management (entry_free) in tests/contract/memory_test.rs
 
 ### Implementation for User Story 1
 
