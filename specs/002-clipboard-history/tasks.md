@@ -231,10 +231,10 @@ This project uses a cross-platform architecture:
 
 ### Error Handling & Logging
 
-- [ ] T108 [P] Add comprehensive error logging to Rust services in core/src/services/
+- [x] T108 [P] Add comprehensive error logging to Rust services in core/src/services/
 - [ ] T109 [P] Add comprehensive error logging to Swift handlers in macos/PastyApp/Sources/
-- [ ] T110 [P] Implement structured error types with context in Rust
-- [ ] T111 [P] Add error recovery for transient database locks
+- [x] T110 [P] Implement structured error types with context in Rust
+- [x] T111 [P] Add error recovery for transient database locks
 
 ### Security & Privacy
 
