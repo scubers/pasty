@@ -3,6 +3,7 @@
 Auto-generated from all feature plans. Last updated: 2026-02-04
 
 ## Active Technologies
+- Swift 5.9+ (macOS layer), Rust 1.70+ (core layer) (002-clipboard-history)
 
 - Rust 1.70+ (core), Swift 5.9+ (macOS layer) (001-rust-swift-framework)
 
@@ -22,6 +23,7 @@ cargo test [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECH
 Rust 1.70+ (core), Swift 5.9+ (macOS layer): Follow standard conventions
 
 ## Recent Changes
+- 002-clipboard-history: Added Swift 5.9+ (macOS layer), Rust 1.70+ (core layer)
 
 - 001-rust-swift-framework: Added Rust 1.70+ (core), Swift 5.9+ (macOS layer)
 

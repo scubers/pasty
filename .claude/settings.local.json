@@ -27,7 +27,21 @@
       "Bash(otool:*)",
       "Bash(log show:*)",
       "Bash(/Users/bytedance/Desktop/workspace/wjr/pasty/macos/PastyApp/build/PastyApp.app/Contents/MacOS/PastyApp:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(./scripts/build-macos.sh:*)",
+      "Bash(open:*)",
+      "Bash(pgrep:*)",
+      "Bash(./scripts/test-integration.sh:*)",
+      "Bash(git restore:*)",
+      "Bash(xcodebuild build:*)",
+      "Bash(xcodegen generate:*)",
+      "Bash(PROJECT_DIR=\"/Users/bytedance/Desktop/workspace/wjr/pasty/macos/PastyApp\" CONFIGURATION=\"Release\" /bin/sh -c '\nBUILD_CONFIG=$\\(echo \"\"${CONFIGURATION}\"\" | tr \"\"[:upper:]\"\" \"\"[:lower:]\"\"\\)\necho \"\"BUILD_CONFIG=$BUILD_CONFIG\"\"\necho \"\"PROJECT_DIR=$PROJECT_DIR\"\"\n\"\"${PROJECT_DIR}/../../scripts/build-core.sh\"\" \"\"${BUILD_CONFIG}\"\" universal 2>&1 | head -20\n')",
+      "Bash(git check-ignore:*)",
+      "Bash(command:*)",
+      "Bash(./scripts/package.sh:*)",
+      "Bash(hdiutil attach:*)",
+      "Bash(hdiutil detach:*)",
+      "Bash(grep:*)"
     ]
   }
 }
