@@ -63,7 +63,7 @@ class ClipboardPanelWindow: NSPanel {
     private func setupPanel() {
         // Floating panel behavior - but allow keyboard input
         isFloatingPanel = true
-        level = .normal
+        level = .popUpMenu  // Use popUpMenu level for highest priority
         isMovableByWindowBackground = true
         hidesOnDeactivate = false
 
@@ -83,12 +83,17 @@ class ClipboardPanelWindow: NSPanel {
         titlebarAppearsTransparent = true
         isMovable = true
 
-        // Collection behavior - allow keyboard input
-        collectionBehavior = [.fullScreenAuxiliary, .ignoresCycle]
+        // Collection behavior - allow keyboard input and participate in window cycle
+        collectionBehavior = [.fullScreenAuxiliary, .canJoinAllSpaces]
     }
 
     // Override to allow becoming key window
     override var canBecomeKey: Bool {
+        return true
+    }
+
+    // Override to accept first responder for keyboard events
+    override var acceptsFirstResponder: Bool {
         return true
     }
 
@@ -317,21 +322,68 @@ class ClipboardPanelWindow: NSPanel {
         // Restore saved window frame if available
         restoreWindowFrame()
 
-        makeKeyAndOrderFront(nil)
+        // CRITICAL: Temporarily switch to .regular activation policy to receive keyboard events
+        // This is REQUIRED for NSPanel to receive keyboard events (Alfred, Maccy do this)
+        NSApp.setActivationPolicy(.regular)
 
-        // Focus on search bar initially
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+        // Force activate this application BEFORE showing the window
+        // Using both methods for maximum compatibility
+        NSApp.activate(ignoringOtherApps: true)
+
+        // Small delay to ensure activation takes effect
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) { [weak self] in
             guard let self = self else { return }
 
-            // Always focus on search bar when panel opens
-            if let searchBarHost = self.searchBarHost,
-               let textField = self.findTextField(in: searchBarHost.view) {
-                self.makeFirstResponder(textField)
-                NSLog("🔍 Search bar focused")
-            }
+            // Now make the window key and front
+            self.makeKeyAndOrderFront(nil)
+
+            // Use a loop to ensure window becomes key (standard approach from research)
+            self.ensureWindowBecomesKey()
         }
 
         Logger.info("Clipboard panel shown")
+    }
+
+    /// Ensure the window becomes key using a retry loop
+    /// This is necessary because macOS activation timing is unpredictable
+    private func ensureWindowBecomesKey() {
+        var attempts = 0
+        let maxAttempts = 30  // 300ms max
+
+        // Use DispatchQueue for better main thread handling
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+
+            func checkKeyWindow() {
+                attempts += 1
+
+                if self.isKeyWindow {
+                    NSLog("✅ Window became key after \(attempts) attempts")
+                    // Focus search bar after window is key
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        self.focusSearchBar()
+                    }
+                    return
+                }
+
+                if attempts >= maxAttempts {
+                    NSLog("⚠️ Could not make window key after \(attempts) attempts")
+                    NSLog("   isKeyWindow: \(self.isKeyWindow), isVisible: \(self.isVisible)")
+                    NSLog("   app is active: \(NSApp.isActive)")
+                    return
+                }
+
+                // Force window to be key again
+                self.makeKeyAndOrderFront(nil)
+
+                // Retry after 10ms
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
+                    checkKeyWindow()
+                }
+            }
+
+            checkKeyWindow()
+        }
     }
 
     func hidePanel() {
@@ -339,10 +391,128 @@ class ClipboardPanelWindow: NSPanel {
         saveWindowFrame()
 
         orderOut(nil)
+
+        // Restore .accessory activation policy after hiding panel
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            NSApp.setActivationPolicy(.accessory)
+            Logger.info("Activation policy restored to .accessory")
+        }
+
         Logger.info("Clipboard panel hidden")
     }
 
+    // MARK: - Focus Management
+
+    /// Focus the search bar text field
+    private func focusSearchBar() {
+        guard let searchBarHost = searchBarHost else {
+            NSLog("⚠️ Search bar host is nil")
+            return
+        }
+
+        NSLog("🔍 Attempting to focus search bar...")
+
+        // Make the window key first
+        makeKey()
+
+        // Try to find the NSTextField in the SwiftUI view hierarchy
+        if let textField = findTextField(in: searchBarHost.view) {
+            _ = makeFirstResponder(textField)
+            NSLog("🔍 Search bar focused successfully: \(textField)")
+        } else {
+            NSLog("⚠️ Could not find search bar text field, falling back to window")
+            // Fallback: print view hierarchy for debugging
+            printViewHierarchy(searchBarHost.view, level: 0)
+        }
+    }
+
+    /// Recursively find NSTextField in view hierarchy
+    private func findTextField(in view: NSView) -> NSTextField? {
+        // Check if this view is an NSTextField
+        if let textField = view as? NSTextField {
+            // Make sure it's an editable text field (not a label)
+            if textField.isEditable {
+                NSLog("✅ Found editable NSTextField: \(textField)")
+                return textField
+            }
+        }
+
+        // Check for NSClipView (contains NSTextView for editable fields)
+        if let clipView = view as? NSClipView {
+            for subview in clipView.subviews {
+                if let textView = subview as? NSTextView {
+                    NSLog("✅ Found NSTextView in clipView: \(textView)")
+                    // Return the clipView's documentView or the textView itself
+                    // We need to find the parent field editor
+                    return findParentTextField(for: textView)
+                }
+            }
+        }
+
+        // Recursively search subviews
+        for subview in view.subviews {
+            if let found = findTextField(in: subview) {
+                return found
+            }
+        }
+
+        return nil
+    }
+
+    /// Find the parent NSTextField for a given NSTextView
+    private func findParentTextField(for textView: NSTextView) -> NSTextField? {
+        // Text views are usually embedded in NSScrollView -> NSClipView hierarchy
+        // The actual NSTextField might be the delegate or accessible via superview
+        var currentView: NSView? = textView
+        while let view = currentView {
+            if let textField = view as? NSTextField {
+                return textField
+            }
+            currentView = view.superview
+        }
+        return nil
+    }
+
+    /// Print view hierarchy for debugging
+    private func printViewHierarchy(_ view: NSView?, level: Int) {
+        guard let view = view else { return }
+        let indent = String(repeating: "  ", count: level)
+        let className = String(describing: type(of: view))
+        NSLog("\(indent)\(className) - frame: \(view.frame)")
+
+        for subview in view.subviews {
+            printViewHierarchy(subview, level: level + 1)
+        }
+    }
+
     // MARK: - Window-Level Keyboard Event Handling
+
+    /// Intercept events to handle keyboard navigation even when TextField has focus
+    override func sendEvent(_ event: NSEvent) {
+        if event.type == .keyDown {
+            let keyCode = event.keyCode
+
+            // Handle navigation keys even when TextField is focused
+            switch keyCode {
+            case 53: // Escape
+                hidePanel()
+                return
+            case 125: // Down arrow
+                selectNextRow()
+                return
+            case 126: // Up arrow
+                selectPreviousRow()
+                return
+            case 36: // Enter
+                copyAndPasteSelected()
+                return
+            default:
+                break
+            }
+        }
+
+        super.sendEvent(event)
+    }
 
     override func keyDown(with event: NSEvent) {
         let keyCode = event.keyCode
@@ -461,19 +631,6 @@ class ClipboardPanelWindow: NSPanel {
         }
 
         NSLog("✅ Deleted \(ids.count) entr\(ids.count == 1 ? "y" : "ies")")
-    }
-
-    // Helper to find NSTextField in SwiftUI view hierarchy
-    private func findTextField(in view: NSView) -> NSTextField? {
-        if let textField = view as? NSTextField {
-            return textField
-        }
-        for subview in view.subviews {
-            if let found = findTextField(in: subview) {
-                return found
-            }
-        }
-        return nil
     }
 
     // MARK: - Window Persistence
