@@ -4,6 +4,7 @@
 
 import Cocoa
 import Foundation
+import KeyboardShortcuts
 
 
 
@@ -20,6 +21,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var menuBarManager: MenuBarManager?
     private var clipboardMonitor: ClipboardMonitor?
+    private var panelCoordinator: ClipboardPanelCoordinator?
 
     // MARK: - Application Lifecycle
 
@@ -75,6 +77,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         clipboardMonitor?.startMonitoring()
 
         NSLog("✓ Clipboard monitoring started")
+
+        // Setup clipboard panel coordinator and global shortcut
+        panelCoordinator = ClipboardPanelCoordinator()
+        panelCoordinator?.setupGlobalShortcut()
+        NSLog("✓ Global keyboard shortcut registered: ⌘+Shift+V")
     }
 
     func applicationWillTerminate(_ notification: Notification) {

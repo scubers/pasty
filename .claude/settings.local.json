@@ -45,7 +45,21 @@
       "Bash(xcodebuild:*)",
       "Bash(./scripts/run.sh:*)",
       "Bash(scripts/build-macos.sh:*)",
-      "Bash(bash:*)"
+      "Bash(bash:*)",
+      "Bash(if:*)",
+      "Bash(then echo \"exists\")",
+      "Bash(else echo \"not found\")",
+      "Bash(fi)",
+      "Bash(find:*)",
+      "Bash(scripts/build-core.sh:*)",
+      "Bash(nm:*)",
+      "Bash(then nm:*)",
+      "Bash(else echo \"Rust library not found at Debug path, checking Release...\")",
+      "Bash(pkill:*)",
+      "Bash(killall:*)",
+      "Bash(defaults read com.apple.console_console/Users/*/ConsoleHistory)",
+      "Bash(defaults read:*)",
+      "Bash(/usr/libexec/PlistBuddy:*)"
     ]
   }
 }

@@ -1,11 +1,34 @@
 import Foundation
 
 /// Service for retrieving clipboard history from the Rust core
+/// Supports mock mode for development without Rust dependency
 class ClipboardHistory {
 
     static let shared = ClipboardHistory()
 
-    private init() {}
+    private let useMockData: Bool
+    private let mockHistory = MockClipboardHistory()
+
+    private init() {
+        // Use mock data if Rust functions are not available
+        // Check by trying to resolve a Rust symbol
+        useMockData = !Self.isRustAvailable()
+        if useMockData {
+            NSLog("[ClipboardHistory] Using MOCK data mode")
+        }
+    }
+
+    /// Check if Rust FFI is available
+    private static func isRustAvailable() -> Bool {
+        // Try to resolve a Rust function symbol
+        let symbolName = "pasty_get_clipboard_history"
+        if let symbol = dlopen(nil, RTLD_NOW) {
+            let ptr: UnsafeMutableRawPointer? = dlsym(symbol, symbolName)
+            dlclose(symbol)
+            return ptr != nil
+        }
+        return false
+    }
 
     /// Retrieve all clipboard entries with pagination
     /// - Parameters:
@@ -13,6 +36,10 @@ class ClipboardHistory {
     ///   - offset: Number of entries to skip
     /// - Returns: Array of ClipboardEntry items
     func retrieveAllEntries(limit: Int = 100, offset: Int = 0) -> [ClipboardEntry] {
+        if useMockData {
+            return mockHistory.retrieveAllEntries(limit: limit, offset: offset)
+        }
+
         var entries: [ClipboardEntry] = []
 
         let listPtr = pasty_get_clipboard_history(limit, offset)
@@ -54,6 +81,10 @@ class ClipboardHistory {
     ///   - offset: Number of entries to skip
     /// - Returns: Array of ClipboardEntry items matching the content type
     func retrieveEntriesFiltered(contentType: ContentType, limit: Int = 100, offset: Int = 0) -> [ClipboardEntry] {
+        if useMockData {
+            return mockHistory.retrieveEntriesFiltered(contentType: contentType, limit: limit, offset: offset)
+        }
+
         // Note: Current implementation retrieves all entries and filters in Swift
         // Future optimization: Add dedicated FFI function for type-filtered retrieval
         let allEntries = retrieveAllEntries(limit: limit, offset: offset)
@@ -64,7 +95,11 @@ class ClipboardHistory {
     /// - Parameter id: UUID string of the entry to retrieve
     /// - Returns: ClipboardEntry if found, nil otherwise
     func retrieveEntryById(id: String) -> ClipboardEntry? {
-        id.withCString { idPtr in
+        if useMockData {
+            return mockHistory.retrieveEntryById(id: id)
+        }
+
+        return id.withCString { idPtr -> ClipboardEntry? in
             guard let entryPtr = pasty_get_entry_by_id(idPtr) else {
                 NSLog("[ClipboardHistory] Entry not found: \(id)")
                 return nil

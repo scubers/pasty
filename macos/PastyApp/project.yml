@@ -11,10 +11,25 @@ options:
   developmentLanguage: en
   createIntermediateGroups: true
   defaultConfig: Debug
+  # SPM package options
+  carthageCopyFiles: false
+  createIntermediateGroups: true
 
 configurations:
   Debug: debug
   Release: release
+
+# SPM Package Dependencies
+packages:
+  SnapKit:
+    url: https://github.com/SnapKit/SnapKit.git
+    from: "5.7.0"
+  KeyboardShortcuts:
+    url: https://github.com/sindresorhus/KeyboardShortcuts.git
+    from: "1.0.0"
+  SQLite.swift:
+    url: https://github.com/stephencelis/SQLite.swift.git
+    from: "0.14.0"
 
 targets:
   PastyApp:
@@ -24,6 +39,11 @@ targets:
     sources:
       - PastyApp
       - Sources
+    dependencies:
+      - package: SnapKit
+      - package: KeyboardShortcuts
+      - package: SQLite.swift
+        product: SQLite
     settings:
       PRODUCT_NAME: PastyApp
       PRODUCT_BUNDLE_IDENTIFIER: com.pasty.PastyApp
