@@ -1,5 +1,8 @@
 #!/bin/bash
-# Build Swift macOS app
+# Build Swift macOS app using Xcode
+#
+# This script uses xcodegen to generate the Xcode project from project.yml,
+# then builds the app using xcodebuild.
 
 set -euo pipefail
 
@@ -14,6 +17,13 @@ BUILD_TYPE="${1:-release}"
 # Normalize build type
 BUILD_CONFIG=$(echo "$BUILD_TYPE" | tr '[:upper:]' '[:lower:]')
 
+# Map to Xcode configuration names
+if [[ "$BUILD_CONFIG" == "release" ]]; then
+    CAPITALIZED_CONFIG="Release"
+else
+    CAPITALIZED_CONFIG="Debug"
+fi
+
 # Validate build type
 if [[ "$BUILD_CONFIG" != "debug" && "$BUILD_CONFIG" != "release" ]]; then
     log_error "Invalid build type: $BUILD_TYPE"
@@ -21,18 +31,28 @@ if [[ "$BUILD_CONFIG" != "debug" && "$BUILD_CONFIG" != "release" ]]; then
     exit 2
 fi
 
-log_info "Building macOS app..."
-log_info "Configuration: $BUILD_CONFIG"
+log_info "Building macOS app with Xcode..."
+log_info "Configuration: $CAPITALIZED_CONFIG"
 
-# Check Swift toolchain
-if ! command_exists swiftc; then
-    log_error "Swift compiler not found"
-    log_error "Install Xcode from Mac App Store and run: sudo xcode-select -s /Applications/Xcode.app"
+# Check for xcodegen
+if ! command_exists xcodegen; then
+    log_error "xcodegen not found"
+    log_error "Install with: brew install xcodegen"
     exit 3
 fi
 
-SWIFT_VERSION=$(swift --version 2>/dev/null | head -n1 | grep -oE 'Swift version [0-9.]+' || echo "unknown")
-log_info "Swift version: $SWIFT_VERSION"
+# Check for xcodebuild
+if ! command_exists xcodebuild; then
+    log_error "xcodebuild not found (Xcode command line tools)"
+    log_error "Install Xcode from Mac App Store and run: xcode-select -s /Applications/Xcode.app"
+    exit 3
+fi
+
+# Validate project.yml exists
+if [[ ! -f "$MACOS_DIR/project.yml" ]]; then
+    log_error "project.yml not found in $MACOS_DIR"
+    exit 3
+fi
 
 # Validate Rust library exists
 RUST_LIB="$PROJECT_ROOT/target/universal/$BUILD_CONFIG/libpasty_core.a"
@@ -44,75 +64,76 @@ fi
 
 log_info "Rust library found: $RUST_LIB"
 
-# Determine Swift compiler flags based on build type
-SWIFTC_FLAGS=()
-if [[ "$BUILD_CONFIG" == "release" ]]; then
-    SWIFTC_FLAGS+=(-O)
-else
-    SWIFTC_FLAGS+=(-Onone)
-fi
-
-# Target macOS 14.0 (Big Sur or later)
-SWIFTC_FLAGS+=(-target arm64-apple-macos14.0)
-SWIFTC_FLAGS+=(-L "$PROJECT_ROOT/target/universal/$BUILD_CONFIG")
-SWIFTC_FLAGS+=(-Xlinker -lpasty_core)
-
-# Find all Swift files
-log_step "Finding Swift source files..."
-SWIFT_FILES=()
-while IFS= read -r -d '' file; do
-    SWIFT_FILES+=("$file")
-done < <(find "$MACOS_DIR/PastyApp" -name "*.swift" -print0 2>/dev/null)
-
-if [ ${#SWIFT_FILES[@]} -eq 0 ]; then
-    log_error "No Swift files found in $MACOS_DIR/PastyApp"
-    exit 4
-fi
-
-log_info "Found ${#SWIFT_FILES[@]} Swift file(s)"
-
-# Build Swift app
-log_step "Compiling Swift app..."
+# Generate Xcode project
+log_step "Generating Xcode project with xcodegen..."
 cd "$MACOS_DIR"
 
-OUTPUT_BINARY="$MACOS_DIR/PastyApp_binary"
-if ! swiftc "${SWIFTC_FLAGS[@]}" "${SWIFT_FILES[@]}" -o "$OUTPUT_BINARY"; then
-    log_error "Failed to build Swift app"
+if ! xcodegen generate --spec project.yml; then
+    log_error "Failed to generate Xcode project"
     exit 4
 fi
 
-# Create app bundle
-log_step "Creating app bundle..."
+log_info "✓ Xcode project generated"
 
-APP_BUNDLE="$PROJECT_ROOT/build/macos/PastyApp.app"
-CONTENTS="$APP_BUNDLE/Contents"
-MACOS_DIR_BUNDLE="$CONTENTS/MacOS"
-RESOURCES="$CONTENTS/Resources"
-
-rm -rf "$APP_BUNDLE"
-mkdir -p "$MACOS_DIR_BUNDLE"
-mkdir -p "$RESOURCES"
-
-# Copy executable
-mv "$OUTPUT_BINARY" "$MACOS_DIR_BUNDLE/PastyApp"
-
-# Process and copy Info.plist (replace Xcode variables)
-if [[ -f "$MACOS_DIR/PastyApp/Info.plist" ]]; then
-    sed -e 's/$(DEVELOPMENT_LANGUAGE)/en/g' \
-        -e 's/$(EXECUTABLE_NAME)/PastyApp/g' \
-        -e 's/$(PRODUCT_NAME)/PastyApp/g' \
-        -e 's/$(MACOSX_DEPLOYMENT_TARGET)/14.0/g' \
-        "$MACOS_DIR/PastyApp/Info.plist" > "$CONTENTS/Info.plist"
-else
-    log_warn "Info.plist not found"
+# Check if project was generated
+if [[ ! -f "$MACOS_DIR/PastyApp.xcodeproj/project.pbxproj" ]]; then
+    log_error "Xcode project file not found after generation"
+    exit 4
 fi
 
-# Copy entitlements
-if [[ -f "$MACOS_DIR/PastyApp/PastyApp.entitlements" ]]; then
-    cp "$MACOS_DIR/PastyApp/PastyApp.entitlements" "$CONTENTS/PastyApp.entitlements"
+# Build with xcodebuild
+log_step "Building macOS app with xcodebuild..."
+
+XCODE_BUILD_DIR="$MACOS_DIR/build"
+ARCHIVE_PATH="$MACOS_DIR/build/PastyApp.xcarchive"
+
+# Build settings
+BUILD_SETTINGS=(
+    -project PastyApp.xcodeproj
+    -scheme PastyApp
+    -configuration "$CAPITALIZED_CONFIG"
+    -derivedDataPath "$XCODE_BUILD_DIR"
+    -archivePath "$ARCHIVE_PATH"
+)
+
+# Clean if requested
+if [[ "${CLEAN:-false}" == "true" ]]; then
+    log_info "Cleaning build..."
+    xcodebuild clean "${BUILD_SETTINGS[@]}" || true
 fi
 
-log_info "✓ App bundle created: $APP_BUNDLE"
+# Build the app
+if ! xcodebuild build "${BUILD_SETTINGS[@]}" | while IFS= read -r line; do
+    # Only show important lines
+    if [[ "$line" =~ ^(Build|Compile|Link|Write|Ld|error|warning:|note:) ]] || [[ "$line" =~ \*\s*ASSET\* ]]; then
+        echo "$line"
+    fi
+done; then
+    log_error "Failed to build macOS app"
+    exit 4
+fi
+
+log_info "✓ Build completed successfully"
+
+# Find the built app bundle
+APP_BUNDLE=$(find "$XCODE_BUILD_DIR" -name "PastyApp.app" -type d | head -n1)
+
+if [[ -z "$APP_BUNDLE" ]]; then
+    log_error "Could not find built app bundle"
+    exit 4
+fi
+
+# Copy to final location
+FINAL_APP="$PROJECT_ROOT/build/macos/PastyApp.app"
+rm -rf "$FINAL_APP"
+mkdir -p "$PROJECT_ROOT/build/macos"
+
+if ! ditto "$APP_BUNDLE" "$FINAL_APP"; then
+    log_error "Failed to copy app bundle"
+    exit 4
+fi
+
+log_info "✓ App bundle created: $FINAL_APP"
 log_info "✓ Build completed successfully!"
 
 exit 0

@@ -1,0 +1,119 @@
+# Xcode Project Configuration for Pasty macOS App
+# Generated with xcodegen - https://github.com/yonaskolb/XcodeGen
+#
+# Usage: xcodegen generate --spec project.yml
+
+name: PastyApp
+options:
+  bundleIdPrefix: com.pasty
+  deploymentTarget:
+    macOS: "11.0"
+  developmentLanguage: en
+  createIntermediateGroups: true
+  defaultConfig: Debug
+
+configurations:
+  Debug: debug
+  Release: release
+
+targets:
+  PastyApp:
+    type: application
+    platform: macOS
+    deploymentTarget: "11.0"
+    sources:
+      - path: PastyApp
+        type: folder
+        includes:
+          - "*.swift"
+    settings:
+      PRODUCT_NAME: PastyApp
+      PRODUCT_BUNDLE_IDENTIFIER: com.pasty.PastyApp
+      SWIFT_VERSION: "5.9"
+      MACOSX_DEPLOYMENT_TARGET: "11.0"
+      ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+      ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+      SWIFT_EXECUTABLE_NAME: PastyApp
+      EXECUTABLE_PREFIX: ""
+      EXECUTABLE_SUFFIX: ""
+      BUILD_LIBRARY_FOR_DISTRIBUTION: YES
+      CLANG_ENABLE_MODULES: YES
+      ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES: YES
+      INFOPLIST_FILE: PastyApp/Info.plist
+
+      # Link against Rust static library
+      OTHER_LDFLAGS:
+        - "$(PROJECT_DIR)/../../target/universal/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/libpasty_core.a"
+        - "-framework"
+        - "Foundation"
+        - "-framework"
+        - "Cocoa"
+
+      # Search paths
+      HEADER_SEARCH_PATHS:
+        - "$(PROJECT_DIR)/../../build/core/include"
+      LIBRARY_SEARCH_PATHS:
+        - "$(inherited)"
+        - "$(PROJECT_DIR)/../../target/universal/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)"
+
+      # Module map for C interop
+      SWIFT_INCLUDE_PATHS:
+        - "$(PROJECT_DIR)/../../build/core/modulemap"
+
+      # Code signing
+      CODE_SIGN_ENTITLEMENTS: PastyApp/PastyApp.entitlements
+      CODE_SIGN_STYLE: Automatic
+      DEVELOPMENT_TEAM: ""
+
+    # Pre-build script to compile Rust library
+    preBuildScripts:
+      - name: Build Rust Core Library
+        script: |
+          set -euo pipefail
+
+          # Add Rust toolchain to PATH
+          if [[ -f "$HOME/.cargo/env" ]]; then
+            source "$HOME/.cargo/env"
+          fi
+
+          # Convert Xcode configuration (Release/Debug) to lowercase (release/debug)
+          BUILD_CONFIG=$(echo "${CONFIGURATION}" | tr '[:upper:]' '[:lower:]')
+
+          echo "Building Rust core library (${BUILD_CONFIG})..."
+
+          # Navigate to project root
+          cd "${PROJECT_DIR}/../.."
+
+          # Build Rust library
+          if ! scripts/build-core.sh "${BUILD_CONFIG}" universal; then
+            echo "error: Rust library build failed"
+            exit 1
+          fi
+
+          echo "Rust core library built successfully"
+        inputFiles:
+          - $(PROJECT_DIR)/../../core/src/**/*.rs
+        outputFiles:
+          - $(PROJECT_DIR)/../../target/universal/$(CONFIGURATION)/libpasty_core.a
+        runOnlyWhenInstalling: false
+        showEnvVars: false
+
+    # Entitlements
+    entitlements:
+      path: PastyApp/PastyApp.entitlements
+      properties:
+        com.apple.security.cs.allow-jit: true
+        com.apple.security.cs.allow-unsigned-executable-memory: true
+        com.apple.security.cs.disable-library-validation: true
+
+schemes:
+  PastyApp:
+    build:
+      targets:
+        PastyApp: all
+    run:
+      config: Debug
+    archive:
+      config: Release
+    analyze:
+      config: Debug

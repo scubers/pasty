@@ -166,12 +166,16 @@ if command_exists cbindgen; then
     log_step "Generating C header with cbindgen..."
 
     mkdir -p "$PROJECT_ROOT/build/core/include"
+    mkdir -p "$PROJECT_ROOT/build/core/modulemap"
 
     if ! cbindgen --config "$CORE_DIR/cbindgen.toml" --crate pasty-core \
         --output "$PROJECT_ROOT/build/core/include/pasty.h"; then
         log_warn "cbindgen failed - C header not generated"
     else
         log_info "✓ C header generated: build/core/include/pasty.h"
+        # Copy header to modulemap directory for Swift interop
+        cp "$PROJECT_ROOT/build/core/include/pasty.h" "$PROJECT_ROOT/build/core/modulemap/pasty.h"
+        log_info "✓ C header copied to modulemap directory"
     fi
 else
     log_warn "cbindgen not found - C header not generated"

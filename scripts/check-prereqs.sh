@@ -61,6 +61,15 @@ else
     log_info "✓ cbindgen found (optional)"
 fi
 
+# Check xcodegen (required for Xcode project generation)
+if ! command_exists xcodegen; then
+    missing+=("xcodegen not found. Install with: brew install xcodegen")
+    log_warn "Required for Xcode project generation"
+else
+    XCODEGEN_VERSION=$(xcodegen --version | head -1)
+    log_info "✓ xcodegen found: $XCODEGEN_VERSION"
+fi
+
 # Check create-dmg (optional, for packaging)
 if ! command_exists create-dmg; then
     log_warn "create-dmg not found. Install with: brew install create-dmg"
