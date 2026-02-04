@@ -244,10 +244,10 @@ This project uses a cross-platform architecture:
 
 ### Documentation & Developer Experience
 
-- [ ] T115 [P] Create quickstart.md validation checklist
+- [x] T115 [P] Create quickstart.md validation checklist
 - [x] T116 [P] Add inline documentation to FFI functions
 - [x] T117 [P] Add inline documentation to public API surfaces
-- [ ] T118 [P] Create example usage documentation for clipboard monitoring
+- [x] T118 [P] Create example usage documentation for clipboard monitoring
 
 ### Additional Testing
 
