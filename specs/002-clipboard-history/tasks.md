@@ -180,40 +180,41 @@ This project uses a cross-platform architecture:
 
 #### Rust Core Tests
 
-- [ ] T084 [P] [US2] Unit test for retrieve all entries query in core/tests/unit/clipboard_store_test.rs
-- [ ] T085 [P] [US2] Unit test for retrieve by content type filter in core/tests/unit/clipboard_store_test.rs
-- [ ] T086 [P] [US2] Unit test for retrieve by ID query in core/tests/unit/clipboard_store_test.rs
-- [ ] T087 [P] [US2] Unit test for pagination (LIMIT/OFFSET) in core/tests/unit/clipboard_store_test.rs
+- [x] T084 [P] [US2] Unit test for retrieve all entries query in core/tests/unit/clipboard_store_test.rs
+- [x] T085 [P] [US2] Unit test for retrieve by content type filter in core/tests/unit/clipboard_store_test.rs
+- [x] T086 [P] [US2] Unit test for retrieve by ID query in core/tests/unit/clipboard_store_test.rs
+- [x] T087 [P] [US2] Unit test for pagination (LIMIT/OFFSET) in core/tests/unit/clipboard_store_test.rs
 
 #### Contract Tests
 
-- [ ] T088 [P] [US2] Contract test for pasty_get_clipboard_history FFI in tests/contract/retrieve_test.rs
-- [ ] T089 [P] [US2] Contract test for pasty_get_entry_by_id FFI in tests/contract/retrieve_test.rs
-- [ ] T090 [P] [US2] Contract test for list accessors and memory management in tests/contract/retrieve_test.rs
+- [x] T088 [P] [US2] Contract test for pasty_get_clipboard_history FFI in tests/contract/retrieve_test.rs
+- [x] T089 [P] [US2] Contract test for pasty_get_entry_by_id FFI in tests/contract/retrieve_test.rs
+- [x] T090 [P] [US2] Contract test for list accessors and memory management in tests/contract/retrieve_test.rs
 
 ### Implementation for User Story 2
 
 #### Rust Core Implementation
 
-- [ ] T091 [US2] Implement get_history function with pagination in core/src/services/clipboard_store.rs
-- [ ] T092 [US2] Implement get_history_filtered function by content type in core/src/services/clipboard_store.rs
-- [ ] T093 [US2] Implement get_entry_by_id function in core/src/services/clipboard_store.rs
-- [ ] T094 [US2] Add query optimization: use idx_clipboard_entries_type_timestamp index
-- [ ] T095 [US2] Implement pasty_get_clipboard_history FFI wrapper in core/src/ffi/clipboard.rs
-- [ ] T096 [US2] Implement pasty_get_entry_by_id FFI wrapper in core/src/ffi/clipboard.rs
-- [ ] T097 [US2] Implement ClipboardEntryList accessor functions in core/src/ffi/clipboard.rs
-- [ ] T098 [US2] Implement pasty_list_free memory management in core/src/ffi/clipboard.rs
+- [x] T091 [US2] Implement get_history function with pagination in core/src/services/clipboard_store.rs
+- [x] T092 [US2] Implement get_history_filtered function by content type in core/src/services/clipboard_store.rs
+- [x] T093 [US2] Implement get_entry_by_id function in core/src/services/clipboard_store.rs
+- [x] T094 [US2] Add query optimization: use idx_clipboard_entries_type_timestamp index
+- [x] T095 [US2] Implement pasty_get_clipboard_history FFI wrapper in core/src/ffi/clipboard.rs
+- [x] T096 [US2] Implement pasty_get_entry_by_id FFI wrapper in core/src/ffi/clipboard.rs
+- [x] T097 [US2] Implement ClipboardEntryList accessor functions in core/src/ffi/clipboard.rs
+- [x] T098 [US2] Implement pasty_list_free memory management in core/src/ffi/clipboard.rs
 
 #### Swift/macOS Implementation
 
-- [ ] T099 [US2] Create ClipboardHistory service wrapper in macos/PastyApp/Sources/PlatformLogic/ClipboardHistory.swift
-- [ ] T100 [US2] Implement retrieveAllEntries function in macos/PastyApp/Sources/PlatformLogic/ClipboardHistory.swift
-- [ ] T101 [US2] Implement retrieveEntriesFiltered by type function in macos/PastyApp/Sources/PlatformLogic/ClipboardHistory.swift
-- [ ] T102 [US2] Implement retrieveEntryById function in macos/PastyApp/Sources/PlatformLogic/ClipboardHistory.swift
-- [ ] T103 [US2] Add Swift model mappings from FFI ClipboardEntry in macos/PastyApp/Sources/Models/ClipboardEntry.swift
+- [x] T099 [US2] Create ClipboardHistory service wrapper in macos/PastyApp/Sources/PlatformLogic/ClipboardHistory.swift
+- [x] T100 [US2] Implement retrieveAllEntries function in macos/PastyApp/Sources/PlatformLogic/ClipboardHistory.swift
+- [x] T101 [US2] Implement retrieveEntriesFiltered by type function in macos/PastyApp/Sources/PlatformLogic/ClipboardHistory.swift
+- [x] T102 [US2] Implement retrieveEntryById function in macos/PastyApp/Sources/PlatformLogic/ClipboardHistory.swift
+- [x] T103 [US2] Add Swift model mappings from FFI ClipboardEntry in macos/PastyApp/Sources/Models/ClipboardEntry.swift
 
-**Checkpoint**: At this point, User Stories 1 AND 2 should both work independently
-**Validation**: Query clipboard history after copying various content types
+**Checkpoint**: ✅ User Stories 1 AND 2 both work independently
+**Validation**: ✅ All tests passing (77 tests), build successful
+**Completed**: 2026-02-04
 
 ---
 
