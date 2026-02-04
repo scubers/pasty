@@ -26,15 +26,15 @@
 
 **Purpose**: Project initialization and directory structure setup
 
-- [ ] T001 Create Rust core library directory structure at `core/src/` with subdirectories `models/`, `services/`, `ffi/`
-- [ ] T002 Create Swift macOS app directory structure at `macos/PastyApp/` with `src/` subdirectory
-- [ ] T003 Create build scripts directory at `scripts/` and tests directory at `tests/unit/`, `tests/contract/`, `tests/integration/`
-- [ ] T004 Initialize Rust project with `cargo init --lib` in `core/` directory
-- [ ] T005 [P] Create `core/Cargo.toml` with package metadata, dependencies (serde, thiserror), and crate-type ["staticlib", "cdylib"]
-- [ ] T006 [P] Create `core/cbindgen.toml` configuration for C header generation with language = "C", fn.prefix = "pasty_"
-- [ ] T007 Add `build/` directory to `.gitignore` with patterns for `build/core/`, `build/macos/`, `target/`
-- [ ] T008 Create `macos/PastyApp/Info.plist` with macOS app bundle metadata and minimum OS version 11.0
-- [ ] T009 Create `macos/PastyApp/PastyApp.entitlements` with clipboard access permissions for macOS
+- [x] T001 Create Rust core library directory structure at `core/src/` with subdirectories `models/`, `services/`, `ffi/`
+- [x] T002 Create Swift macOS app directory structure at `macos/PastyApp/` with `src/` subdirectory
+- [x] T003 Create build scripts directory at `scripts/` and tests directory at `tests/unit/`, `tests/contract/`, `tests/integration/`
+- [x] T004 Initialize Rust project with `cargo init --lib` in `core/` directory
+- [x] T005 [P] Create `core/Cargo.toml` with package metadata, dependencies (serde, thiserror), and crate-type ["staticlib", "cdylib"]
+- [x] T006 [P] Create `core/cbindgen.toml` configuration for C header generation with language = "C", fn.prefix = "pasty_"
+- [x] T007 Add `build/` directory to `.gitignore` with patterns for `build/core/`, `build/macos/`, `target/`
+- [x] T008 Create `macos/PastyApp/Info.plist` with macOS app bundle metadata and minimum OS version 11.0
+- [x] T009 Create `macos/PastyApp/PastyApp.entitlements` with clipboard access permissions for macOS
 
 ---
 
@@ -44,32 +44,32 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T010 Implement Rust FFI exports module structure in `core/src/ffi/mod.rs` with re-exports
-- [ ] T011 [P] Implement FFI export functions in `core/src/ffi/exports.rs`: `pasty_get_version()`, `pasty_init()`, `pasty_shutdown()`, `pasty_free_string()`, `pasty_get_last_error()`
-- [ ] T012 [P] Implement thread-local error storage helper `set_last_error()` in `core/src/ffi/exports.rs` using `thread_local!` macro
-- [ ] T013 [P] Add placeholder clipboard FFI functions in `core/src/ffi/exports.rs`: `pasty_clipboard_get_text()`, `pasty_clipboard_set_text()` returning "Not implemented" errors
-- [ ] T014 Create `core/src/lib.rs` with module declarations for `models`, `services`, `ffi` and public FFI re-exports
-- [ ] T015 [P] Create `core/src/models/mod.rs` with module declarations for clipboard_entry and clipboard_history (empty stubs)
-- [ ] T016 [P] Create `core/src/models/clipboard_entry.rs` with `ClipboardEntry`, `ContentType`, `ClipboardData` struct definitions (no implementation)
-- [ ] T017 [P] Create `core/src/models/clipboard_history.rs` with `ClipboardHistory` struct definition (no implementation)
-- [ ] T018 [P] Create `core/src/services/mod.rs` with module declarations for encryption (empty stub)
-- [ ] T019 [P] Create `core/src/services/encryption.rs` with `EncryptionService` trait definition and `EncryptionError` enum (no implementation)
-- [ ] T020 Write FFI unit tests in `core/tests/ffi_tests.rs` for version retrieval, init/shutdown cycle, and string freeing
-- [ ] T021 Write FFI unit tests in `core/tests/error_handling_tests.rs` for thread-local error storage and retrieval
-- [ ] T022 Write data model unit tests in `core/tests/model_tests.rs` for ClipboardEntry validation and ContentType matching
-- [ ] T023 [P] Create Swift FFIBridge scaffold in `macos/PastyApp/src/FFIBridge.swift` with `PastyFFIBridge` class and FFI function declarations using `@_silgen_name`
-- [ ] T024 [P] Implement FFIBridge initialization methods in `macos/PastyApp/src/FFIBridge.swift`: `initialize()`, `shutdown()`, `getVersion()`, `getLastError()`
-- [ ] T025 Create Swift AppDelegate stub in `macos/PastyApp/src/AppDelegate.swift` with `NSApplicationDelegate` protocol conformance
-- [ ] T026 [P] Create `scripts/common.sh` with shared utility functions for logging (`log_info`, `log_error`, `log_warn`) and color output
-- [ ] T027 [P] Create `scripts/check-prereqs.sh` that validates Rust ≥1.70, Xcode ≥14, Swift ≥5.9 with clear error messages and installation URLs
-- [ ] T028 [P] Create `scripts/build-core.sh` that builds Rust library with `cargo build` for specified architecture (x86_64/arm64/universal) and configuration (debug/release)
-- [ ] T029 Implement universal binary creation in `scripts/build-core.sh` using `lipo -create` to combine x86_64 and arm64 static libraries
-- [ ] T030 Implement C header generation in `scripts/build-core.sh` using cbindgen to output `build/core/include/pasty.h`
-- [ ] T031 [P] Create `scripts/build-macos.sh` that validates Rust library exists and invokes `xcodebuild` with correct configuration
-- [ ] T032 [P] Create `scripts/build.sh` main orchestrator that calls check-prereqs.sh, build-core.sh, build-macos.sh in correct order
-- [ ] T033 [P] Create `scripts/run.sh` that launches built app from `build/macos/PastyApp.app` using `open` command
-- [ ] T034 [P] Create `scripts/test-core.sh` that runs `cargo test` and optionally generates coverage with tarpaulin
-- [ ] T035 Make all shell scripts executable with `chmod +x` in scripts directory
+- [x] T010 Implement Rust FFI exports module structure in `core/src/ffi/mod.rs` with re-exports
+- [x] T011 [P] Implement FFI export functions in `core/src/ffi/exports.rs`: `pasty_get_version()`, `pasty_init()`, `pasty_shutdown()`, `pasty_free_string()`, `pasty_get_last_error()`
+- [x] T012 [P] Implement thread-local error storage helper `set_last_error()` in `core/src/ffi/exports.rs` using `thread_local!` macro
+- [x] T013 [P] Add placeholder clipboard FFI functions in `core/src/ffi/exports.rs`: `pasty_clipboard_get_text()`, `pasty_clipboard_set_text()` returning "Not implemented" errors
+- [x] T014 Create `core/src/lib.rs` with module declarations for `models`, `services`, `ffi` and public FFI re-exports
+- [x] T015 [P] Create `core/src/models/mod.rs` with module declarations for clipboard_entry and clipboard_history (empty stubs)
+- [x] T016 [P] Create `core/src/models/clipboard_entry.rs` with `ClipboardEntry`, `ContentType`, `ClipboardData` struct definitions (no implementation)
+- [x] T017 [P] Create `core/src/models/clipboard_history.rs` with `ClipboardHistory` struct definition (no implementation)
+- [x] T018 [P] Create `core/src/services/mod.rs` with module declarations for encryption (empty stub)
+- [x] T019 [P] Create `core/src/services/encryption.rs` with `EncryptionService` trait definition and `EncryptionError` enum (no implementation)
+- [x] T020 Write FFI unit tests in `core/tests/ffi_tests.rs` for version retrieval, init/shutdown cycle, and string freeing
+- [x] T021 Write FFI unit tests in `core/tests/error_handling_tests.rs` for thread-local error storage and retrieval
+- [x] T022 Write data model unit tests in `core/tests/model_tests.rs` for ClipboardEntry validation and ContentType matching
+- [x] T023 [P] Create Swift FFIBridge scaffold in `macos/PastyApp/src/FFIBridge.swift` with `PastyFFIBridge` class and FFI function declarations using `@_silgen_name`
+- [x] T024 [P] Implement FFIBridge initialization methods in `macos/PastyApp/src/FFIBridge.swift`: `initialize()`, `shutdown()`, `getVersion()`, `getLastError()`
+- [x] T025 Create Swift AppDelegate stub in `macos/PastyApp/src/AppDelegate.swift` with `NSApplicationDelegate` protocol conformance
+- [x] T026 [P] Create `scripts/common.sh` with shared utility functions for logging (`log_info`, `log_error`, `log_warn`) and color output
+- [x] T027 [P] Create `scripts/check-prereqs.sh` that validates Rust ≥1.70, Xcode ≥14, Swift ≥5.9 with clear error messages and installation URLs
+- [x] T028 [P] Create `scripts/build-core.sh` that builds Rust library with `cargo build` for specified architecture (x86_64/arm64/universal) and configuration (debug/release)
+- [x] T029 Implement universal binary creation in `scripts/build-core.sh` using `lipo -create` to combine x86_64 and arm64 static libraries
+- [x] T030 Implement C header generation in `scripts/build-core.sh` using cbindgen to output `build/core/include/pasty.h`
+- [x] T031 [P] Create `scripts/build-macos.sh` that validates Rust library exists and invokes `xcodebuild` with correct configuration
+- [x] T032 [P] Create `scripts/build.sh` main orchestrator that calls check-prereqs.sh, build-core.sh, build-macos.sh in correct order
+- [x] T033 [P] Create `scripts/run.sh` that launches built app from `build/macos/PastyApp.app` using `open` command
+- [x] T034 [P] Create `scripts/test-core.sh` that runs `cargo test` and optionally generates coverage with tarpaulin
+- [x] T035 Make all shell scripts executable with `chmod +x` in scripts directory
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -85,25 +85,25 @@
 
 > **NOTE: Tests are written FIRST in TDD. Ensure tests FAIL before implementation.**
 
-- [ ] T036 [P] [US1] Write FFI contract test in `tests/contract/test_ffi_api.rs` verifying `pasty_get_version()` returns valid semver string
-- [ ] T037 [P] [US1] Write FFI contract test in `tests/contract/test_ffi_api.rs` verifying `pasty_init()` returns 0 and can be called multiple times
-- [ ] T038 [P] [US1] Write FFI contract test in `tests/contract/test_ffi_api.rs` verifying `pasty_free_string()` safely handles null pointers
-- [ ] T039 [P] [US1] Write unit test in `core/tests/ffi_tests.rs` verifying `pasty_get_last_error()` returns null when no error set
-- [ ] T040 [P] [US1] Write unit test in `core/tests/model_tests.rs` verifying `ClipboardEntry` struct can be instantiated with valid data
-- [ ] T041 [P] [US1] Write unit test in `core/tests/model_tests.rs` verifying `ContentType` enum variants (Text, Image, File, HTML)
+- [x] T036 [P] [US1] Write FFI contract test in `tests/contract/test_ffi_api.rs` verifying `pasty_get_version()` returns valid semver string
+- [x] T037 [P] [US1] Write FFI contract test in `tests/contract/test_ffi_api.rs` verifying `pasty_init()` returns 0 and can be called multiple times
+- [x] T038 [P] [US1] Write FFI contract test in `tests/contract/test_ffi_api.rs` verifying `pasty_free_string()` safely handles null pointers
+- [x] T039 [P] [US1] Write unit test in `core/tests/ffi_tests.rs` verifying `pasty_get_last_error()` returns null when no error set
+- [x] T040 [P] [US1] Write unit test in `core/tests/model_tests.rs` verifying `ClipboardEntry` struct can be instantiated with valid data
+- [x] T041 [P] [US1] Write unit test in `core/tests/model_tests.rs` verifying `ContentType` enum variants (Text, Image, File, HTML)
 
 ### Implementation for User Story 1
 
-- [ ] T042 [P] [US1] Complete `ClipboardEntry` implementation in `core/src/models/clipboard_entry.rs` with `new()` constructor and validation logic
-- [ ] T043 [P] [US1] Complete `ContentType` and `ClipboardData` enums in `core/src/models/clipboard_entry.rs` with Debug and PartialEq derives
-- [ ] T044 [P] [US1] Complete `ClipboardHistory` struct in `core/src/models/clipboard_history.rs` with field definitions (no implementation yet)
-- [ ] T045 [US1] Complete `EncryptionService` trait in `core/src/services/encryption.rs` with method signatures for `encrypt()` and `decrypt()`
-- [ ] T046 [US1] Complete `EncryptionError` enum in `core/src/services/encryption.rs` with variants (KeychainAccessFailed, InvalidData, etc.)
-- [ ] T047 [US1] Update `core/src/lib.rs` to re-export all public types from models and services modules
-- [ ] T048 [US1] Run `cargo doc --no-deps` in `core/` to generate API documentation and verify it builds without warnings
-- [ ] T049 [US1] Run `cargo test` in `core/` and verify all tests pass with ≥80% code coverage (SC-006)
-- [ ] T050 [US1] Run `./scripts/build-core.sh release` and verify static library `libcore.a` is created in `build/core/universal/release/`
-- [ ] T051 [US1] Run `./scripts/build-core.sh release` and verify C header `pasty.h` is generated in `build/core/include/`
+- [x] T042 [P] [US1] Complete `ClipboardEntry` implementation in `core/src/models/clipboard_entry.rs` with `new()` constructor and validation logic
+- [x] T043 [P] [US1] Complete `ContentType` and `ClipboardData` enums in `core/src/models/clipboard_entry.rs` with Debug and PartialEq derives
+- [x] T044 [P] [US1] Complete `ClipboardHistory` struct in `core/src/models/clipboard_history.rs` with field definitions (no implementation yet)
+- [x] T045 [US1] Complete `EncryptionService` trait in `core/src/services/encryption.rs` with method signatures for `encrypt()` and `decrypt()`
+- [x] T046 [US1] Complete `EncryptionError` enum in `core/src/services/encryption.rs` with variants (KeychainAccessFailed, InvalidData, etc.)
+- [x] T047 [US1] Update `core/src/lib.rs` to re-export all public types from models and services modules
+- [x] T048 [US1] Run `cargo doc --no-deps` in `core/` to generate API documentation and verify it builds without warnings
+- [x] T049 [US1] Run `cargo test` in `core/` and verify all tests pass with ≥80% code coverage (SC-006)
+- [x] T050 [US1] Run `./scripts/build-core.sh release` and verify static library `libcore.a` is created in `build/core/universal/release/`
+- [x] T051 [US1] Run `./scripts/build-core.sh release` and verify C header `pasty.h` is generated in `build/core/include/`
 
 **Checkpoint**: At this point, User Story 1 should be fully functional - Rust core library compiles, tests pass, documentation generates, FFI exports work
 
@@ -117,27 +117,27 @@
 
 ### Implementation for User Story 2
 
-- [ ] T052 [P] [US2] Add environment variable detection to `scripts/build-core.sh` for CONFIGURATION, ARCH, CLEAN, VERBOSE flags
-- [ ] T053 [P] [US2] Add Rust toolchain validation to `scripts/build-core.sh` with version check (≥1.70) and helpful error message
-- [ ] T054 [P] [US2] Add Rust target installation to `scripts/build-core.sh` for x86_64-apple-darwin and aarch64-apple-darwin using `rustup target add`
-- [ ] T055 [US2] Add clean build support to `scripts/build-core.sh` that runs `cargo clean` when CLEAN=true
-- [ ] T056 [P] [US2] Add build artifact copying to `scripts/build-core.sh` to output `build/core/universal/$CONFIG/libcore.a`
-- [ ] T057 [P] [US2] Add color-coded logging to `scripts/build-core.sh` using functions from `common.sh`
-- [ ] T058 [P] [US2] Add error handling to `scripts/build-core.sh` with clear messages and exit code 4 on build failure
-- [ ] T059 [P] [US2] Add Rust library validation to `scripts/build-macos.sh` that checks `build/core/universal/$CONFIG/libcore.a` exists before Xcode build
-- [ ] T060 [P] [US2] Add Xcode project validation to `scripts/build-macos.sh` that verifies `.xcodeproj` exists
-- [ ] T061 [P] [US2] Add build output handling to `scripts/build-macos.sh` that copies `.app` bundle to `build/macos/`
-- [ ] T062 [P] [US2] Add color-coded logging to `scripts/build-macos.sh` using functions from `common.sh`
-- [ ] T063 [P] [US2] Add help option to `scripts/build.sh` that displays usage with examples
-- [ ] T064 [P] [US2] Add argument parsing to `scripts/build.sh` for build type, clean flag, and architecture
-- [ ] T065 [US2] Implement sequential build orchestration in `scripts/build.sh`: check-prereqs → build-core → build-macos
-- [ ] T066 [US2] Add build summary to `scripts/build.sh` displaying configuration, duration, and artifact locations
-- [ ] T067 [P] [US2] Add app bundle validation to `scripts/run.sh` that checks `build/macos/PastyApp.app` exists
-- [ ] T068 [P] [US2] Add launch command to `scripts/run.sh` using `open` with PID tracking
-- [ ] T069 [P] [US2] Add error handling to `scripts/run.sh` that offers to build app if not found
-- [ ] T070 [US2] Run `./scripts/build.sh release` from clean state and verify it completes in <3 minutes (SC-007)
-- [ ] T071 [US2] Run `./scripts/build.sh release`, modify source file, run again and verify incremental build <30 seconds
-- [ ] T072 [US2] Run `./scripts/run.sh debug` and verify app launches without errors
+- [x] T052 [P] [US2] Add environment variable detection to `scripts/build-core.sh` for CONFIGURATION, ARCH, CLEAN, VERBOSE flags
+- [x] T053 [P] [US2] Add Rust toolchain validation to `scripts/build-core.sh` with version check (≥1.70) and helpful error message
+- [x] T054 [P] [US2] Add Rust target installation to `scripts/build-core.sh` for x86_64-apple-darwin and aarch64-apple-darwin using `rustup target add`
+- [x] T055 [US2] Add clean build support to `scripts/build-core.sh` that runs `cargo clean` when CLEAN=true
+- [x] T056 [P] [US2] Add build artifact copying to `scripts/build-core.sh` to output `build/core/universal/$CONFIG/libcore.a`
+- [x] T057 [P] [US2] Add color-coded logging to `scripts/build-core.sh` using functions from `common.sh`
+- [x] T058 [P] [US2] Add error handling to `scripts/build-core.sh` with clear messages and exit code 4 on build failure
+- [x] T059 [P] [US2] Add Rust library validation to `scripts/build-macos.sh` that checks `build/core/universal/$CONFIG/libcore.a` exists before Xcode build
+- [x] T060 [P] [US2] Add Xcode project validation to `scripts/build-macos.sh` that verifies `.xcodeproj` exists
+- [x] T061 [P] [US2] Add build output handling to `scripts/build-macos.sh` that copies `.app` bundle to `build/macos/`
+- [x] T062 [P] [US2] Add color-coded logging to `scripts/build-macos.sh` using functions from `common.sh`
+- [x] T063 [P] [US2] Add help option to `scripts/build.sh` that displays usage with examples
+- [x] T064 [P] [US2] Add argument parsing to `scripts/build.sh` for build type, clean flag, and architecture
+- [x] T065 [US2] Implement sequential build orchestration in `scripts/build.sh`: check-prereqs → build-core → build-macos
+- [x] T066 [US2] Add build summary to `scripts/build.sh` displaying configuration, duration, and artifact locations
+- [x] T067 [P] [US2] Add app bundle validation to `scripts/run.sh` that checks `build/macos/PastyApp.app` exists
+- [x] T068 [P] [US2] Add launch command to `scripts/run.sh` using `open` with PID tracking
+- [x] T069 [P] [US2] Add error handling to `scripts/run.sh` that offers to build app if not found
+- [x] T070 [US2] Run `./scripts/build.sh release` from clean state and verify it completes in <3 minutes (SC-007)
+- [x] T071 [US2] Run `./scripts/build.sh release`, modify source file, run again and verify incremental build <30 seconds
+- [x] T072 [US2] Run `./scripts/run.sh debug` and verify app launches without errors
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work - complete build/test/run workflow established
 
@@ -151,27 +151,27 @@
 
 ### Tests for User Story 3 (REQUIRED - FFI Interoperability) ⚠️
 
-- [ ] T073 [P] [US3] Write integration test in `tests/integration/test_swift_rust_ffi.swift` verifying Swift can call `pasty_get_version()` and parse response
-- [ ] T074 [P] [US3] Write integration test in `tests/integration/test_swift_rust_ffi.swift` verifying Swift can call `pasty_init()` and `pasty_shutdown()` without crashes
-- [ ] T075 [P] [US3] Write integration test in `tests/integration/test_swift_rust_ffi.swift` verifying string memory management (Rust allocates, Swift frees)
+- [x] T073 [P] [US3] Write integration test in `tests/integration/test_swift_rust_ffi.swift` verifying Swift can call `pasty_get_version()` and parse response
+- [x] T074 [P] [US3] Write integration test in `tests/integration/test_swift_rust_ffi.swift` verifying Swift can call `pasty_init()` and `pasty_shutdown()` without crashes
+- [x] T075 [P] [US3] Write integration test in `tests/integration/test_swift_rust_ffi.swift` verifying string memory management (Rust allocates, Swift frees)
 
 ### Implementation for User Story 3
 
-- [ ] T076 [P] [US3] Complete FFIBridge error handling in `macos/PastyApp/src/FFIBridge.swift` with `FFIError` enum and `fromCode()` method
-- [ ] T077 [P] [US3] Complete FFIBridge placeholder methods in `macos/PastyApp/src/FFIBridge.swift`: `getClipboardText()`, `setClipboardText()` throwing not implemented errors
-- [ ] T078 [P] [US3] Create `macos/PastyApp/src/main.swift` with NSApplication entry point and app delegate initialization
-- [ ] T079 [US3] Create `macos/PastyApp/src/MenuBarManager.swift` with `NSStatusBar` setup and basic menu creation
-- [ ] T080 [US3] Implement menu items in `macos/PastyApp/src/MenuBarManager.swift`: "Quit" and "About" with working selectors
-- [ ] T081 [US3] Complete AppDelegate in `macos/PastyApp/src/AppDelegate.swift` with `applicationDidFinishLaunching()` calling `FFIBridge.initialize()`
-- [ ] T082 [US3] Complete AppDelegate in `macos/PastyApp/src/AppDelegate.swift` with `applicationWillTerminate()` calling `FFIBridge.shutdown()`
-- [ ] T083 [US3] Add working "About" menu item handler in `macos/PastyApp/src/AppDelegate.swift` that displays version from `FFIBridge.getVersion()`
-- [ ] T084 [US3] Create Xcode project file `macos/PastyApp.xcodeproj/project.pbxproj` linking against `build/core/universal/release/libcore.a`
-- [ ] T085 [US3] Add Run Script build phase to Xcode project that executes `scripts/build-core.sh` before Swift compilation
-- [ ] T086 [US3] Add module map `core/module.modulemap` for Swift C interop with `pasty.h` header
-- [ ] T087 [US3] Run `./scripts/build.sh release` and verify Swift app links against Rust library without errors
-- [ ] T088 [US3] Run `./scripts/run.sh release` and verify menu bar icon appears
-- [ ] T089 [US3] Click menu bar icon and verify "Quit" and "About" menu items are present and functional
-- [ ] T090 [US3] Click "About" menu item and verify it displays app version from Rust core (demonstrates FFI works)
+- [x] T076 [P] [US3] Complete FFIBridge error handling in `macos/PastyApp/src/FFIBridge.swift` with `FFIError` enum and `fromCode()` method
+- [x] T077 [P] [US3] Complete FFIBridge placeholder methods in `macos/PastyApp/src/FFIBridge.swift`: `getClipboardText()`, `setClipboardText()` throwing not implemented errors
+- [x] T078 [P] [US3] Create `macos/PastyApp/src/main.swift` with NSApplication entry point and app delegate initialization
+- [x] T079 [US3] Create `macos/PastyApp/src/MenuBarManager.swift` with `NSStatusBar` setup and basic menu creation
+- [x] T080 [US3] Implement menu items in `macos/PastyApp/src/MenuBarManager.swift`: "Quit" and "About" with working selectors
+- [x] T081 [US3] Complete AppDelegate in `macos/PastyApp/src/AppDelegate.swift` with `applicationDidFinishLaunching()` calling `FFIBridge.initialize()`
+- [x] T082 [US3] Complete AppDelegate in `macos/PastyApp/src/AppDelegate.swift` with `applicationWillTerminate()` calling `FFIBridge.shutdown()`
+- [x] T083 [US3] Add working "About" menu item handler in `macos/PastyApp/src/AppDelegate.swift` that displays version from `FFIBridge.getVersion()`
+- [x] T084 [US3] Create Xcode project file `macos/PastyApp.xcodeproj/project.pbxproj` linking against `build/core/universal/release/libcore.a`
+- [x] T085 [US3] Add Run Script build phase to Xcode project that executes `scripts/build-core.sh` before Swift compilation
+- [x] T086 [US3] Add module map `core/module.modulemap` for Swift C interop with `pasty.h` header
+- [x] T087 [US3] Run `./scripts/build.sh release` and verify Swift app links against Rust library without errors
+- [x] T088 [US3] Run `./scripts/run.sh release` and verify menu bar icon appears
+- [x] T089 [US3] Click menu bar icon and verify "Quit" and "About" menu items are present and functional
+- [x] T090 [US3] Click "About" menu item and verify it displays app version from Rust core (demonstrates FFI works)
 
 **Checkpoint**: At this point, User Stories 1, 2, AND 3 should all work - complete FFI bridge verified, menu bar UI functional
 
@@ -185,21 +185,21 @@
 
 ### Implementation for User Story 4
 
-- [ ] T091 [P] [US4] Create `scripts/package.sh` with argument parsing for build type (debug/release) and signing (sign/nosign)
-- [ ] T092 [P] [US4] Add prerequisite validation to `scripts/package.sh` checking for `create-dmg` tool and app bundle existence
-- [ ] T093 [P] [US4] Add code signing certificate detection to `scripts/package.sh` using `security find-identity -v -p codesigning`
-- [ ] T094 [P] [US4] Add ad-hoc signing fallback to `scripts/package.sh` when no certificate found (SIGNING_IDENTITY="-")
-- [ ] T095 [P] [US4] Implement app bundle signing in `scripts/package.sh` using `codesign --force --deep --sign` with entitlements
-- [ ] T096 [P] [US4] Add signature verification to `scripts/package.sh` using `codesign --verify --deep`
-- [ ] T097 [P] [US4] Implement DMG creation in `scripts/package.sh` using `create-dmg` with window positioning and app icon
-- [ ] T098 [P] [US4] Add Applications shortcut to DMG in `scripts/package.sh` using `--app-drop-link` option
-- [ ] T099 [P] [US4] Add optional DMG background image support to `scripts/package.sh` with `--background` option
-- [ ] T100 [P] [US4] Add DMG output to `build/macos/dmg/PastyApp-0.1.0.dmg` in `scripts/package.sh`
-- [ ] T101 [US4] Create `macos/PastyApp/ExportOptions.plist` for Xcode archive export with signing method
-- [ ] T102 [US4] Run `./scripts/package.sh release sign` with valid certificate and verify DMG is created
-- [ ] T103 [US4] Mount generated DMG and verify it shows app icon and Applications shortcut
-- [ ] T104 [US4] Drag app from DMG to Applications folder and verify it launches without code signing errors
-- [ ] T105 [US4] Run `./scripts/package.sh release nosign` and verify unsigned DMG works (ad-hoc signing)
+- [x] T091 [P] [US4] Create `scripts/package.sh` with argument parsing for build type (debug/release) and signing (sign/nosign)
+- [x] T092 [P] [US4] Add prerequisite validation to `scripts/package.sh` checking for `create-dmg` tool and app bundle existence
+- [x] T093 [P] [US4] Add code signing certificate detection to `scripts/package.sh` using `security find-identity -v -p codesigning`
+- [x] T094 [P] [US4] Add ad-hoc signing fallback to `scripts/package.sh` when no certificate found (SIGNING_IDENTITY="-")
+- [x] T095 [P] [US4] Implement app bundle signing in `scripts/package.sh` using `codesign --force --deep --sign` with entitlements
+- [x] T096 [P] [US4] Add signature verification to `scripts/package.sh` using `codesign --verify --deep`
+- [x] T097 [P] [US4] Implement DMG creation in `scripts/package.sh` using `create-dmg` with window positioning and app icon
+- [x] T098 [P] [US4] Add Applications shortcut to DMG in `scripts/package.sh` using `--app-drop-link` option
+- [x] T099 [P] [US4] Add optional DMG background image support to `scripts/package.sh` with `--background` option
+- [x] T100 [P] [US4] Add DMG output to `build/macos/dmg/PastyApp-0.1.0.dmg` in `scripts/package.sh`
+- [x] T101 [US4] Create `macos/PastyApp/ExportOptions.plist` for Xcode archive export with signing method
+- [x] T102 [US4] Run `./scripts/package.sh release sign` with valid certificate and verify DMG is created
+- [x] T103 [US4] Mount generated DMG and verify it shows app icon and Applications shortcut
+- [x] T104 [US4] Drag app from DMG to Applications folder and verify it launches without code signing errors
+- [x] T105 [US4] Run `./scripts/package.sh release nosign` and verify unsigned DMG works (ad-hoc signing)
 
 **Checkpoint**: All user stories should now be independently functional - complete distribution pipeline working
 
@@ -209,16 +209,16 @@
 
 **Purpose**: Final improvements that affect multiple user stories
 
-- [ ] T106 [P] Add comprehensive inline documentation to `core/src/ffi/exports.rs` explaining memory safety and ownership
-- [ ] T107 [P] Add documentation comments to `macos/PastyApp/src/FFIBridge.swift` explaining FFI calling conventions
-- [ ] T108 [P] Add help/usage messages to all shell scripts with `-h/--help` flag support
-- [ ] T109 [P] Add verbose mode support to build scripts with detailed output when VERBOSE=true
-- [ ] T110 [P] Create `.github/workflows/ci.yml` for CI/CD with build and test automation
-- [ ] T111 [P] Add README.md at repository root with quickstart link and project overview
-- [ ] T112 Run full test suite with `./scripts/test-core.sh` and verify ≥80% coverage (SC-006)
-- [ ] T113 Run complete build from clean state and verify <3 minutes (SC-007)
-- [ ] T114 Run `./scripts/build.sh` and verify zero manual steps required (SC-002)
-- [ ] T115 Verify all 8 success criteria from spec.md are met
+- [x] T106 [P] Add comprehensive inline documentation to `core/src/ffi/exports.rs` explaining memory safety and ownership
+- [x] T107 [P] Add documentation comments to `macos/PastyApp/src/FFIBridge.swift` explaining FFI calling conventions
+- [x] T108 [P] Add help/usage messages to all shell scripts with `-h/--help` flag support
+- [x] T109 [P] Add verbose mode support to build scripts with detailed output when VERBOSE=true
+- [x] T110 [P] Create `.github/workflows/ci.yml` for CI/CD with build and test automation
+- [x] T111 [P] Add README.md at repository root with quickstart link and project overview
+- [x] T112 Run full test suite with `./scripts/test-core.sh` and verify ≥80% coverage (SC-006)
+- [x] T113 Run complete build from clean state and verify <3 minutes (SC-007)
+- [x] T114 Run `./scripts/build.sh` and verify zero manual steps required (SC-002)
+- [x] T115 Verify all 8 success criteria from spec.md are met
 
 ---
 

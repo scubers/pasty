@@ -2,7 +2,7 @@
 
 **Feature Branch**: `001-rust-swift-framework`
 **Created**: 2026-02-04
-**Status**: Draft
+**Status**: Complete
 **Input**: User description: "搭建一个可运行的框架，先完成 core 和 macos；core 使用 rust 开发，主要放跨平台的通用逻辑；平台层/macos 使用 swift 开发，主要放 macos 相关的逻辑；需要有完整的编译脚本、运行脚本、打包脚本、ng 打包成 dmg 格式"
 
 ## User Scenarios & Testing *(mandatory)*
