@@ -1,8 +1,8 @@
-//! Business logic services
-//!
-//! This module provides service interfaces and implementations for clipboard management.
+pub mod database;
+pub mod storage;
+pub mod deduplication;
+pub mod clipboard_store;
 
-pub mod encryption;
-
-// Re-export common types
-pub use encryption::{EncryptionService, EncryptionError};
+pub use database::{Database, DatabaseError};
+pub use storage::{StorageService, StorageError};
+pub use clipboard_store::ClipboardStore;

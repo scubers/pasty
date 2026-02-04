@@ -5,46 +5,89 @@
 import Cocoa
 import Foundation
 
+
+
+
+
+
+
+
+
+
 class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Properties
 
     private var menuBarManager: MenuBarManager?
+    private var clipboardMonitor: ClipboardMonitor?
 
     // MARK: - Application Lifecycle
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSLog("PastyApp launched successfully")
 
-        // Initialize the Rust core
-        do {
-            try PastyFFIBridge.shared.initialize()
-            NSLog("Pasty core initialized successfully")
-        } catch {
-            let error = PastyFFIBridge.shared.getLastError() ?? "Unknown error"
-            NSLog("Failed to initialize Pasty core: \(error)")
-            // Show alert to user
-            let alert = NSAlert()
-            alert.messageText = "Initialization Failed"
-            alert.informativeText = "Could not initialize Pasty core library."
-            alert.alertStyle = .critical
-            alert.addButton(withTitle: "Quit")
-            alert.runModal()
-            NSApp.terminate(nil)
+        // Get storage paths BEFORE initializing Rust
+        let storageManager = StorageManager.shared
+        let dbPath = storageManager.getDatabasePath().path
+        let storagePath = storageManager.getImagesDirectory().path
+
+        NSLog("Initializing clipboard store...")
+        NSLog("Database path: \(dbPath)")
+        NSLog("Images path: \(storagePath)")
+
+        // Initialize Rust core with proper paths
+        dbPath.withCString { dbPtr in
+            storagePath.withCString { storagePtr in
+                let result = pasty_clipboard_init(dbPtr, storagePtr)
+
+                if result == 0 {
+                    NSLog("✓ Pasty core initialized successfully")
+                } else {
+                    let errorPtr = pasty_get_last_error()
+                    let error: String
+                    if let ptr = errorPtr {
+                        error = String(cString: ptr)
+                    } else {
+                        error = "Unknown error"
+                    }
+                    NSLog("Failed to initialize Pasty core: \(error)")
+
+                    // Show alert to user
+                    let alert = NSAlert()
+                    alert.messageText = "Initialization Failed"
+                    alert.informativeText = "Could not initialize clipboard store."
+                    alert.alertStyle = .critical
+                    alert.addButton(withTitle: "Quit")
+                    alert.runModal()
+                    NSApp.terminate(nil)
+                }
+            }
         }
 
         // Setup menu bar
         menuBarManager = MenuBarManager()
+
+        // Start clipboard monitoring
+        let detector = ContentTypeDetector()
+        let coordinator = ClipboardCoordinator()
+
+        clipboardMonitor = ClipboardMonitor(detector: detector, coordinator: coordinator)
+        clipboardMonitor?.startMonitoring()
+
+        NSLog("✓ Clipboard monitoring started")
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        // Stop clipboard monitoring
+        clipboardMonitor?.stopMonitoring()
+        NSLog("Clipboard monitoring stopped")
+
         // Shutdown the Rust core
-        do {
-            try PastyFFIBridge.shared.shutdown()
-            print("Pasty core shut down successfully")
-        } catch {
-            let error = PastyFFIBridge.shared.getLastError() ?? "Unknown error"
-            NSLog("Failed to shutdown Pasty core: \(error)")
+        let result = pasty_shutdown()
+        if result == 0 {
+            NSLog("Pasty core shut down successfully")
+        } else {
+            NSLog("Failed to shutdown Pasty core")
         }
     }
 

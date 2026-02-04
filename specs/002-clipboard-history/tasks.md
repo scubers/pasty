@@ -27,15 +27,15 @@ This project uses a cross-platform architecture:
 
 **Purpose**: Project initialization and basic structure for both Rust and Swift layers
 
-- [ ] T001 Create Rust core project structure with Cargo.toml in core/
-- [ ] T002 Initialize Swift macOS app project with XcodeGen in macos/PastyApp/
-- [ ] T003 [P] Add Rust dependencies to core/Cargo.toml: rusqlite, sha2, uuid, serde, thiserror, chrono
-- [ ] T004 [P] Configure Swift package dependencies in macos/PastyApp/project.yml: Foundation, AppKit
-- [ ] T005 [P] Create directory structure for core/src/models, core/src/services, core/src/ffi
-- [ ] T006 [P] Create directory structure for macOS: ClipboardMonitor, ContentDetectors, ContentHandlers, PlatformLogic, Models, FFI
-- [ ] T007 [P] Create test directories: core/tests/unit, core/tests/integration, tests/contract, macos/PastyApp/Tests
-- [ ] T008 [P] Configure Rust toolchain: set edition = "2021" in Cargo.toml
-- [ ] T009 [P] Configure Swift version: 5.9+ in macos/PastyApp/project.yml
+- [x] T001 Create Rust core project structure with Cargo.toml in core/
+- [x] T002 Initialize Swift macOS app project with XcodeGen in macos/PastyApp/
+- [x] T003 [P] Add Rust dependencies to core/Cargo.toml: rusqlite, sha2, uuid, serde, thiserror, chrono
+- [x] T004 [P] Configure Swift package dependencies in macos/PastyApp/project.yml: Foundation, AppKit
+- [x] T005 [P] Create directory structure for core/src/models, core/src/services, core/src/ffi
+- [x] T006 [P] Create directory structure for macOS: ClipboardMonitor, ContentDetectors, ContentHandlers, PlatformLogic, Models, FFI
+- [x] T007 [P] Create test directories: core/tests/unit, core/tests/integration, tests/contract, macos/PastyApp/Tests
+- [x] T008 [P] Configure Rust toolchain: set edition = "2021" in Cargo.toml
+- [x] T009 [P] Configure Swift version: 5.9+ in macos/PastyApp/project.yml
 
 ---
 
@@ -47,51 +47,51 @@ This project uses a cross-platform architecture:
 
 ### Rust Core Foundation
 
-- [ ] T010 Create database schema migration files in core/migrations/001_initial.up.sql and 001_initial.down.sql
-- [ ] T011 Implement database connection manager with WAL mode in core/src/services/database.rs
-- [ ] T012 Implement migration system with version tracking in core/src/services/database.rs
-- [ ] T013 [P] Create ClipboardEntry model in core/src/models/clipboard_entry.rs
-- [ ] T014 [P] Create ContentType enum in core/src/models/clipboard_entry.rs
-- [ ] T015 [P] Create Content enum (Text/Image variants) in core/src/models/clipboard_entry.rs
-- [ ] T016 [P] Create SourceApplication model in core/src/models/source_app.rs
-- [ ] T017 [P] Create ImageFile model with ImageFormat enum in core/src/models/image_file.rs
-- [ ] T018 Implement content hash service (SHA-256) in core/src/services/deduplication.rs
-- [ ] T019 Implement text normalization (trim whitespace) in core/src/services/deduplication.rs
-- [ ] T020 Implement file system storage service for images in core/src/services/storage.rs
-- [ ] T021 Implement two-level directory sharding for images in core/src/services/storage.rs
-- [ ] T022 Create error types with thiserror in core/src/services/database.rs, storage.rs, deduplication.rs
-- [ ] T023 Implement clipboard store service (high-level API) in core/src/services/clipboard_store.rs
+- [x] T010 Create database schema migration files in core/migrations/001_initial.up.sql and 001_initial.down.sql
+- [x] T011 Implement database connection manager with WAL mode in core/src/services/database.rs
+- [x] T012 Implement migration system with version tracking in core/src/services/database.rs
+- [x] T013 [P] Create ClipboardEntry model in core/src/models/clipboard_entry.rs
+- [x] T014 [P] Create ContentType enum in core/src/models/clipboard_entry.rs
+- [x] T015 [P] Create Content enum (Text/Image variants) in core/src/models/clipboard_entry.rs
+- [x] T016 [P] Create SourceApplication model in core/src/models/source_app.rs
+- [x] T017 [P] Create ImageFile model with ImageFormat enum in core/src/models/image_file.rs
+- [x] T018 Implement content hash service (SHA-256) in core/src/services/deduplication.rs
+- [x] T019 Implement text normalization (trim whitespace) in core/src/services/deduplication.rs
+- [x] T020 Implement file system storage service for images in core/src/services/storage.rs
+- [x] T021 Implement two-level directory sharding for images in core/src/services/storage.rs
+- [x] T022 Create error types with thiserror in core/src/services/database.rs, storage.rs, deduplication.rs
+- [x] T023 Implement clipboard store service (high-level API) in core/src/services/clipboard_store.rs
 
 ### Swift/macOS Foundation
 
-- [ ] T024 Create ClipboardEvent model in macos/PastyApp/Sources/Models/ClipboardEvent.swift
-- [ ] T025 Create ContentType enum in macos/PastyApp/Sources/Models/ContentType.swift
-- [ ] T026 [P] Create ClipboardMonitor orchestrator in macos/PastyApp/Sources/ClipboardMonitor/ClipboardMonitor.swift
-- [ ] T027 [P] Create Monitor (NSPasteboard polling) in macos/PastyApp/Sources/ClipboardMonitor/Monitor.swift
-- [ ] T028 [P] Create ContentTypeDetector in macos/PastyApp/Sources/ContentDetectors/ContentTypeDetector.swift
-- [ ] T029 [P] Create ContentHandler protocol in macos/PastyApp/Sources/ContentHandlers/ContentHandler.swift
-- [ ] T030 [P] Create TextHandler in macos/PastyApp/Sources/ContentHandlers/TextHandler.swift
-- [ ] T031 [P] Create ImageHandler in macos/PastyApp/Sources/ContentHandlers/ImageHandler.swift
-- [ ] T032 [P] Create FileHandler (log only) in macos/PastyApp/Sources/ContentHandlers/FileHandler.swift
-- [ ] T033 [P] Create ClipboardCoordinator in macos/PastyApp/Sources/PlatformLogic/ClipboardCoordinator.swift
-- [ ] T034 [P] Create StorageManager in macos/PastyApp/Sources/PlatformLogic/StorageManager.swift
-- [ ] T035 [P] Create MetadataExtractor in macos/PastyApp/Sources/PlatformLogic/MetadataExtractor.swift
+- [x] T024 Create ClipboardEvent model in macos/PastyApp/Sources/Models/ClipboardEvent.swift
+- [x] T025 Create ContentType enum in macos/PastyApp/Sources/Models/ContentType.swift
+- [x] T026 [P] Create ClipboardMonitor orchestrator in macos/PastyApp/Sources/ClipboardMonitor/ClipboardMonitor.swift
+- [x] T027 [P] Create Monitor (NSPasteboard polling) in macos/PastyApp/Sources/ClipboardMonitor/Monitor.swift
+- [x] T028 [P] Create ContentTypeDetector in macos/PastyApp/Sources/ContentDetectors/ContentTypeDetector.swift
+- [x] T029 [P] Create ContentHandler protocol in macos/PastyApp/Sources/ContentHandlers/ContentHandler.swift
+- [x] T030 [P] Create TextHandler in macos/PastyApp/Sources/ContentHandlers/TextHandler.swift
+- [x] T031 [P] Create ImageHandler in macos/PastyApp/Sources/ContentHandlers/ImageHandler.swift
+- [x] T032 [P] Create FileHandler (log only) in macos/PastyApp/Sources/ContentHandlers/FileHandler.swift
+- [x] T033 [P] Create ClipboardCoordinator in macos/PastyApp/Sources/PlatformLogic/ClipboardCoordinator.swift
+- [x] T034 [P] Create StorageManager in macos/PastyApp/Sources/PlatformLogic/StorageManager.swift
+- [x] T035 [P] Create MetadataExtractor in macos/PastyApp/Sources/PlatformLogic/MetadataExtractor.swift
 
 ### FFI Bridge Foundation
 
-- [ ] T036 Define C types and enums in core/src/ffi/types.rs
-- [ ] T037 Implement FFI function signatures in core/src/ffi/clipboard.rs
-- [ ] T038 Implement accessor functions for ClipboardEntry in core/src/ffi/clipboard.rs
-- [ ] T039 Implement memory management functions (entry_free, list_free) in core/src/ffi/clipboard.rs
-- [ ] T040 Create RustBridge Swift wrapper in macos/PastyApp/Sources/FFI/RustBridge.swift
-- [ ] T041 Implement Swift type mappings in macos/PastyApp/Sources/FFI/RustBridge.swift
+- [x] T036 Define C types and enums in core/src/ffi/types.rs
+- [x] T037 Implement FFI function signatures in core/src/ffi/clipboard.rs
+- [x] T038 Implement accessor functions for ClipboardEntry in core/src/ffi/clipboard.rs
+- [x] T039 Implement memory management functions (entry_free, list_free) in core/src/ffi/clipboard.rs
+- [x] T040 Create RustBridge Swift wrapper in macos/PastyApp/Sources/FFI/RustBridge.swift
+- [x] T041 Implement Swift type mappings in macos/PastyApp/Sources/FFI/RustBridge.swift
 
 ### Build Configuration
 
-- [ ] T042 Configure cdylib build for Rust FFI in core/Cargo.toml
-- [ ] T043 Setup XcodeGen to link Rust static library in macos/PastyApp/project.yml
-- [ ] T044 Create build script to compile Rust library and link to Swift app
-- [ ] T045 Verify FFI compilation: Swift can call Rust functions successfully
+- [x] T042 Configure cdylib build for Rust FFI in core/Cargo.toml
+- [x] T043 Setup XcodeGen to link Rust static library in macos/PastyApp/project.yml
+- [x] T044 Create build script to compile Rust library and link to Swift app
+- [x] T045 Verify FFI compilation: Swift can call Rust functions successfully
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 

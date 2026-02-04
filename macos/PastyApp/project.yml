@@ -23,6 +23,7 @@ targets:
     deploymentTarget: "11.0"
     sources:
       - PastyApp
+      - Sources
     settings:
       PRODUCT_NAME: PastyApp
       PRODUCT_BUNDLE_IDENTIFIER: com.pasty.PastyApp

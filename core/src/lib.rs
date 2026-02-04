@@ -7,8 +7,24 @@ pub mod models;
 pub mod services;
 pub mod ffi;
 
-// Re-export public FFI functions
-pub use ffi::exports::*;
+// Re-export public FFI functions for clipboard history
+pub use ffi::clipboard::{
+    pasty_clipboard_init,
+    pasty_clipboard_store_text,
+    pasty_clipboard_store_image,
+    pasty_clipboard_entry_free,
+    // Backward compatibility (Feature 001)
+    pasty_init,
+    pasty_get_version,
+    pasty_shutdown,
+};
+
+// Re-export FFI types
+pub use ffi::types::{
+    FfiContentType,
+    FfiErrorCode,
+};
+pub use ffi::clipboard::FfiClipboardEntry;
 
 // Note: Tests are in the tests/ directory, not inline
 
