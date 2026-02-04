@@ -44,7 +44,8 @@
       "Bash(grep:*)",
       "Bash(xcodebuild:*)",
       "Bash(./scripts/run.sh:*)",
-      "Bash(scripts/build-macos.sh:*)"
+      "Bash(scripts/build-macos.sh:*)",
+      "Bash(bash:*)"
     ]
   }
 }

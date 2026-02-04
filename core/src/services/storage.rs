@@ -2,6 +2,9 @@ use std::path::{Path, PathBuf};
 use std::fs::{self, File};
 use std::io::Write;
 
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+
 /// Error types for storage operations
 #[derive(Debug, thiserror::Error)]
 pub enum StorageError {
@@ -47,7 +50,20 @@ impl StorageService {
         let mut file = File::create(&file_path)?;
         file.write_all(data)?;
 
+        // Set file permissions to 600 (owner read/write only)
+        #[cfg(unix)]
+        Self::set_secure_permissions(&file_path)?;
+
         Ok(file_path)
+    }
+
+    /// Set secure file permissions (600 - owner read/write only)
+    #[cfg(unix)]
+    fn set_secure_permissions(path: &Path) -> Result<(), StorageError> {
+        let mut perms = fs::metadata(path)?.permissions();
+        perms.set_mode(0o600); // Owner: rw, Group: ---, Others: ---
+        fs::set_permissions(path, perms)?;
+        Ok(())
     }
 
     /// Get sharded directory path for hash

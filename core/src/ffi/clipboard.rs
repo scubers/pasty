@@ -303,12 +303,40 @@ pub extern "C" fn pasty_shutdown() -> FfiErrorCode {
 
 /// Get clipboard history with pagination
 ///
+/// Retrieves clipboard entries from the database with pagination support.
+/// Entries are ordered by timestamp (most recent first).
+///
+/// # Thread Safety
+/// This function is thread-safe and uses internal mutex locking.
+///
 /// # Arguments
-/// * `limit` - Maximum number of entries to return
-/// * `offset` - Number of entries to skip
+/// * `limit` - Maximum number of entries to return (recommended: 10-100)
+/// * `offset` - Number of entries to skip for pagination
 ///
 /// # Returns
-/// Pointer to FfiClipboardEntryList (must be freed with pasty_list_free), or null on error
+/// * Success: Pointer to `FfiClipboardEntryList` containing `count` and array of entries
+/// * Error: Null pointer (check `pasty_get_last_error()` for details)
+///
+/// # Memory Management
+/// The returned list **must** be freed with `pasty_list_free()` to avoid memory leaks.
+/// Individual entries within the list are automatically freed when the list is freed.
+///
+/// # Example
+/// ```c
+/// FfiClipboardEntryList* list = pasty_get_clipboard_history(10, 0);
+/// if (list) {
+///     for (size_t i = 0; i < list->count; i++) {
+///         FfiClipboardEntry* entry = list->entries[i];
+///         // Use entry...
+///     }
+///     pasty_list_free(list);
+/// }
+/// ```
+///
+/// # Errors
+/// Returns null if:
+/// - Store not initialized (call `pasty_clipboard_init` first)
+/// - Database query error
 #[no_mangle]
 pub extern "C" fn pasty_get_clipboard_history(
     limit: usize,
@@ -359,13 +387,38 @@ pub extern "C" fn pasty_get_clipboard_history(
     }
 }
 
-/// Get entry by ID
+/// Get a clipboard entry by its unique ID
+///
+/// Retrieves a single clipboard entry from the database using its UUID.
+///
+/// # Thread Safety
+/// This function is thread-safe and uses internal mutex locking.
 ///
 /// # Arguments
-/// * `id` - UUID string of the entry to retrieve
+/// * `id` - Null-terminated UTF-8 string containing the UUID (e.g., "01234567-89ab-cdef-0123-456789abcdef")
 ///
 /// # Returns
-/// Pointer to FfiClipboardEntry (must be freed with pasty_clipboard_entry_free), or null if not found
+/// * Success: Pointer to `FfiClipboardEntry` containing the entry data
+/// * Not Found: Null pointer (not an error, entry simply doesn't exist)
+/// * Error: Null pointer (check `pasty_get_last_error()` for details)
+///
+/// # Memory Management
+/// The returned entry **must** be freed with `pasty_clipboard_entry_free()` to avoid memory leaks.
+///
+/// # Example
+/// ```c
+/// FfiClipboardEntry* entry = pasty_get_entry_by_id("01234567-89ab-cdef-0123-456789abcdef");
+/// if (entry) {
+///     // Use entry...
+///     pasty_clipboard_entry_free(entry);
+/// }
+/// ```
+///
+/// # Errors
+/// Returns null if:
+/// - Invalid UUID format
+/// - Store not initialized
+/// - Database query error
 #[no_mangle]
 pub extern "C" fn pasty_get_entry_by_id(
     id: *const c_char,
@@ -405,10 +458,33 @@ pub extern "C" fn pasty_get_entry_by_id(
     }
 }
 
-/// Free a clipboard entry list
+/// Free a clipboard entry list and all its entries
+///
+/// Releases memory allocated for a clipboard entry list returned by
+/// `pasty_get_clipboard_history()`. This function frees both the list
+/// structure and all individual entries within it.
+///
+/// # Thread Safety
+/// This function is thread-safe.
 ///
 /// # Arguments
-/// * `list` - Pointer to FfiClipboardEntryList to free
+/// * `list` - Pointer to `FfiClipboardEntryList` to free (can be null)
+///
+/// # Memory Safety
+/// - Safe to call with null pointer (function does nothing)
+/// - **Double-free protection**: After calling this function, the pointer
+///   becomes invalid and must not be used again
+/// - All entries within the list are automatically freed
+///
+/// # Example
+/// ```c
+/// FfiClipboardEntryList* list = pasty_get_clipboard_history(10, 0);
+/// if (list) {
+///     // Process entries...
+///     pasty_list_free(list);
+///     list = NULL;  // Avoid dangling pointer
+/// }
+/// ```
 #[no_mangle]
 pub extern "C" fn pasty_list_free(list: *mut FfiClipboardEntryList) {
     if list.is_null() {

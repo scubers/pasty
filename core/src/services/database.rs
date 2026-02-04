@@ -34,6 +34,10 @@ impl Database {
         conn.pragma_update(None, "journal_mode", "WAL")?;
         conn.pragma_update(None, "synchronous", "NORMAL")?;
 
+        // Enable prepared statement cache for better performance
+        // Cache up to 100 prepared statements
+        conn.set_prepared_statement_cache_capacity(100);
+
         let db = Self { conn };
         db.initialize()?;
 
