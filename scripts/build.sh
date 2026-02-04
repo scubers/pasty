@@ -66,6 +66,18 @@ build_core_library() {
     log_info "✓ Core library built successfully"
 }
 
+# Build macOS app
+build_macos_app() {
+    log_step "Building macOS app..."
+
+    if ! "$SCRIPT_DIR/build-macos.sh" "$BUILD_TYPE"; then
+        log_error "macOS app build failed"
+        exit 5
+    fi
+
+    log_info "✓ macOS app built successfully"
+}
+
 # Show build summary
 show_summary() {
     local PROJECT_ROOT="$(get_project_root)"
@@ -77,7 +89,7 @@ show_summary() {
     echo "Build Artifacts:"
 
     if [[ -d "$PROJECT_ROOT/build" ]]; then
-        find "$PROJECT_ROOT/build" -name "*.a" -o -name "*.h" 2>/dev/null | while read -r file; do
+        find "$PROJECT_ROOT/build" \( -name "*.a" -o -name "*.h" -o -name "*.app" \) 2>/dev/null | while read -r file; do
             echo "  $file"
         done
     fi
@@ -98,8 +110,8 @@ main() {
     # Build core library first
     build_core_library
 
-    # Note: macOS app build will be added in User Story 3
-    # For now (User Story 1 & 2), we only build the Rust core
+    # Build macOS app
+    build_macos_app
 
     show_summary
     log_info "✓ Build completed successfully!"
