@@ -51,9 +51,13 @@ impl ClipboardStore {
     /// - Cannot create storage directory
     /// - Migration fails
     pub fn new<P: AsRef<Path>>(db_path: P, storage_base_dir: P) -> Result<Self, DatabaseError> {
-        let db = Database::open(db_path)?;
-        let storage = StorageService::new(storage_base_dir)
-            .map_err(|e| DatabaseError::Connection(e.to_string()))?;
+        let db = Database::open(&db_path)?;
+        let storage_path = storage_base_dir.as_ref();
+        let storage = StorageService::new(&storage_base_dir)
+            .map_err(|e| DatabaseError::connection_error(
+                storage_path.display().to_string(),
+                e.to_string()
+            ))?;
 
         Ok(Self { db, storage })
     }
@@ -166,7 +170,10 @@ impl ClipboardStore {
 
         // Save image to disk
         let _image_path = self.storage.save_image(&hash, image_data, format)
-            .map_err(|e| DatabaseError::Connection(e.to_string()))?;
+            .map_err(|e| DatabaseError::connection_error(
+                format!("image save for hash {}", hash),
+                e.to_string()
+            ))?;
 
         // Get relative path for storage in database
         let relative_path = self.storage.get_relative_path(&hash, format);
