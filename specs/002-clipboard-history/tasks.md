@@ -226,7 +226,7 @@ This project uses a cross-platform architecture:
 
 - [ ] T104 [P] Profile clipboard change detection latency (target: < 100ms)
 - [ ] T105 [P] Profile database query performance with 10k entries (target: < 50ms)
-- [ ] T106 [P] Add prepared statement caching if not already implemented
+- [x] T106 [P] Add prepared statement caching if not already implemented
 - [ ] T107 [P] Optimize image file I/O with buffered writes
 
 ### Error Handling & Logging
@@ -238,15 +238,15 @@ This project uses a cross-platform architecture:
 
 ### Security & Privacy
 
-- [ ] T112 [P] Verify database file permissions (600) in core/src/services/storage.rs
+- [x] T112 [P] Verify database file permissions (600) in core/src/services/storage.rs
 - [ ] T113 [P] Verify clipboard access permission handling in Swift
 - [ ] T114 [P] Add secure deletion option for clipboard history
 
 ### Documentation & Developer Experience
 
 - [ ] T115 [P] Create quickstart.md validation checklist
-- [ ] T116 [P] Add inline documentation to FFI functions
-- [ ] T117 [P] Add inline documentation to public API surfaces
+- [x] T116 [P] Add inline documentation to FFI functions
+- [x] T117 [P] Add inline documentation to public API surfaces
 - [ ] T118 [P] Create example usage documentation for clipboard monitoring
 
 ### Additional Testing
