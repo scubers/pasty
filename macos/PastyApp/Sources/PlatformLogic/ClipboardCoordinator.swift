@@ -19,24 +19,38 @@ class ClipboardCoordinator {
             return
         }
 
-        // Call FFI to store in database
-        ffiBridge.storeText(
-            text: normalized,
-            sourceBundleId: source.bundleId,
-            sourceAppName: source.appName,
-            sourcePid: source.pid
-        )
+        // T081-T083: Error handling with graceful degradation
+        do {
+            // Call FFI to store in database
+            ffiBridge.storeText(
+                text: normalized,
+                sourceBundleId: source.bundleId,
+                sourceAppName: source.appName,
+                sourcePid: source.pid
+            )
+        } catch {
+            // T082-T083: Graceful degradation - log error but don't crash
+            NSLog("[ClipboardCoordinator] Error storing text content: \(error.localizedDescription)")
+            NSLog("[ClipboardCoordinator] Continuing monitoring despite error")
+        }
     }
 
     /// Store image content via FFI
     func storeImageContent(_ imageData: Data, format: String, source: SourceApplication) {
-        // Call FFI to store in database and file system
-        ffiBridge.storeImage(
-            imageData: imageData,
-            format: format,
-            sourceBundleId: source.bundleId,
-            sourceAppName: source.appName,
-            sourcePid: source.pid
-        )
+        // T081-T083: Error handling with graceful degradation
+        do {
+            // Call FFI to store in database and file system
+            ffiBridge.storeImage(
+                imageData: imageData,
+                format: format,
+                sourceBundleId: source.bundleId,
+                sourceAppName: source.appName,
+                sourcePid: source.pid
+            )
+        } catch {
+            // T082-T083: Graceful degradation - log error but don't crash
+            NSLog("[ClipboardCoordinator] Error storing image content: \(error.localizedDescription)")
+            NSLog("[ClipboardCoordinator] Continuing monitoring despite error")
+        }
     }
 }

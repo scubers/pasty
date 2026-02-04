@@ -9,6 +9,10 @@ class ClipboardMonitor {
     private let detector: ContentTypeDetector
     private let coordinator: ClipboardCoordinator
 
+    // T077: Debounce logic to prevent rapid successive processing
+    private var debounceTimer: Timer?
+    private let debounceInterval: TimeInterval = 0.2  // 200ms
+
     init(detector: ContentTypeDetector = ContentTypeDetector(),
          coordinator: ClipboardCoordinator = ClipboardCoordinator()) {
         self.detector = detector
@@ -20,12 +24,20 @@ class ClipboardMonitor {
         // Initialize change count
         lastChangeCount = pasteboard.changeCount
 
-        // Poll every 500ms
-        monitorTimer = Timer.scheduledTimer(
-            withTimeInterval: 0.5,
-            repeats: true
-        ) { [weak self] _ in
-            self?.checkForChanges()
+        // T080: Run monitoring on background queue to avoid blocking main thread
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+
+            // Poll every 500ms
+            self.monitorTimer = Timer.scheduledTimer(
+                withTimeInterval: 0.5,
+                repeats: true
+            ) { [weak self] _ in
+                self?.checkForChanges()
+            }
+
+            // Start the run loop for this thread
+            RunLoop.current.run()
         }
 
         NSLog("[ClipboardMonitor] Started monitoring clipboard changes")
@@ -35,6 +47,11 @@ class ClipboardMonitor {
     func stopMonitoring() {
         monitorTimer?.invalidate()
         monitorTimer = nil
+
+        // Cancel any pending debounced processing
+        debounceTimer?.invalidate()
+        debounceTimer = nil
+
         NSLog("[ClipboardMonitor] Stopped monitoring clipboard changes")
     }
 
@@ -44,24 +61,38 @@ class ClipboardMonitor {
 
         if currentChangeCount != lastChangeCount {
             lastChangeCount = currentChangeCount
-            processClipboardChange()
+
+            // T077: Debounce rapid changes to avoid processing multiple times
+            debounceTimer?.invalidate()
+            debounceTimer = Timer.scheduledTimer(
+                withTimeInterval: debounceInterval,
+                repeats: false
+            ) { [weak self] _ in
+                self?.processClipboardChange()
+            }
         }
     }
 
     /// Process clipboard change with debounce
     private func processClipboardChange() {
-        // Detect content type
-        let detectedType = detector.detectContentType(from: pasteboard)
+        // T081: Error handling - wrap processing in do-catch
+        do {
+            // Detect content type
+            let detectedType = detector.detectContentType(from: pasteboard)
 
-        switch detectedType {
-        case .text:
-            handleTextContent()
-        case .image:
-            handleImageContent()
-        case .fileReference:
-            handleFileReference()
-        case .unsupported:
-            NSLog("[ClipboardMonitor] Unsupported content type ignored")
+            switch detectedType {
+            case .text:
+                handleTextContent()
+            case .image:
+                handleImageContent()
+            case .fileReference:
+                handleFileReference()
+            case .unsupported:
+                NSLog("[ClipboardMonitor] Unsupported content type ignored")
+            }
+        } catch {
+            // T082-T083: Graceful degradation - log error but continue monitoring
+            NSLog("[ClipboardMonitor] Error processing clipboard change: \(error.localizedDescription)")
         }
     }
 

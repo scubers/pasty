@@ -43,7 +43,8 @@
       "Bash(hdiutil detach:*)",
       "Bash(grep:*)",
       "Bash(xcodebuild:*)",
-      "Bash(./scripts/run.sh:*)"
+      "Bash(./scripts/run.sh:*)",
+      "Bash(scripts/build-macos.sh:*)"
     ]
   }
 }

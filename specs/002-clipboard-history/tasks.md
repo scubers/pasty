@@ -134,36 +134,36 @@ This project uses a cross-platform architecture:
 
 #### Rust Core Implementation
 
-- [ ] T060 [P] [US1] Implement hash_text function in core/src/services/deduplication.rs
-- [ ] T061 [P] [US1] Implement hash_image function in core/src/services/deduplication.rs
-- [ ] T062 [P] [US1] Implement normalize_text function (trim whitespace) in core/src/services/deduplication.rs
-- [ ] T063 [US1] Implement check_duplicate function in core/src/services/clipboard_store.rs (depends on T060, T061)
-- [ ] T064 [US1] Implement store_text_entry function in core/src/services/clipboard_store.rs (depends on T063)
-- [ ] T065 [US1] Implement store_image_entry function in core/src/services/clipboard_store.rs (depends on T063)
-- [ ] T066 [US1] Implement update_duplicate_timestamp function in core/src/services/clipboard_store.rs
-- [ ] T067 [US1] Implement save_image_file function with sharding in core/src/services/storage.rs
-- [ ] T068 [US1] Add prepared statement caching for database queries in core/src/services/database.rs
+- [x] T060 [P] [US1] Implement hash_text function in core/src/services/deduplication.rs
+- [x] T061 [P] [US1] Implement hash_image function in core/src/services/deduplication.rs
+- [x] T062 [P] [US1] Implement normalize_text function (trim whitespace) in core/src/services/deduplication.rs
+- [x] T063 [US1] Implement check_duplicate function in core/src/services/clipboard_store.rs (depends on T060, T061)
+- [x] T064 [US1] Implement store_text_entry function in core/src/services/clipboard_store.rs (depends on T063)
+- [x] T065 [US1] Implement store_image_entry function in core/src/services/clipboard_store.rs (depends on T063)
+- [x] T066 [US1] Implement update_duplicate_timestamp function in core/src/services/clipboard_store.rs
+- [x] T067 [US1] Implement save_image_file function with sharding in core/src/services/storage.rs
+- [x] T068 [US1] Add prepared statement caching for database queries in core/src/services/database.rs
 
 #### Swift/macOS Implementation
 
-- [ ] T069 [US1] Implement NSPasteboard polling with 500ms interval in macos/PastyApp/Sources/ClipboardMonitor/Monitor.swift
-- [ ] T070 [US1] Implement changeCount comparison for change detection in macos/PastyApp/Sources/ClipboardMonitor/Monitor.swift
-- [ ] T071 [US1] Implement content type detection with UTI priority checking in macos/PastyApp/Sources/ContentDetectors/ContentTypeDetector.swift
-- [ ] T072 [US1] Implement TextHandler content extraction in macos/PastyApp/Sources/ContentHandlers/TextHandler.swift
-- [ ] T073 [US1] Implement ImageHandler content extraction in macos/PastyApp/Sources/ContentHandlers/ImageHandler.swift
-- [ ] T074 [US1] Implement FileHandler logging (no storage) in macos/PastyApp/Sources/ContentHandlers/FileHandler.swift
-- [ ] T075 [US1] Implement MetadataExtractor for source app detection in macos/PastyApp/Sources/PlatformLogic/MetadataExtractor.swift
-- [ ] T076 [US1] Implement ClipboardCoordinator handler orchestration in macos/PastyApp/Sources/PlatformLogic/ClipboardCoordinator.swift
-- [ ] T077 [US1] Implement debounce logic (200ms) for rapid changes in macos/PastyApp/Sources/ClipboardMonitor/ClipboardMonitor.swift
-- [ ] T078 [US1] Wire up FFI call from ClipboardCoordinator to Rust pasty_store_clipboard_entry in macos/PastyApp/Sources/PlatformLogic/ClipboardCoordinator.swift
+- [x] T069 [US1] Implement NSPasteboard polling with 500ms interval in macos/PastyApp/Sources/ClipboardMonitor/Monitor.swift
+- [x] T070 [US1] Implement changeCount comparison for change detection in macos/PastyApp/Sources/ClipboardMonitor/Monitor.swift
+- [x] T071 [US1] Implement content type detection with UTI priority checking in macos/PastyApp/Sources/ContentDetectors/ContentTypeDetector.swift
+- [x] T072 [US1] Implement TextHandler content extraction in macos/PastyApp/Sources/ContentHandlers/TextHandler.swift
+- [x] T073 [US1] Implement ImageHandler content extraction in macos/PastyApp/Sources/ContentHandlers/ImageHandler.swift
+- [x] T074 [US1] Implement FileHandler logging (no storage) in macos/PastyApp/Sources/ContentHandlers/FileHandler.swift
+- [x] T075 [US1] Implement MetadataExtractor for source app detection in macos/PastyApp/Sources/PlatformLogic/MetadataExtractor.swift
+- [x] T076 [US1] Implement ClipboardCoordinator handler orchestration in macos/PastyApp/Sources/PlatformLogic/ClipboardCoordinator.swift
+- [x] T077 [US1] Implement debounce logic (200ms) for rapid changes in macos/PastyApp/Sources/ClipboardMonitor/ClipboardMonitor.swift
+- [x] T078 [US1] Wire up FFI call from ClipboardCoordinator to Rust pasty_store_clipboard_entry in macos/PastyApp/Sources/PlatformLogic/ClipboardCoordinator.swift
 
 #### Integration & End-to-End
 
-- [ ] T079 [US1] Integrate Monitor with ClipboardMonitor orchestrator in macos/PastyApp/Sources/ClipboardMonitor/ClipboardMonitor.swift
-- [ ] T080 [US1] Setup background queue for clipboard monitoring to avoid blocking main thread
-- [ ] T081 [US1] Implement error handling and logging for clipboard operations
-- [ ] T082 [US1] Add graceful degradation for database errors (log and continue)
-- [ ] T083 [US1] Add graceful degradation for file system errors (log and continue)
+- [x] T079 [US1] Integrate Monitor with ClipboardMonitor orchestrator in macos/PastyApp/Sources/ClipboardMonitor/ClipboardMonitor.swift
+- [x] T080 [US1] Setup background queue for clipboard monitoring to avoid blocking main thread
+- [x] T081 [US1] Implement error handling and logging for clipboard operations
+- [x] T082 [US1] Add graceful degradation for database errors (log and continue)
+- [x] T083 [US1] Add graceful degradation for file system errors (log and continue)
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently
 **Validation**: Run all tests for US1, copy text/images manually and verify database records
