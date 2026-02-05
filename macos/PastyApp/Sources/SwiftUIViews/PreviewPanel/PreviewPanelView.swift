@@ -7,6 +7,8 @@ struct PreviewPanelView: View {
         VStack(spacing: 12) {
             previewCardView
 
+            Spacer()
+
             tipView
         }
         .padding(14)
