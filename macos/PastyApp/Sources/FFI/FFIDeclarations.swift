@@ -62,6 +62,22 @@ func pasty_clipboard_store_image(
     _ sourcePid: Int32
 ) -> UnsafeMutablePointer<ClipboardFfiEntry>?
 
+@_silgen_name("pasty_clipboard_update_latest_copy_time_by_id")
+func pasty_clipboard_update_latest_copy_time_by_id(
+    _ id: UnsafePointer<CChar>
+) -> Int32
+
+@_silgen_name("pasty_clipboard_delete_entry_by_id")
+func pasty_clipboard_delete_entry_by_id(
+    _ id: UnsafePointer<CChar>
+) -> Int32
+
+@_silgen_name("pasty_clipboard_delete_entries_by_ids")
+func pasty_clipboard_delete_entries_by_ids(
+    _ ids: UnsafePointer<UnsafePointer<CChar>?>,
+    _ count: Int
+) -> Int32
+
 @_silgen_name("pasty_clipboard_entry_free")
 func pasty_clipboard_entry_free(_ entry: UnsafeMutablePointer<ClipboardFfiEntry>)
 

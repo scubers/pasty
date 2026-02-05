@@ -136,6 +136,80 @@ class ClipboardHistory {
         }
     }
 
+    /// Update latest copy time for entry by ID
+    func updateLatestCopyTime(id: String) -> Bool {
+        if useMockData {
+            return true
+        }
+
+        let result: Int32 = id.withCString { idPtr in
+            pasty_clipboard_update_latest_copy_time_by_id(idPtr)
+        }
+
+        if result != 0 {
+            NSLog("[ClipboardHistory] Failed to update latest copy time: \(lastErrorMessage())")
+        }
+
+        return result == 0
+    }
+
+    /// Delete a single entry by ID
+    func deleteEntry(id: String) -> Bool {
+        if useMockData {
+            return true
+        }
+
+        let result: Int32 = id.withCString { idPtr in
+            pasty_clipboard_delete_entry_by_id(idPtr)
+        }
+
+        if result != 0 {
+            NSLog("[ClipboardHistory] Failed to delete entry: \(lastErrorMessage())")
+        }
+
+        return result == 0
+    }
+
+    /// Delete multiple entries by IDs
+    func deleteEntries(ids: [String]) -> Bool {
+        if ids.isEmpty {
+            return true
+        }
+        if useMockData {
+            return true
+        }
+
+        let mutablePointers = ids.map { strdup($0) }
+        defer {
+            for ptr in mutablePointers {
+                free(ptr)
+            }
+        }
+
+        if mutablePointers.contains(where: { $0 == nil }) {
+            NSLog("[ClipboardHistory] Failed to allocate C strings for delete")
+            return false
+        }
+
+        let constPointers: [UnsafePointer<CChar>?] = mutablePointers.map { ptr in
+            guard let ptr else { return nil }
+            return UnsafePointer(ptr)
+        }
+
+        let result: Int32 = constPointers.withUnsafeBufferPointer { buffer in
+            guard let baseAddress = buffer.baseAddress else {
+                return 0
+            }
+            return pasty_clipboard_delete_entries_by_ids(baseAddress, buffer.count)
+        }
+
+        if result != 0 {
+            NSLog("[ClipboardHistory] Failed to delete entries: \(lastErrorMessage())")
+        }
+
+        return result == 0
+    }
+
     // MARK: - Private Helpers
 
     /// Convert FFI entry to Swift ClipboardEntry
@@ -192,5 +266,12 @@ class ClipboardHistory {
             content: content,
             source: source
         )
+    }
+
+    private func lastErrorMessage() -> String {
+        guard let ptr = pasty_get_last_error() else {
+            return "Unknown error"
+        }
+        return String(cString: ptr)
     }
 }
