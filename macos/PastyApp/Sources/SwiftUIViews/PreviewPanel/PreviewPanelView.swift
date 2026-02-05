@@ -4,14 +4,10 @@ struct PreviewPanelView: View {
     @ObservedObject var viewModel: PreviewPanelViewModel
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack() {
             previewCardView
-
-            Spacer()
-
-            tipView
         }
-        .padding(14)
+//        .padding(14)
     }
 
     private var previewCardView: some View {
@@ -146,16 +142,6 @@ struct PreviewPanelView: View {
             .disabled(!viewModel.pasteButtonEnabled)
             .opacity(viewModel.pasteButtonEnabled ? 1.0 : 0.5)
 
-            Spacer()
-        }
-    }
-
-    private var tipView: some View {
-        HStack {
-            Spacer()
-            Text("Tip: ⌘↵ paste · ⌘C copy")
-                .font(.system(size: 12))
-                .foregroundColor(DesignColors.text1)
             Spacer()
         }
     }

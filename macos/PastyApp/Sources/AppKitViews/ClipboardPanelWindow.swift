@@ -29,6 +29,7 @@ class ClipboardPanelWindow: NSPanel {
 
     // Divider
     private let dividerView = NSView()
+    private let footerView = NSView()
 
     // MARK: - Window Position Management (In-Memory)
 
@@ -56,7 +57,7 @@ class ClipboardPanelWindow: NSPanel {
         // Initialize panel - 520px width matching HTML design (1.06:0.94 split)
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: 900, height: 560),
-            styleMask: [.borderless, .fullSizeContentView, .nonactivatingPanel],
+            styleMask: [.borderless, .fullSizeContentView, .nonactivatingPanel, .resizable],
             backing: .buffered,
             defer: false
         )
@@ -139,12 +140,15 @@ class ClipboardPanelWindow: NSPanel {
         // Setup preview panel
         setupPreviewPanel()
 
+        setupFooterView()
+
         // Add subviews
         contentView?.addSubview(topBarView)
         contentView?.addSubview(scrollView)
         contentView?.addSubview(emptyStateView)
         contentView?.addSubview(dividerView)
         contentView?.addSubview(previewContainerView)
+        contentView?.addSubview(footerView)
     }
 
     private func setupTableView() {
@@ -253,18 +257,64 @@ class ClipboardPanelWindow: NSPanel {
     }
 
     private func setupPreviewPanel() {
-        // Create preview panel view
         let previewPanelView = PreviewPanelView(viewModel: previewPanelViewModel)
         previewHost = NSHostingController(rootView: previewPanelView)
         previewContainerView.addSubview(previewHost!.view)
 
-        // Setup divider - subtle separator matching design
         dividerView.wantsLayer = true
         dividerView.layer?.backgroundColor = NSColor(hex: "#2a2a2e").cgColor
 
-        // Layout with SnapKit
         previewHost!.view.snp.makeConstraints { make in
             make.edges.equalToSuperview()
+        }
+    }
+
+    private func setupFooterView() {
+        let shortcuts = [
+            ("↑↓", "Navigate"),
+            ("⌘↩", "Paste"),
+            ("⌘⌫", "Delete"),
+            ("Esc", "Close")
+        ]
+
+        var previousView: NSView?
+        for (key, action) in shortcuts {
+            let container = NSView()
+            footerView.addSubview(container)
+
+            let keyLabel = NSTextField(labelWithString: key)
+            keyLabel.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
+            keyLabel.textColor = NSColor(hex: "#888888")
+            keyLabel.alignment = .center
+            container.addSubview(keyLabel)
+
+            let actionLabel = NSTextField(labelWithString: action)
+            actionLabel.font = NSFont.systemFont(ofSize: 11)
+            actionLabel.textColor = NSColor(hex: "#666666")
+            container.addSubview(actionLabel)
+
+            keyLabel.snp.makeConstraints { make in
+                make.left.top.bottom.equalToSuperview()
+            }
+
+            actionLabel.snp.makeConstraints { make in
+                make.left.equalTo(keyLabel.snp.right).offset(4)
+                make.right.top.bottom.equalToSuperview()
+            }
+
+            if let previous = previousView {
+                container.snp.makeConstraints { make in
+                    make.left.equalTo(previous.snp.right).offset(16)
+                    make.centerY.equalToSuperview()
+                }
+            } else {
+                container.snp.makeConstraints { make in
+                    make.left.equalToSuperview()
+                    make.centerY.equalToSuperview()
+                }
+            }
+
+            previousView = container
         }
     }
 
@@ -282,7 +332,7 @@ class ClipboardPanelWindow: NSPanel {
         scrollView.snp.makeConstraints { make in
             make.top.equalTo(topBarView.snp.bottom).offset(12)
             make.left.equalToSuperview().offset(12)
-            make.bottom.equalToSuperview().offset(-10)
+            make.bottom.equalTo(footerView.snp.top).offset(-8)
             make.width.equalTo(contentView.snp.width).multipliedBy(0.40)
         }
 
@@ -311,6 +361,13 @@ class ClipboardPanelWindow: NSPanel {
             make.left.equalTo(scrollView.snp.left)
             make.right.equalTo(scrollView.snp.right)
             make.bottom.equalTo(scrollView.snp.bottom)
+        }
+
+        footerView.snp.makeConstraints { make in
+            make.left.equalToSuperview().offset(12)
+            make.right.equalToSuperview().offset(-12)
+            make.bottom.equalToSuperview().offset(-8)
+            make.height.equalTo(20)
         }
     }
 
@@ -391,7 +448,7 @@ class ClipboardPanelWindow: NSPanel {
 
                 if self.isKeyWindow {
                     NSLog("✅ Window became key after \(attempts) attempts")
-                    // Focus search bar after window is key
+                    self.selectFirstRowIfNeeded()
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                         self.focusSearchBar()
                     }
@@ -453,6 +510,22 @@ class ClipboardPanelWindow: NSPanel {
             // Fallback: print view hierarchy for debugging
             printViewHierarchy(searchBarHost.view, level: 0)
         }
+    }
+
+    private func selectFirstRowIfNeeded() {
+        let rowCount = tableView.numberOfRows
+        guard rowCount > 0 && tableView.selectedRow < 0 else { return }
+
+        let firstRow = 0
+        tableView.selectRowIndexes(IndexSet(integer: firstRow), byExtendingSelection: false)
+        tableView.scrollRowToVisible(firstRow)
+
+        if firstRow < mainPanelViewModel.filteredEntries.count {
+            let entry = mainPanelViewModel.filteredEntries[firstRow]
+            mainPanelViewModel.handle(.selectEntry(id: entry.id))
+        }
+
+        NSLog("✅ Auto-selected first row: \(firstRow)")
     }
 
     /// Recursively find NSTextField in view hierarchy

@@ -19,7 +19,7 @@ struct ImagePreviewView: View {
                     .padding(20)
             }
         }
-        .background(Color(red: 0.14, green: 0.14, blue: 0.16))
+//        .background(Color(red: 0.14, green: 0.14, blue: 0.16))
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
