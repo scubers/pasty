@@ -455,8 +455,8 @@ class ClipboardPanelWindow: NSPanel {
 
                 if self.isKeyWindow {
                     NSLog("✅ Window became key after \(attempts) attempts")
+                    self.selectFirstRowIfNeeded()
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                        self.selectFirstRowIfNeeded()
                         self.focusSearchBar()
                     }
                     return
@@ -491,6 +491,8 @@ class ClipboardPanelWindow: NSPanel {
 
         orderOut(nil)
 
+        restorePreviousAppFocus()
+
         Logger.info("Clipboard panel hidden")
     }
 
@@ -521,7 +523,7 @@ class ClipboardPanelWindow: NSPanel {
 
     private func selectFirstRowIfNeeded() {
         let rowCount = mainPanelViewModel.filteredEntries.count
-        guard rowCount > 0, mainPanelViewModel.selectedEntryId == nil else { return }
+        guard rowCount > 0 else { return }
 
         let entry = mainPanelViewModel.filteredEntries[0]
         mainPanelViewModel.handle(.selectEntry(id: entry.id))
@@ -617,7 +619,7 @@ class ClipboardPanelWindow: NSPanel {
 
         if isCommand && keyCode == 36 {
             NSLog("⌘⏎ Cmd+Enter - copy only")
-            copySelected()
+            copySelectedAndClose()
             return true
         }
 
@@ -638,7 +640,7 @@ class ClipboardPanelWindow: NSPanel {
             selectPreviousRow()
             return true
         case 36: // Enter
-            copyAndPasteSelected()
+            pasteSelectedAndClose()
             return true
         default:
             return false
@@ -675,15 +677,18 @@ class ClipboardPanelWindow: NSPanel {
         NSLog("✅ Selected row: \(previousIndex)")
     }
 
-    private func copyAndPasteSelected() {
+    private func pasteSelectedAndClose() {
         guard let selectedId = mainPanelViewModel.selectedEntryId else {
             NSLog("⚠️ No row selected")
             return
         }
 
-        mainPanelViewModel.handle(.pasteEntry(id: selectedId))
         hidePanel()
-        NSLog("✅ Copied and pasted: \(selectedId)")
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
+            self?.mainPanelViewModel.handle(.pasteEntry(id: selectedId))
+            NSLog("✅ Copied and pasted: \(selectedId)")
+        }
     }
 
     private func copySelected() {
@@ -694,6 +699,11 @@ class ClipboardPanelWindow: NSPanel {
 
         mainPanelViewModel.handle(.copyEntry(id: selectedId))
         NSLog("✅ Copied: \(selectedId)")
+    }
+
+    private func copySelectedAndClose() {
+        copySelected()
+        hidePanel()
     }
 
     private func deleteSelected() {
@@ -859,6 +869,16 @@ class ClipboardPanelWindow: NSPanel {
             NSLog("🔔 Window resigned key while panel marked as shown, syncing state")
             saveScrollPosition()
             panelIsShown = false
+            restorePreviousAppFocus()
+        }
+    }
+
+    private func restorePreviousAppFocus() {
+        guard let previousBundleId = previousActiveAppBundleId else { return }
+        guard previousBundleId != Bundle.main.bundleIdentifier else { return }
+
+        if let app = NSRunningApplication.runningApplications(withBundleIdentifier: previousBundleId).first {
+            app.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
         }
     }
 }

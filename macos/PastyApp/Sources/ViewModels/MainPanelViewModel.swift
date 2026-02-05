@@ -191,10 +191,11 @@ class MainPanelViewModel: ObservableObject {
     }
 
     /// Copy entry to clipboard
-    private func copyEntry(id: String) {
+    private func copyEntry(id: String, completion: ((Bool) -> Void)? = nil) {
         guard let entry = allEntries.first(where: { $0.id == id }) else {
             Logger.warning("Entry not found for copy: \(id)")
             errorMessage = "Entry not found"
+            completion?(false)
             return
         }
 
@@ -205,11 +206,13 @@ class MainPanelViewModel: ObservableObject {
                 await MainActor.run {
                     Logger.warning("Entry not found for copy: \(id)")
                     self.errorMessage = "Entry not found"
+                    completion?(false)
                 }
                 return
             }
 
             await MainActor.run {
+                var copySucceeded = true
                 switch fullEntry.content {
                 case .text(let text):
                     self.copyTextToClipboard(text)
@@ -224,32 +227,51 @@ class MainPanelViewModel: ObservableObject {
                     } else {
                         Logger.warning("Failed to load image for copy: \(entry.title)")
                         self.errorMessage = "Failed to load image"
+                        copySucceeded = false
                     }
                 }
 
-                if !self.clipboardHistory.updateLatestCopyTime(id: id) {
+                if copySucceeded, !self.clipboardHistory.updateLatestCopyTime(id: id) {
                     self.errorMessage = "Failed to update copy time"
+                    copySucceeded = false
                 }
                 self.loadEntries()
+                completion?(copySucceeded)
             }
         }
     }
 
     /// Copy entry and simulate paste
     private func pasteEntry(id: String) {
-        copyEntry(id: id)
+        copyEntry(id: id) { [weak self] success in
+            guard let self = self, success else { return }
 
-        guard let previousBundleId = previousActiveAppBundleId else {
-            Logger.info("No previous app focused; skipping paste")
-            errorMessage = "No active application to paste into"
-            return
+            guard let previousBundleId = self.previousActiveAppBundleId else {
+                Logger.info("No previous app focused; skipping paste")
+                self.errorMessage = "No active application to paste into"
+                return
+            }
+
+            if previousBundleId == Bundle.main.bundleIdentifier {
+                Logger.info("Previous app is this app; skipping paste")
+                return
+            }
+
+            let apps = NSRunningApplication.runningApplications(withBundleIdentifier: previousBundleId)
+            if let app = apps.first {
+                app.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
+            } else {
+                Logger.warning("Previous app not found by bundle id: \(previousBundleId)")
+            }
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+                self.sendPasteEvent()
+                Logger.info("Pasted entry: \(id)")
+            }
         }
+    }
 
-        if previousBundleId == Bundle.main.bundleIdentifier {
-            Logger.info("Previous app is this app; skipping paste")
-            return
-        }
-
+    private func sendPasteEvent() {
         let source = CGEventSource(stateID: .combinedSessionState)
         let cmdVDown = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: true)
         let cmdVUp = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: false)
@@ -259,8 +281,6 @@ class MainPanelViewModel: ObservableObject {
 
         cmdVDown?.post(tap: .cghidEventTap)
         cmdVUp?.post(tap: .cghidEventTap)
-
-        Logger.info("Pasted entry: \(id)")
     }
 
     /// Delete a single entry with confirmation
