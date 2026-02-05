@@ -26,27 +26,28 @@ Users need to view their clipboard history in a main panel that shows all previo
 
 **Acceptance Scenarios**:
 
-1. **Given** the application is running with clipboard history enabled, **When** user opens the main panel, **Then** a window appears displaying all recorded clipboard entries in a list
+1. **Given** the application is running with clipboard history enabled, **When** user presses Cmd+Shift+V, **Then** a window appears displaying all recorded clipboard entries in a list
 2. **Given** the main panel is open with clipboard entries displayed, **When** user scrolls through the list, **Then** all entries are accessible and scroll smoothly without lag
 3. **Given** clipboard entries with different content types, **When** main panel displays the list, **Then** each entry shows appropriate preview (text snippet for text, thumbnail for image)
 4. **Given** the main panel is open, **When** user copies new content to clipboard, **Then** the list updates automatically to show the new entry at the top
+5. **Given** the main panel is shown, **When** it appears, **Then** the search input is focused and the first entry is selected
 
 ---
 
 ### User Story 2 - Select and Copy Clipboard Entry (Priority: P1)
 
-Users need to select an item from the clipboard history and copy it back to the system clipboard. When they click or tap on an entry, the content should be copied to the clipboard, making it available for pasting in other applications.
+Users need to select an item from the clipboard history and copy it back to the system clipboard. When they trigger a copy action, the content should be copied to the clipboard, making it available for pasting in other applications.
 
 **Why this priority**: This is the core utility of the clipboard manager - allowing users to reuse previous clipboard content. Without selection and copy functionality, the history is just a display with no utility. This is equal priority with Story 1 because both are needed for basic functionality.
 
-**Independent Test**: Can be fully tested by selecting an entry from the history list and then pasting in another application. The test passes when the selected content appears in the target application and matches the original clipboard entry.
+**Independent Test**: Can be fully tested by selecting an entry from the history list, triggering copy (Cmd+Enter) or paste (Enter), and verifying the content in a target application. The test passes when the pasted content matches the original clipboard entry.
 
 **Acceptance Scenarios**:
 
-1. **Given** the main panel displays clipboard entries, **When** user clicks on an entry, **Then** the entry's content is copied to the system clipboard
-2. **Given** user has selected a clipboard entry, **When** user switches to another application and pastes, **Then** the pasted content matches the selected clipboard entry exactly
-3. **Given** text entries in the history list, **When** user selects a text entry, **Then** the full text (not just preview) is copied to clipboard
-4. **Given** image entries in the history list, **When** user selects an image entry, **Then** the full image is copied to clipboard
+1. **Given** the main panel displays clipboard entries, **When** user selects an entry, **Then** the preview updates without copying to clipboard
+2. **Given** user has selected a clipboard entry, **When** user presses Cmd+Enter, **Then** the selected entry's full content is copied to the system clipboard
+3. **Given** user has selected a clipboard entry, **When** user presses Enter, **Then** the entry is copied to the system clipboard, the panel closes, and Cmd+V is sent to the previously active application unless the previous application is this app
+4. **Given** user selects a text or image entry and triggers copy, **Then** the full content (not just preview) is copied to clipboard
 
 ---
 
@@ -113,9 +114,11 @@ Users need to navigate and select clipboard entries using keyboard shortcuts for
 **Acceptance Scenarios**:
 
 1. **Given** the main panel is open with clipboard entries, **When** user presses arrow keys, **Then** the selection moves up/down through the list
-2. **Given** an entry is selected, **When** user presses Enter, **Then** the selected entry is copied to clipboard
-3. **Given** the main panel is focused, **When** user presses Escape, **Then** the main panel closes
-4. **Given** keyboard focus in search box, **When** user presses Tab, **Then** focus moves to the clipboard list
+2. **Given** the selection is on the first entry, **When** user presses Up, **Then** selection moves to the last entry (wrap-around)
+3. **Given** the selection is on the last entry, **When** user presses Down, **Then** selection moves to the first entry (wrap-around)
+4. **Given** an entry is selected, **When** user presses Cmd+Enter, **Then** the selected entry is copied to clipboard
+5. **Given** an entry is selected, **When** user presses Enter, **Then** the selected entry is copied, the panel closes, and Cmd+V is sent to the previously active application unless the previous application is this app
+6. **Given** the main panel is shown, **When** user presses Escape, **Then** the main panel closes
 
 ---
 
@@ -129,7 +132,7 @@ Users need to navigate and select clipboard entries using keyboard shortcuts for
 - What happens when user performs rapid searches (typing quickly)? (Debounce search to avoid excessive filtering operations)
 - What happens when main panel is resized to very small dimensions? (Show scrollbars and maintain minimum usable width)
 - What happens when clipboard entry source application is no longer installed? (Still display app name and icon from recorded metadata)
-- What happens when user deletes entry that is currently selected? (Move selection to next available entry, clear preview panel)
+- What happens when user deletes entry that is currently selected? (Select next entry if available; otherwise select previous entry; preview updates accordingly)
 - What happens when user has pinned all entries and adds new content? (New content appears below pinned entries)
 - What happens when preview panel content is extremely long (e.g., 10,000 characters)? (Show scrollable text area with line wrapping)
 - What happens when user toggles between All/Text/Images filters with active search? (Apply both filters in combination)
@@ -183,7 +186,7 @@ Each clipboard entry displays as a card with:
 - **Action Buttons** (at bottom):
   - "Copy": Gray, outlined button (secondary action)
   - "Paste": Blue, filled button (primary action)
-- **Keyboard Shortcuts Bar**: Bottom tip bar showing shortcuts (e.g., "⌘← paste · ⌘C copy")
+- **Keyboard Shortcuts Bar**: Bottom tip bar showing shortcuts (e.g., "Enter paste · Cmd+Enter copy")
 
 ### Visual Style
 
@@ -219,8 +222,8 @@ Each clipboard entry displays as a card with:
 - **Copy Button**: Copies selected entry to system clipboard (for later pasting)
 - **Paste Button**: Copies selected entry to clipboard AND immediately pastes into active application
 - **Keyboard Shortcuts**:
-  - ⌘C: Copy selected entry to clipboard
-  - ⌘←: Paste selected entry (copy + paste action)
+  - Cmd+Enter: Copy selected entry to clipboard
+  - Enter: Copy selected entry, close panel, and paste into previously active application (Cmd+V), unless the previous application is this app
 
 #### Filtering
 - Filter buttons (All/Text/Images) immediately filter the list
@@ -232,28 +235,28 @@ Each clipboard entry displays as a card with:
 ### Functional Requirements
 
 #### Main Panel Display
-- **FR-001**: System MUST provide a main panel window that displays clipboard history entries
+- **FR-001**: System MUST provide a main panel window that displays clipboard history entries and floats above other applications' windows while remaining below other in-app UI
 - **FR-002**: System MUST display clipboard entries in reverse chronological order (most recent first)
 - **FR-003**: System MUST show content preview for each entry (text snippet for text, thumbnail for image)
 - **FR-004**: System MUST display timestamp for each clipboard entry in human-readable format (e.g., "2 minutes ago", "Today at 3:45 PM")
 - **FR-005**: System MUST display source application name for each clipboard entry
-- **FR-006**: System MUST support scrolling through clipboard history list when entries exceed visible area
+- **FR-006**: System MUST support scrolling through clipboard history list when entries exceed visible area and keep the selected entry within the visible viewport
 - **FR-007**: System MUST update the main panel automatically when new clipboard entries are added
 - **FR-008**: System MUST display empty state message when no clipboard entries exist
 
 #### Entry Selection and Preview
-- **FR-009**: System MUST allow user to select a clipboard entry by clicking on it
+- **FR-009**: System MUST allow user to select a clipboard entry by clicking on it and select the first entry by default when the panel is shown
 - **FR-010**: System MUST display selected entry in preview panel without automatically copying to clipboard
 - **FR-011**: System MUST provide visual feedback indicating which entry is currently selected (blue background, left border)
 - **FR-012**: System MUST show full content preview for selected entry in right panel
-- **FR-013**: System MUST display text preview with line wrapping for text entries
+- **FR-013**: System MUST display text preview with line wrapping for text entries and allow text selection
 - **FR-014**: System MUST display fitted image preview for image entries
 
 #### Copy and Paste Actions
 - **FR-015**: System MUST provide "Copy" button that copies selected entry to system clipboard
 - **FR-016**: System MUST provide "Paste" button that copies entry to clipboard AND immediately pastes into active application
-- **FR-017**: System MUST support keyboard shortcut ⌘C to copy selected entry to clipboard
-- **FR-018**: System MUST support keyboard shortcut ⌘← to paste selected entry (copy + paste action)
+- **FR-017**: System MUST support keyboard shortcut Cmd+Enter to copy selected entry to clipboard
+- **FR-018**: System MUST support Enter key to copy the selected entry, close the panel, and send Cmd+V to the previously active application unless the previous application is this app
 - **FR-019**: System MUST display keyboard shortcut hints in bottom tip bar
 
 #### Entry Display Information
@@ -272,7 +275,7 @@ Each clipboard entry displays as a card with:
 - **FR-030**: System MUST allow user to unpin entries
 
 #### Search and Filter
-- **FR-031**: System MUST provide a search input field in the main panel top bar
+- **FR-031**: System MUST provide a search input field in the main panel top bar and focus it when the panel is shown
 - **FR-032**: System MUST filter clipboard history list based on search text entered by user
 - **FR-033**: System MUST search within text content of clipboard entries
 - **FR-034**: System MUST support case-insensitive search
@@ -288,18 +291,17 @@ Each clipboard entry displays as a card with:
 - **FR-042**: System MUST immediately filter list when user clicks a filter button
 
 #### Delete Operations
-- **FR-043**: System MUST allow user to delete a single clipboard entry
+- **FR-043**: System MUST allow user to delete a single clipboard entry, including via Cmd+D
 - **FR-044**: System MUST allow user to delete multiple selected clipboard entries
 - **FR-045**: System MUST remove deleted entries from database (not just hide from UI)
-- **FR-046**: System MUST provide confirmation dialog before deleting entries to prevent accidental deletion
-- **FR-047**: System MUST refresh the main panel immediately after deletion
+- **FR-046**: System MUST provide confirmation dialog above the main panel before deleting entries to prevent accidental deletion
+- **FR-047**: System MUST refresh the main panel immediately after deletion and update selection to the next entry (or previous if no next entry exists)
 
 #### Keyboard Navigation
-- **FR-048**: System MUST support arrow keys (up/down) for navigating through clipboard list
-- **FR-049**: System MUST support Enter key to copy selected entry to clipboard
-- **FR-050**: System MUST support Escape key to close the main panel
-- **FR-051**: System MUST support Tab key to move focus between search box, filter buttons, and clipboard list
-- **FR-052**: System MUST show visual indicator for keyboard focus on interactive elements
+- **FR-048**: System MUST support arrow keys (up/down) for navigating through clipboard list with wrap-around at list ends
+- **FR-049**: System MUST support Escape key and outside click to close the main panel
+- **FR-050**: System MUST handle panel key actions at the panel layer while the panel is shown and keep search input focus during those actions
+- **FR-051**: System MUST disable panel key actions when other in-app panels are shown
 
 #### Performance and Scalability
 - **FR-053**: System MUST render main panel with visible entries in under 500 milliseconds
@@ -315,7 +317,7 @@ Each clipboard entry displays as a card with:
 - **FR-057**: System MUST remember main panel window size and position between sessions
 - **FR-058**: System MUST remember search filter state between main panel open/close cycles
 - **FR-059**: System MUST restore scroll position when main panel is reopened
-- **FR-060**: System MUST support global keyboard shortcut Cmd+Shift+V to open/close main panel
+- **FR-060**: System MUST support global keyboard shortcut Cmd+Shift+V to open the main panel
 
 #### Content Display
 - **FR-061**: System MUST truncate text titles that exceed display width (show first ~50 characters in list)
@@ -356,10 +358,10 @@ Each clipboard entry displays as a card with:
 - **SC-001**: Users can open the main panel using a keyboard shortcut (Cmd+Shift+V) and see their clipboard history in under 1 second
 - **SC-002**: Main panel displays at least 50 visible clipboard entries without scrolling or lag
 - **SC-003**: Users can select a clipboard entry and see its full preview in the right panel within 300 milliseconds
-- **SC-004**: Users can copy a selected entry using the Copy button or ⌘C shortcut, and paste using the Paste button or ⌘← shortcut
+- **SC-004**: Users can copy a selected entry using the Copy button or Cmd+Enter, and paste using the Paste button or Enter
 - **SC-005**: Search filters clipboard history list in under 300 milliseconds after user stops typing
 - **SC-006**: Main panel remains responsive when displaying up to 1000 clipboard entries (scroll frame rate above 30 FPS)
-- **SC-007**: Users can navigate the entire clipboard list using only keyboard (arrow keys, Tab, Enter, Escape)
+- **SC-007**: Users can navigate the entire clipboard list using only keyboard (arrow keys, Cmd+Enter, Enter, Escape, Cmd+D)
 - **SC-008**: Deleted entries are removed from database and UI immediately in under 500 milliseconds
 - **SC-009**: 90% of users can successfully find and copy a clipboard entry from their history on first attempt without instructions
 - **SC-010**: Main panel automatically updates to show new clipboard entries within 1 second of user copying content
@@ -371,7 +373,7 @@ Each clipboard entry displays as a card with:
 ## Assumptions
 
 - Main panel accesses clipboard history data via direct database read-only queries in the same process space (no IPC layer needed)
-- Main panel is a standard window that can be opened/closed via keyboard shortcut (Cmd+Shift+V) or menu bar icon
+- Main panel is a standard window that can be opened via keyboard shortcut (Cmd+Shift+V) or menu bar icon
 - Text title truncation at ~50 characters in list view provides enough context for users to identify content
 - Full content preview in right panel provides complete text or image for verification before copying
 - Image thumbnails in list view should be generated at reasonable size (e.g., 80×80 pixels) to balance UI space and performance
@@ -383,5 +385,5 @@ Each clipboard entry displays as a card with:
 - Pinned entries are stored in database with a pinned flag and pinned timestamp
 - Application icons are retrieved from macOS bundle identifier and cached for performance
 - Copy button copies to clipboard but does not switch applications; Paste button copies and switches to active application for pasting
-- Users understand the difference between Copy (⌘C) and Paste (⌘←) actions based on button labels and tooltips
+- Users understand the difference between Copy (Cmd+Enter) and Paste (Enter) actions based on button labels and tooltips
 - Content type filters (All/Text/Images) operate independently from search text (both filters apply simultaneously)
