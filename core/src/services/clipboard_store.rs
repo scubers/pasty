@@ -1,4 +1,4 @@
-use crate::models::{ClipboardEntry, Content, ContentType, SourceApplication};
+use crate::models::{ClipboardEntry, Content, ContentType, ImageFormat, SourceApplication};
 use crate::services::database::{Database, DatabaseError};
 use crate::services::deduplication::DeduplicationService;
 use crate::services::storage::StorageService;
@@ -280,6 +280,90 @@ impl ClipboardStore {
     /// ```
     pub fn get_entry_by_id(&self, id: uuid::Uuid) -> Result<Option<ClipboardEntry>, DatabaseError> {
         self.db.get_entry_by_id(id)
+    }
+
+    /// Update latest copy time for entry by ID
+    pub fn update_latest_copy_time_by_id(
+        &self,
+        id: uuid::Uuid,
+    ) -> Result<Option<ClipboardEntry>, DatabaseError> {
+        let mut entry = match self.db.get_entry_by_id(id)? {
+            Some(entry) => entry,
+            None => return Ok(None),
+        };
+
+        entry.update_latest_copy_time();
+        self.db
+            .update_latest_copy_time_by_id(id, entry.latest_copy_time_ms)?;
+
+        Ok(Some(entry))
+    }
+
+    /// Delete a single clipboard entry by ID
+    pub fn delete_entry_by_id(&self, id: uuid::Uuid) -> Result<bool, DatabaseError> {
+        let entry = match self.db.get_entry_by_id(id)? {
+            Some(entry) => entry,
+            None => return Ok(false),
+        };
+
+        self.delete_entry_image(&entry)?;
+
+        let deleted = self.db.delete_entry_by_id(id)?;
+        Ok(deleted > 0)
+    }
+
+    /// Delete multiple clipboard entries by IDs
+    pub fn delete_entries_by_ids(&self, ids: &[uuid::Uuid]) -> Result<usize, DatabaseError> {
+        if ids.is_empty() {
+            return Ok(0);
+        }
+
+        let mut existing_ids = Vec::with_capacity(ids.len());
+        for id in ids {
+            if let Some(entry) = self.db.get_entry_by_id(*id)? {
+                self.delete_entry_image(&entry)?;
+                existing_ids.push(*id);
+            }
+        }
+
+        if existing_ids.is_empty() {
+            return Ok(0);
+        }
+
+        self.db.delete_entries_by_ids(&existing_ids)
+    }
+
+    fn delete_entry_image(&self, entry: &ClipboardEntry) -> Result<(), DatabaseError> {
+        let image_file = match &entry.content {
+            Content::Image(image_file) => image_file,
+            _ => return Ok(()),
+        };
+
+        let extension = if image_file.format != ImageFormat::Unknown {
+            image_file.format.extension().to_string()
+        } else {
+            image_file
+                .path
+                .rsplit('.')
+                .next()
+                .unwrap_or("")
+                .to_string()
+        };
+
+        if extension.is_empty() {
+            return Ok(());
+        }
+
+        self.storage
+            .delete_image(&entry.content_hash, &extension)
+            .map_err(|e| {
+                DatabaseError::connection_error(
+                    format!("image delete for hash {}", entry.content_hash),
+                    e.to_string(),
+                )
+            })?;
+
+        Ok(())
     }
 
     /// Check if entry with given hash exists

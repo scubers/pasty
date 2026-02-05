@@ -176,6 +176,155 @@ pub extern "C" fn pasty_clipboard_store_image(
     }
 }
 
+/// Update latest copy time for entry by ID
+///
+/// # Arguments
+/// * `id` - UUID string of the entry to update
+///
+/// # Returns
+/// Error code (0 = success)
+#[no_mangle]
+pub extern "C" fn pasty_clipboard_update_latest_copy_time_by_id(
+    id: *const c_char,
+) -> FfiErrorCode {
+    if id.is_null() {
+        set_error("Null pointer argument");
+        return FfiErrorCode::InvalidArgument;
+    }
+
+    let id_str = unsafe { CStr::from_ptr(id) }.to_str().unwrap_or("");
+    let entry_id = match uuid::Uuid::parse_str(id_str) {
+        Ok(uuid) => uuid,
+        Err(_) => {
+            set_error("Invalid UUID format");
+            return FfiErrorCode::InvalidArgument;
+        }
+    };
+
+    let store_guard = CLIPBOARD_STORE.lock().unwrap();
+    let store = match store_guard.as_ref() {
+        Some(s) => s,
+        None => {
+            set_error("Clipboard store not initialized. Call pasty_init first.");
+            return FfiErrorCode::DatabaseError;
+        }
+    };
+
+    match store.update_latest_copy_time_by_id(entry_id) {
+        Ok(Some(_)) => FfiErrorCode::Success,
+        Ok(None) => {
+            set_error("Entry not found");
+            FfiErrorCode::InvalidArgument
+        }
+        Err(e) => {
+            set_error(&e.to_string());
+            FfiErrorCode::DatabaseError
+        }
+    }
+}
+
+/// Delete a single clipboard entry by ID
+///
+/// # Arguments
+/// * `id` - UUID string of the entry to delete
+///
+/// # Returns
+/// Error code (0 = success)
+#[no_mangle]
+pub extern "C" fn pasty_clipboard_delete_entry_by_id(
+    id: *const c_char,
+) -> FfiErrorCode {
+    if id.is_null() {
+        set_error("Null pointer argument");
+        return FfiErrorCode::InvalidArgument;
+    }
+
+    let id_str = unsafe { CStr::from_ptr(id) }.to_str().unwrap_or("");
+    let entry_id = match uuid::Uuid::parse_str(id_str) {
+        Ok(uuid) => uuid,
+        Err(_) => {
+            set_error("Invalid UUID format");
+            return FfiErrorCode::InvalidArgument;
+        }
+    };
+
+    let store_guard = CLIPBOARD_STORE.lock().unwrap();
+    let store = match store_guard.as_ref() {
+        Some(s) => s,
+        None => {
+            set_error("Clipboard store not initialized. Call pasty_init first.");
+            return FfiErrorCode::DatabaseError;
+        }
+    };
+
+    match store.delete_entry_by_id(entry_id) {
+        Ok(true) => FfiErrorCode::Success,
+        Ok(false) => {
+            set_error("Entry not found");
+            FfiErrorCode::InvalidArgument
+        }
+        Err(e) => {
+            set_error(&e.to_string());
+            FfiErrorCode::DatabaseError
+        }
+    }
+}
+
+/// Delete multiple clipboard entries by IDs
+///
+/// # Arguments
+/// * `ids` - Array of UUID strings
+/// * `count` - Number of IDs in the array
+///
+/// # Returns
+/// Error code (0 = success)
+#[no_mangle]
+pub extern "C" fn pasty_clipboard_delete_entries_by_ids(
+    ids: *const *const c_char,
+    count: usize,
+) -> FfiErrorCode {
+    if ids.is_null() && count > 0 {
+        set_error("Null pointer argument");
+        return FfiErrorCode::InvalidArgument;
+    }
+
+    let mut entry_ids = Vec::with_capacity(count);
+    for i in 0..count {
+        let id_ptr = unsafe { *ids.add(i) };
+        if id_ptr.is_null() {
+            set_error("Null pointer argument");
+            return FfiErrorCode::InvalidArgument;
+        }
+
+        let id_str = unsafe { CStr::from_ptr(id_ptr) }.to_str().unwrap_or("");
+        let entry_id = match uuid::Uuid::parse_str(id_str) {
+            Ok(uuid) => uuid,
+            Err(_) => {
+                set_error("Invalid UUID format");
+                return FfiErrorCode::InvalidArgument;
+            }
+        };
+        entry_ids.push(entry_id);
+    }
+
+    let store_guard = CLIPBOARD_STORE.lock().unwrap();
+    let store = match store_guard.as_ref() {
+        Some(s) => s,
+        None => {
+            set_error("Clipboard store not initialized. Call pasty_init first.");
+            return FfiErrorCode::DatabaseError;
+        }
+    };
+
+    match store.delete_entries_by_ids(&entry_ids) {
+        Ok(_) => FfiErrorCode::Success,
+        Err(e) => {
+            set_error(&e.to_string());
+            FfiErrorCode::DatabaseError
+        }
+    }
+}
+
 /// Free a clipboard entry
 ///
 /// # Arguments

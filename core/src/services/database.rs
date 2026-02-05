@@ -3,7 +3,7 @@ use crate::models::{
 };
 use chrono::{DateTime, Utc};
 use log::{debug, error, info, warn};
-use rusqlite::{params, Connection, Result as SqliteResult};
+use rusqlite::{params, params_from_iter, Connection, Result as SqliteResult};
 use std::path::Path;
 
 /// Error types for database operations with context
@@ -298,6 +298,20 @@ impl Database {
         Ok(())
     }
 
+    /// Update latest copy time for entry by ID
+    pub fn update_latest_copy_time_by_id(
+        &self,
+        id: uuid::Uuid,
+        new_time: DateTime<Utc>,
+    ) -> Result<(), DatabaseError> {
+        self.conn.execute(
+            "UPDATE clipboard_entries SET latest_copy_time_ms = ?1 WHERE id = ?2",
+            params![new_time.timestamp_millis(), id.to_string()],
+        )?;
+
+        Ok(())
+    }
+
     /// Get all entries (with pagination)
     pub fn get_all_entries(
         &self,
@@ -368,6 +382,36 @@ impl Database {
                  )",
                 params![limit as i64],
             )?;
+            Ok(deleted)
+        })
+    }
+
+    /// Delete a single entry by ID
+    pub fn delete_entry_by_id(&self, id: uuid::Uuid) -> Result<usize, DatabaseError> {
+        self.execute_with_retry("delete_entry_by_id", || {
+            let deleted = self.conn.execute(
+                "DELETE FROM clipboard_entries WHERE id = ?1",
+                params![id.to_string()],
+            )?;
+            Ok(deleted)
+        })
+    }
+
+    /// Delete multiple entries by IDs
+    pub fn delete_entries_by_ids(&self, ids: &[uuid::Uuid]) -> Result<usize, DatabaseError> {
+        if ids.is_empty() {
+            return Ok(0);
+        }
+
+        let placeholders = ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        let query = format!(
+            "DELETE FROM clipboard_entries WHERE id IN ({})",
+            placeholders
+        );
+        self.execute_with_retry("delete_entries_by_ids", || {
+            let deleted = self
+                .conn
+                .execute(&query, params_from_iter(ids.iter().map(|id| id.to_string())))?;
             Ok(deleted)
         })
     }
