@@ -107,8 +107,10 @@ class PreviewPanelViewModel: ObservableObject {
                     self.pasteButtonEnabled = true
 
                 case .image(let imageFile):
-                    // Load image from file
-                    if let image = NSImage(contentsOfFile: imageFile.path) {
+                    // Load image from file - path is relative to images directory
+                    let imagesDir = StorageManager.shared.getImagesDirectory()
+                    let fullPath = imagesDir.appendingPathComponent(imageFile.path).path
+                    if let image = NSImage(contentsOfFile: fullPath) {
                         self.previewContent = .image(image)
                         self.copyButtonEnabled = true
                         self.pasteButtonEnabled = true
