@@ -25,6 +25,9 @@ class MainPanelViewModel: ObservableObject {
     /// Currently selected entry ID
     @Published var selectedEntryId: String? = nil
 
+    /// Currently selected entry IDs (data-driven selection)
+    @Published var selectedEntryIds: [String] = []
+
     /// Show only pinned entries
     @Published var isPinnedFilterActive: Bool = false
 
@@ -33,6 +36,9 @@ class MainPanelViewModel: ObservableObject {
 
     /// Error message
     @Published var errorMessage: String? = nil
+
+    /// Previously active application bundle identifier (before panel show)
+    var previousActiveAppBundleId: String? = nil
 
     // MARK: - Dependencies
 
@@ -73,7 +79,7 @@ class MainPanelViewModel: ObservableObject {
         case .loadEntries:
             loadEntries()
         case .selectEntry(let id):
-            selectedEntryId = id
+            setSelectedEntryIds([id])
         case .search(let query):
             searchText = query
         case .filter(let filter):
@@ -130,7 +136,23 @@ class MainPanelViewModel: ObservableObject {
             showPinnedOnly: isPinnedFilterActive
         )
 
+        syncSelectionWithFilteredEntries()
+
         Logger.debug("Filtered to \(filteredEntries.count) entries (search: '\(searchText)', filter: \(contentFilter.rawValue), pinned: \(isPinnedFilterActive))")
+    }
+
+    private func syncSelectionWithFilteredEntries() {
+        guard !filteredEntries.isEmpty else {
+            setSelectedEntryIds([])
+            return
+        }
+
+        if let selectedId = selectedEntryId,
+           filteredEntries.contains(where: { $0.id == selectedId }) {
+            return
+        }
+
+        setSelectedEntryIds([filteredEntries[0].id])
     }
 
     /// Toggle pin state for an entry
@@ -141,7 +163,7 @@ class MainPanelViewModel: ObservableObject {
             return
         }
 
-        var entry = allEntries[index]
+        let entry = allEntries[index]
         let newPinnedState = !entry.isPinned
 
         // Update the entry (in-memory only for now - database update will come later)
@@ -172,29 +194,62 @@ class MainPanelViewModel: ObservableObject {
     private func copyEntry(id: String) {
         guard let entry = allEntries.first(where: { $0.id == id }) else {
             Logger.warning("Entry not found for copy: \(id)")
+            errorMessage = "Entry not found"
             return
         }
 
-        // Copy based on content type
-        switch entry.preview {
-        case .text(let text):
-            let pasteboard = NSPasteboard.general
-            pasteboard.clearContents()
-            pasteboard.setString(text, forType: .string)
-            Logger.info("Copied text entry: \(entry.title)")
-        case .image:
-            // For images, we'd need to load the actual image data
-            // This is a placeholder - image copy would need the ImageFile
-            Logger.info("Image copy not yet implemented")
+        Task.detached(priority: .userInitiated) { [weak self] in
+            guard let self = self else { return }
+
+            guard let fullEntry = await self.clipboardHistory.retrieveEntryById(id: id) else {
+                await MainActor.run {
+                    Logger.warning("Entry not found for copy: \(id)")
+                    self.errorMessage = "Entry not found"
+                }
+                return
+            }
+
+            await MainActor.run {
+                switch fullEntry.content {
+                case .text(let text):
+                    self.copyTextToClipboard(text)
+                    Logger.info("Copied text entry: \(entry.title)")
+
+                case .image(let imageFile):
+                    let imagesDir = StorageManager.shared.getImagesDirectory()
+                    let fullPath = imagesDir.appendingPathComponent(imageFile.path).path
+                    if let image = NSImage(contentsOfFile: fullPath) {
+                        self.copyImageToClipboard(image)
+                        Logger.info("Copied image entry: \(entry.title)")
+                    } else {
+                        Logger.warning("Failed to load image for copy: \(entry.title)")
+                        self.errorMessage = "Failed to load image"
+                    }
+                }
+
+                if !self.clipboardHistory.updateLatestCopyTime(id: id) {
+                    self.errorMessage = "Failed to update copy time"
+                }
+                self.loadEntries()
+            }
         }
     }
 
     /// Copy entry and simulate paste
     private func pasteEntry(id: String) {
-        // First copy to clipboard
         copyEntry(id: id)
 
-        // Then simulate Cmd+V using CGEvent
+        guard let previousBundleId = previousActiveAppBundleId else {
+            Logger.info("No previous app focused; skipping paste")
+            errorMessage = "No active application to paste into"
+            return
+        }
+
+        if previousBundleId == Bundle.main.bundleIdentifier {
+            Logger.info("Previous app is this app; skipping paste")
+            return
+        }
+
         let source = CGEventSource(stateID: .combinedSessionState)
         let cmdVDown = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: true)
         let cmdVUp = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: false)
@@ -215,27 +270,29 @@ class MainPanelViewModel: ObservableObject {
             return
         }
 
-        // Show confirmation dialog
-        let alert = NSAlert()
-        alert.messageText = "Delete Entry"
-        alert.informativeText = "Are you sure you want to delete \"\(entry.title)\"? This action cannot be undone."
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: "Delete")
-        alert.addButton(withTitle: "Cancel")
+        confirmDeletion(
+            title: "Delete Entry",
+            message: "Are you sure you want to delete \"\(entry.title)\"? This action cannot be undone."
+        ) { [weak self] confirmed in
+            guard let self = self else { return }
+            guard confirmed else {
+                Logger.info("Delete cancelled for entry: \(entry.title)")
+                return
+            }
 
-        let response = alert.runModal()
-        guard response == .alertFirstButtonReturn else {
-            Logger.info("Delete cancelled for entry: \(entry.title)")
-            return
+            if !self.clipboardHistory.deleteEntry(id: id) {
+                self.errorMessage = "Failed to delete entry"
+                Logger.warning("Failed to delete entry: \(entry.title)")
+                return
+            }
+
+            let removedIndex = self.filteredEntries.firstIndex { $0.id == id }
+            self.allEntries.removeAll { $0.id == id }
+            self.updateFilters()
+            self.updateSelectionAfterDeletion(removedIndex: removedIndex)
+
+            Logger.info("Deleted entry: \(entry.title)")
         }
-
-        // Remove from allEntries
-        allEntries.removeAll { $0.id == id }
-
-        // Reapply filters
-        updateFilters()
-
-        Logger.info("Deleted entry: \(entry.title)")
     }
 
     /// Delete multiple entries with confirmation
@@ -245,26 +302,78 @@ class MainPanelViewModel: ObservableObject {
         // Find entries to delete
         let entriesToDelete = allEntries.filter { ids.contains($0.id) }
 
-        // Show confirmation dialog
+        confirmDeletion(
+            title: "Delete Entries",
+            message: "Are you sure you want to delete \(entriesToDelete.count) entr\(entriesToDelete.count == 1 ? "y" : "ies")? This action cannot be undone."
+        ) { [weak self] confirmed in
+            guard let self = self else { return }
+            guard confirmed else {
+                Logger.info("Delete cancelled for \(entriesToDelete.count) entries")
+                return
+            }
+
+            if !self.clipboardHistory.deleteEntries(ids: ids) {
+                self.errorMessage = "Failed to delete entries"
+                Logger.warning("Failed to delete \(entriesToDelete.count) entries")
+                return
+            }
+
+            let removedIndex = self.filteredEntries.firstIndex { ids.contains($0.id) }
+            self.allEntries.removeAll { ids.contains($0.id) }
+            self.updateFilters()
+            self.updateSelectionAfterDeletion(removedIndex: removedIndex)
+
+            Logger.info("Deleted \(entriesToDelete.count) entries")
+        }
+    }
+
+    private func copyTextToClipboard(_ text: String) {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+    }
+
+    private func copyImageToClipboard(_ image: NSImage) {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.writeObjects([image])
+    }
+
+    private func confirmDeletion(title: String, message: String, onConfirm: @escaping (Bool) -> Void) {
         let alert = NSAlert()
-        alert.messageText = "Delete Entries"
-        alert.informativeText = "Are you sure you want to delete \(entriesToDelete.count) entr\(entriesToDelete.count == 1 ? "y" : "ies")? This action cannot be undone."
+        alert.messageText = title
+        alert.informativeText = message
         alert.alertStyle = .warning
         alert.addButton(withTitle: "Delete")
         alert.addButton(withTitle: "Cancel")
 
-        let response = alert.runModal()
-        guard response == .alertFirstButtonReturn else {
-            Logger.info("Delete cancelled for \(entriesToDelete.count) entries")
+        if let window = NSApp.keyWindow {
+            alert.beginSheetModal(for: window) { response in
+                onConfirm(response == .alertFirstButtonReturn)
+            }
+        } else {
+            let response = alert.runModal()
+            onConfirm(response == .alertFirstButtonReturn)
+        }
+    }
+
+    private func updateSelectionAfterDeletion(removedIndex: Int?) {
+        guard let removedIndex = removedIndex else {
+            setSelectedEntryIds([])
             return
         }
 
-        // Remove from allEntries
-        allEntries.removeAll { ids.contains($0.id) }
+        if removedIndex < filteredEntries.count {
+            setSelectedEntryIds([filteredEntries[removedIndex].id])
+        } else if removedIndex - 1 >= 0, removedIndex - 1 < filteredEntries.count {
+            setSelectedEntryIds([filteredEntries[removedIndex - 1].id])
+        } else {
+            setSelectedEntryIds([])
+        }
+    }
 
-        // Reapply filters
-        updateFilters()
-
-        Logger.info("Deleted \(entriesToDelete.count) entries")
+    func setSelectedEntryIds(_ ids: [String]) {
+        selectedEntryIds = ids
+        selectedEntryId = ids.first
     }
 }

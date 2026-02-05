@@ -35,6 +35,8 @@ class PreviewPanelViewModel: ObservableObject {
 
     private let clipboardHistory: ClipboardHistory
     private var cancellables = Set<AnyCancellable>()
+    private var currentEntryId: String? = nil
+    var previousActiveAppBundleId: String? = nil
 
     // MARK: - Initialization
 
@@ -46,26 +48,52 @@ class PreviewPanelViewModel: ObservableObject {
 
     /// Handle copy action
     func handleCopyAction() {
-        guard case .text(let text) = previewContent else {
-            Logger.warning("Cannot copy: no text content selected")
+        switch previewContent {
+        case .text(let text):
+            copyToClipboard(text)
+        case .image(let image):
+            copyToClipboard(image)
+        case .empty:
+            Logger.warning("Cannot copy: no content selected")
+            errorMessage = "No content selected"
             return
         }
 
-        copyToClipboard(text)
+        if let entryId = currentEntryId {
+            _ = clipboardHistory.updateLatestCopyTime(id: entryId)
+        }
+
         Logger.info("Copied content to clipboard")
     }
 
     /// Handle paste action (copy + paste)
     func handlePasteAction() {
-        guard case .text(let text) = previewContent else {
-            Logger.warning("Cannot paste: no text content selected")
+        switch previewContent {
+        case .text(let text):
+            copyToClipboard(text)
+        case .image(let image):
+            copyToClipboard(image)
+        case .empty:
+            Logger.warning("Cannot paste: no content selected")
+            errorMessage = "No content selected"
             return
         }
 
-        // First copy to clipboard
-        copyToClipboard(text)
+        if let entryId = currentEntryId {
+            _ = clipboardHistory.updateLatestCopyTime(id: entryId)
+        }
 
-        // Then simulate Cmd+V
+        guard let previousBundleId = previousActiveAppBundleId else {
+            Logger.info("No previous app focused; skipping paste")
+            errorMessage = "No active application to paste into"
+            return
+        }
+
+        if previousBundleId == Bundle.main.bundleIdentifier {
+            Logger.info("Previous app is this app; skipping paste")
+            return
+        }
+
         simulatePaste()
         Logger.info("Copied and pasted content")
     }
@@ -88,8 +116,11 @@ class PreviewPanelViewModel: ObservableObject {
                     self.previewContent = .empty
                     self.copyButtonEnabled = false
                     self.pasteButtonEnabled = false
+                    self.currentEntryId = nil
                     return
                 }
+
+                self.currentEntryId = entry.id
 
                 // Set entry metadata
                 self.sourceAppName = entry.source.appName
