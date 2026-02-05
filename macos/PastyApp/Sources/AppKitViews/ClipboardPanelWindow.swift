@@ -456,7 +456,13 @@ class ClipboardPanelWindow: NSPanel {
 
                 if self.isKeyWindow {
                     NSLog("✅ Window became key after \(attempts) attempts")
-                    self.selectFirstRowIfNeeded()
+                    Task { [weak self] in
+                        await MainActor.run { [weak self] in
+                            self?.mainPanelViewModel.handle(.loadEntries)
+                            self?.selectFirstRowIfNeeded()
+                        }
+                    }
+                    
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                         self.focusSearchBar()
                     }
