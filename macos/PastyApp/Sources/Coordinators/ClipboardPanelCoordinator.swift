@@ -75,16 +75,14 @@ class ClipboardPanelCoordinator: NSObject {
 // MARK: - Global Shortcut Handler
 
 extension ClipboardPanelCoordinator {
-    private static let accessibilityAlertShownKey = "accessibilityAlertShown"
 
     /// Setup global keyboard shortcut for toggling panel
     func setupGlobalShortcut() {
         let hasPermission = hasAccessibilityPermissions()
         Logger.info("Accessibility permission: \(hasPermission ? "GRANTED" : "DENIED")")
 
-        if !hasPermission && !hasShownAccessibilityAlert() {
+        if !hasPermission {
             showAccessibilityPermissionAlert()
-            markAccessibilityAlertShown()
         }
 
         KeyboardShortcuts.onKeyUp(for: .togglePanel) { [weak self] in
@@ -94,14 +92,6 @@ extension ClipboardPanelCoordinator {
 
         let shortcut = KeyboardShortcuts.Shortcut(name: .togglePanel)
         Logger.info("Global keyboard shortcut registered: \(String(describing: shortcut))")
-    }
-
-    private func hasShownAccessibilityAlert() -> Bool {
-        UserDefaults.standard.bool(forKey: Self.accessibilityAlertShownKey)
-    }
-
-    private func markAccessibilityAlertShown() {
-        UserDefaults.standard.set(true, forKey: Self.accessibilityAlertShownKey)
     }
 
     /// Check if the app has accessibility permissions
