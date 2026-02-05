@@ -273,8 +273,9 @@ class ClipboardPanelWindow: NSPanel {
     private func setupFooterView() {
         let shortcuts = [
             ("↑↓", "Navigate"),
-            ("⌘↩", "Paste"),
-            ("⌘⌫", "Delete"),
+            ("↩", "Paste"),
+            ("⌘↩", "Copy"),
+            ("⌘D", "Delete"),
             ("Esc", "Close")
         ]
 
