@@ -41,6 +41,7 @@ class ClipboardPanelWindow: NSPanel {
     private var storedScrollPosition: CGFloat?
     /// Track panel visibility state (used since hidesOnDeactivate doesn't change isVisible)
     private var panelIsShown = false
+    private var previousActiveAppBundleId: String? = nil
 
     /// Returns true if panel is currently shown (including when hidden via hidesOnDeactivate)
     var isPanelShown: Bool {
@@ -181,7 +182,7 @@ class ClipboardPanelWindow: NSPanel {
 
     private func setupEmptyStateView() {
         emptyStateView.wantsLayer = true
-        emptyStateView.layer?.backgroundColor = NSColor(hex: "#1a1a1a").cgColor
+//        emptyStateView.layer?.backgroundColor = NSColor(hex: "#1a1a1a").cgColor
         emptyStateView.isHidden = true
 
         // Create empty state label
@@ -218,7 +219,7 @@ class ClipboardPanelWindow: NSPanel {
 
     private func setupTopBar() {
         topBarView.wantsLayer = true
-        topBarView.layer?.backgroundColor = NSColor.DesignColors.mat1.cgColor
+//        topBarView.layer?.backgroundColor = NSColor.DesignColors.mat1.cgColor
     }
 
     private func setupSwiftUIHosts() {
@@ -395,6 +396,7 @@ class ClipboardPanelWindow: NSPanel {
             .removeDuplicates()
             .sink { [weak self] entryId in
                 self?.previewPanelViewModel.loadPreviewContent(for: entryId)
+                self?.selectRow(for: entryId)
             }
             .store(in: &cancellables)
     }
@@ -409,6 +411,11 @@ class ClipboardPanelWindow: NSPanel {
 
         // Position window on mouse screen
         positionWindowOnMouseScreen()
+
+        // Capture previous active app before activating this app
+        previousActiveAppBundleId = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+        mainPanelViewModel.previousActiveAppBundleId = previousActiveAppBundleId
+        previewPanelViewModel.previousActiveAppBundleId = previousActiveAppBundleId
 
         // Mark panel as shown
         panelIsShown = true
@@ -448,8 +455,8 @@ class ClipboardPanelWindow: NSPanel {
 
                 if self.isKeyWindow {
                     NSLog("✅ Window became key after \(attempts) attempts")
-                    self.selectFirstRowIfNeeded()
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        self.selectFirstRowIfNeeded()
                         self.focusSearchBar()
                     }
                     return
@@ -513,19 +520,12 @@ class ClipboardPanelWindow: NSPanel {
     }
 
     private func selectFirstRowIfNeeded() {
-        let rowCount = tableView.numberOfRows
-        guard rowCount > 0 && tableView.selectedRow < 0 else { return }
+        let rowCount = mainPanelViewModel.filteredEntries.count
+        guard rowCount > 0, mainPanelViewModel.selectedEntryId == nil else { return }
 
-        let firstRow = 0
-        tableView.selectRowIndexes(IndexSet(integer: firstRow), byExtendingSelection: false)
-        tableView.scrollRowToVisible(firstRow)
-
-        if firstRow < mainPanelViewModel.filteredEntries.count {
-            let entry = mainPanelViewModel.filteredEntries[firstRow]
-            mainPanelViewModel.handle(.selectEntry(id: entry.id))
-        }
-
-        NSLog("✅ Auto-selected first row: \(firstRow)")
+        let entry = mainPanelViewModel.filteredEntries[0]
+        mainPanelViewModel.handle(.selectEntry(id: entry.id))
+        NSLog("✅ Auto-selected first row")
     }
 
     /// Recursively find NSTextField in view hierarchy
@@ -591,140 +591,114 @@ class ClipboardPanelWindow: NSPanel {
 
     /// Intercept events to handle keyboard navigation even when TextField has focus
     override func sendEvent(_ event: NSEvent) {
-        if event.type == .keyDown {
-            let keyCode = event.keyCode
-
-            // Handle navigation keys even when TextField is focused
-            switch keyCode {
-            case 53: // Escape
-                hidePanel()
-                return
-            case 125: // Down arrow
-                selectNextRow()
-                return
-            case 126: // Up arrow
-                selectPreviousRow()
-                return
-            case 36: // Enter
-                copyAndPasteSelected()
-                return
-            default:
-                break
-            }
+        if handleKeyDown(event) {
+            return
         }
 
         super.sendEvent(event)
     }
 
     override func keyDown(with event: NSEvent) {
+        if handleKeyDown(event) {
+            return
+        }
+
+        super.keyDown(with: event)
+    }
+
+    private func handleKeyDown(_ event: NSEvent) -> Bool {
+        guard event.type == .keyDown else {
+            return false
+        }
+
         let keyCode = event.keyCode
-        NSLog("⌨️ Window keyDown: keyCode \(keyCode)")
+        let isCommand = event.modifierFlags.contains(.command)
+        let characters = event.charactersIgnoringModifiers?.lowercased()
+
+        if isCommand && keyCode == 36 {
+            NSLog("⌘⏎ Cmd+Enter - copy only")
+            copySelected()
+            return true
+        }
+
+        if isCommand && characters == "d" {
+            NSLog("⌘D Cmd+D - deleting selected")
+            deleteSelected()
+            return true
+        }
 
         switch keyCode {
-        case 53: // Escape - close panel
-            NSLog("⎋ Escape - hiding panel")
+        case 53: // Escape
             hidePanel()
-            return
-
+            return true
         case 125: // Down arrow
-            NSLog("⬇️ Down arrow - selecting next row")
             selectNextRow()
-            return
-
+            return true
         case 126: // Up arrow
-            NSLog("⬆️ Up arrow - selecting previous row")
             selectPreviousRow()
-            return
-
-        case 36: // Enter - copy and paste
-            NSLog("⏎ Enter - copy and paste")
+            return true
+        case 36: // Enter
             copyAndPasteSelected()
-            return
-
-        case 51, 117: // Delete, Forward Delete
-            NSLog("🗑️ Delete - deleting selected")
-            deleteSelected()
-            return
-
+            return true
         default:
-            // Pass through to search bar for typing
-            super.keyDown(with: event)
+            return false
         }
     }
 
     // MARK: - Keyboard Actions
 
     private func selectNextRow() {
-        let rowCount = tableView.numberOfRows
+        let rowCount = mainPanelViewModel.filteredEntries.count
         guard rowCount > 0 else { return }
+        let currentIndex = mainPanelViewModel.selectedEntryId
+            .flatMap { id in
+                mainPanelViewModel.filteredEntries.firstIndex(where: { $0.id == id })
+            } ?? -1
 
-        let currentRow = tableView.selectedRow
-        let nextRow: Int
-
-        if currentRow < 0 {
-            nextRow = 0
-        } else {
-            nextRow = min(currentRow + 1, rowCount - 1)
-        }
-
-        tableView.selectRowIndexes(IndexSet(integer: nextRow), byExtendingSelection: false)
-        tableView.scrollRowToVisible(nextRow)
-
-        // Update selection in view model
-        if nextRow < mainPanelViewModel.filteredEntries.count {
-            let entry = mainPanelViewModel.filteredEntries[nextRow]
-            mainPanelViewModel.handle(.selectEntry(id: entry.id))
-        }
-
-        NSLog("✅ Selected row: \(nextRow)")
+        let nextIndex = currentIndex < 0 ? 0 : (currentIndex + 1 >= rowCount ? 0 : currentIndex + 1)
+        let entry = mainPanelViewModel.filteredEntries[nextIndex]
+        mainPanelViewModel.handle(.selectEntry(id: entry.id))
+        NSLog("✅ Selected row: \(nextIndex)")
     }
 
     private func selectPreviousRow() {
-        let rowCount = tableView.numberOfRows
+        let rowCount = mainPanelViewModel.filteredEntries.count
         guard rowCount > 0 else { return }
+        let currentIndex = mainPanelViewModel.selectedEntryId
+            .flatMap { id in
+                mainPanelViewModel.filteredEntries.firstIndex(where: { $0.id == id })
+            } ?? 0
 
-        let currentRow = tableView.selectedRow
-        let previousRow: Int
-
-        if currentRow <= 0 {
-            previousRow = rowCount - 1
-        } else {
-            previousRow = currentRow - 1
-        }
-
-        tableView.selectRowIndexes(IndexSet(integer: previousRow), byExtendingSelection: false)
-        tableView.scrollRowToVisible(previousRow)
-
-        // Update selection in view model
-        if previousRow < mainPanelViewModel.filteredEntries.count {
-            let entry = mainPanelViewModel.filteredEntries[previousRow]
-            mainPanelViewModel.handle(.selectEntry(id: entry.id))
-        }
-
-        NSLog("✅ Selected row: \(previousRow)")
+        let previousIndex = currentIndex <= 0 ? rowCount - 1 : currentIndex - 1
+        let entry = mainPanelViewModel.filteredEntries[previousIndex]
+        mainPanelViewModel.handle(.selectEntry(id: entry.id))
+        NSLog("✅ Selected row: \(previousIndex)")
     }
 
     private func copyAndPasteSelected() {
-        guard tableView.selectedRow >= 0,
-              tableView.selectedRow < mainPanelViewModel.filteredEntries.count else {
+        guard let selectedId = mainPanelViewModel.selectedEntryId else {
             NSLog("⚠️ No row selected")
             return
         }
 
-        let entry = mainPanelViewModel.filteredEntries[tableView.selectedRow]
-        mainPanelViewModel.handle(.pasteEntry(id: entry.id))
+        mainPanelViewModel.handle(.pasteEntry(id: selectedId))
         hidePanel()
-        NSLog("✅ Copied and pasted: \(entry.title)")
+        NSLog("✅ Copied and pasted: \(selectedId)")
+    }
+
+    private func copySelected() {
+        guard let selectedId = mainPanelViewModel.selectedEntryId else {
+            NSLog("⚠️ No row selected")
+            return
+        }
+
+        mainPanelViewModel.handle(.copyEntry(id: selectedId))
+        NSLog("✅ Copied: \(selectedId)")
     }
 
     private func deleteSelected() {
-        let selectedRows = tableView.selectedRowIndexes
-        guard !selectedRows.isEmpty else { return }
-
-        let ids = selectedRows.compactMap { rowIndex -> String? in
-            guard rowIndex < mainPanelViewModel.filteredEntries.count else { return nil }
-            return mainPanelViewModel.filteredEntries[rowIndex].id
-        }
+        let ids = mainPanelViewModel.selectedEntryIds
+        guard !ids.isEmpty else { return }
 
         if ids.count == 1 {
             mainPanelViewModel.handle(.deleteEntry(id: ids[0]))
@@ -733,6 +707,14 @@ class ClipboardPanelWindow: NSPanel {
         }
 
         NSLog("✅ Deleted \(ids.count) entr\(ids.count == 1 ? "y" : "ies")")
+    }
+
+    private func selectRow(for entryId: String) {
+        guard let index = mainPanelViewModel.filteredEntries.firstIndex(where: { $0.id == entryId }) else {
+            return
+        }
+        tableView.selectRowIndexes(IndexSet(integer: index), byExtendingSelection: false)
+        tableView.scrollRowToVisible(index)
     }
 
     // MARK: - Window Position Management
@@ -913,7 +895,7 @@ extension ClipboardPanelWindow: NSTableViewDelegate {
             clipboardCell.viewModel = mainPanelViewModel
             clipboardCell.configure(with: entry)
             // Set selected state based on current table view selection
-            clipboardCell.isSelected = tableView.selectedRowIndexes.contains(row)
+            clipboardCell.isSelected = mainPanelViewModel.selectedEntryIds.contains(entry.id)
         }
 
         return cellView
@@ -935,11 +917,19 @@ extension ClipboardPanelWindow: NSTableViewDelegate {
     }
 
     func tableViewSelectionDidChange(_ notification: Notification) {
-        // Update all visible cells to reflect selection state
+        var selectedIds: [String] = []
+        for row in tableView.selectedRowIndexes {
+            guard row >= 0, row < mainPanelViewModel.filteredEntries.count else { continue }
+            selectedIds.append(mainPanelViewModel.filteredEntries[row].id)
+        }
+        mainPanelViewModel.setSelectedEntryIds(selectedIds)
+
         let visibleRows = tableView.visibleRows
         for row in visibleRows {
-            if let cellView = tableView.view(atColumn: 0, row: row, makeIfNecessary: false) as? ClipboardTableCellView {
-                cellView.isSelected = tableView.selectedRowIndexes.contains(row)
+            if let cellView = tableView.view(atColumn: 0, row: row, makeIfNecessary: false) as? ClipboardTableCellView,
+               row < mainPanelViewModel.filteredEntries.count {
+                let entry = mainPanelViewModel.filteredEntries[row]
+                cellView.isSelected = mainPanelViewModel.selectedEntryIds.contains(entry.id)
             }
         }
     }
