@@ -62,7 +62,7 @@ targets:
 
       # Link against Rust static library
       OTHER_LDFLAGS:
-        - "$(PROJECT_DIR)/../../target/universal/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/libpasty_core.a"
+        - "$(PROJECT_DIR)/../../target/universal/$(CONFIGURATION:lowercase)/libpasty_core.a"
         - "-framework"
         - "Foundation"
         - "-framework"
@@ -73,7 +73,7 @@ targets:
         - "$(PROJECT_DIR)/../../build/core/include"
       LIBRARY_SEARCH_PATHS:
         - "$(inherited)"
-        - "$(PROJECT_DIR)/../../target/universal/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)"
+        - "$(PROJECT_DIR)/../../target/universal/$(CONFIGURATION:lowercase)"
 
       # Module map for C interop
       SWIFT_INCLUDE_PATHS:
@@ -113,7 +113,7 @@ targets:
         inputFiles:
           - $(PROJECT_DIR)/../../core/src/**/*.rs
         outputFiles:
-          - $(PROJECT_DIR)/../../target/universal/$(CONFIGURATION)/libpasty_core.a
+          - $(PROJECT_DIR)/../../target/universal/$(CONFIGURATION:lowercase)/libpasty_core.a
         runOnlyWhenInstalling: false
         showEnvVars: false
 

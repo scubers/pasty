@@ -14,6 +14,9 @@ tests/integration/test_*
 *.swp
 *.swo
 *~
+.build/
+Packages/
+.swiftpm/
 
 # IDE
 .vscode/
@@ -21,6 +24,11 @@ tests/integration/test_*
 
 # Rust
 Cargo.lock
+*.rs.bk
+*.rlib
+*.prof*
+.env*
+*.log
 
 # Xcode
 *.xcuserstate
