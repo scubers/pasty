@@ -96,6 +96,8 @@ class PreviewPanelViewModel: ObservableObject {
                 self.timestamp = entry.timestamp.formatAsTimeAgo()
                 // TODO: isPinned not yet implemented in ClipboardEntry
                 self.isPinned = false
+                // Set sensitive flag based on content analysis
+                self.isSensitive = SensitiveContentDetector.isSensitive(entry)
 
                 // Set preview content based on type
                 switch entry.content {

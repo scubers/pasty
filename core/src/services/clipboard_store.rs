@@ -1,7 +1,8 @@
-use crate::models::{ClipboardEntry, ContentType, Content, SourceApplication};
+use crate::models::{ClipboardEntry, Content, ContentType, SourceApplication};
 use crate::services::database::{Database, DatabaseError};
 use crate::services::deduplication::DeduplicationService;
 use crate::services::storage::StorageService;
+use log::info;
 use std::path::Path;
 
 /// High-level clipboard storage service
@@ -53,13 +54,26 @@ impl ClipboardStore {
     pub fn new<P: AsRef<Path>>(db_path: P, storage_base_dir: P) -> Result<Self, DatabaseError> {
         let db = Database::open(&db_path)?;
         let storage_path = storage_base_dir.as_ref();
-        let storage = StorageService::new(&storage_base_dir)
-            .map_err(|e| DatabaseError::connection_error(
-                storage_path.display().to_string(),
-                e.to_string()
-            ))?;
+        let storage = StorageService::new(&storage_base_dir).map_err(|e| {
+            DatabaseError::connection_error(storage_path.display().to_string(), e.to_string())
+        })?;
 
         Ok(Self { db, storage })
+    }
+
+    const MAX_ENTRIES: i64 = 10_000;
+
+    fn apply_fifo_eviction_if_needed(&self) -> Result<(), DatabaseError> {
+        let count = self.db.count_entries()?;
+        if count > Self::MAX_ENTRIES {
+            let excess = (count - Self::MAX_ENTRIES) as usize;
+            let deleted = self.db.delete_oldest_unpinned_entries(excess)?;
+            info!(
+                "FIFO evicted {} oldest unpinned entries (total: {})",
+                deleted, count
+            );
+        }
+        Ok(())
     }
 
     /// Store text clipboard entry with automatic deduplication
@@ -101,11 +115,11 @@ impl ClipboardStore {
         if let Some(mut existing) = self.db.get_entry_by_hash(&hash)? {
             // Update timestamp for duplicate
             existing.update_latest_copy_time();
-            self.db.update_latest_copy_time(&hash, existing.latest_copy_time_ms)?;
+            self.db
+                .update_latest_copy_time(&hash, existing.latest_copy_time_ms)?;
             return Ok(existing);
         }
 
-        // Create new entry
         let entry = ClipboardEntry::new(
             hash.clone(),
             ContentType::Text,
@@ -113,8 +127,9 @@ impl ClipboardStore {
             source,
         );
 
-        // Insert into database
         self.db.insert_entry(&entry)?;
+
+        self.apply_fifo_eviction_if_needed()?;
 
         Ok(entry)
     }
@@ -164,16 +179,21 @@ impl ClipboardStore {
         if let Some(mut existing) = self.db.get_entry_by_hash(&hash)? {
             // Update timestamp for duplicate
             existing.update_latest_copy_time();
-            self.db.update_latest_copy_time(&hash, existing.latest_copy_time_ms)?;
+            self.db
+                .update_latest_copy_time(&hash, existing.latest_copy_time_ms)?;
             return Ok(existing);
         }
 
         // Save image to disk
-        let _image_path = self.storage.save_image(&hash, image_data, format)
-            .map_err(|e| DatabaseError::connection_error(
-                format!("image save for hash {}", hash),
-                e.to_string()
-            ))?;
+        let _image_path = self
+            .storage
+            .save_image(&hash, image_data, format)
+            .map_err(|e| {
+                DatabaseError::connection_error(
+                    format!("image save for hash {}", hash),
+                    e.to_string(),
+                )
+            })?;
 
         // Get relative path for storage in database
         let relative_path = self.storage.get_relative_path(&hash, format);
@@ -198,11 +218,17 @@ impl ClipboardStore {
         // Insert into database
         self.db.insert_entry(&entry)?;
 
+        self.apply_fifo_eviction_if_needed()?;
+
         Ok(entry)
     }
 
     /// Get all clipboard history entries
-    pub fn get_history(&self, limit: usize, offset: usize) -> Result<Vec<ClipboardEntry>, DatabaseError> {
+    pub fn get_history(
+        &self,
+        limit: usize,
+        offset: usize,
+    ) -> Result<Vec<ClipboardEntry>, DatabaseError> {
         self.db.get_all_entries(limit, offset)
     }
 
@@ -275,11 +301,18 @@ mod tests {
 
         let store = ClipboardStore::new(&db_path, &storage_dir).unwrap();
 
-        let source = SourceApplication::new("com.test.App".to_string(), "TestApp".to_string(), 1234);
+        let source =
+            SourceApplication::new("com.test.App".to_string(), "TestApp".to_string(), 1234);
 
         // Store text
         let entry = store.store_text("Hello, World!", source.clone()).unwrap();
-        assert_eq!(entry.content_hash, store.store_text("Hello, World!", source).unwrap().content_hash);
+        assert_eq!(
+            entry.content_hash,
+            store
+                .store_text("Hello, World!", source)
+                .unwrap()
+                .content_hash
+        );
 
         // Retrieve
         let history = store.get_history(10, 0).unwrap();
@@ -294,7 +327,8 @@ mod tests {
         let storage_dir = temp_dir.path().join("images");
 
         let store = ClipboardStore::new(&db_path, &storage_dir).unwrap();
-        let source = SourceApplication::new("com.test.App".to_string(), "TestApp".to_string(), 1234);
+        let source =
+            SourceApplication::new("com.test.App".to_string(), "TestApp".to_string(), 1234);
 
         // Store same text twice
         let entry1 = store.store_text("Test text", source.clone()).unwrap();

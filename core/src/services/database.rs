@@ -1,8 +1,10 @@
-use rusqlite::{Connection, Result as SqliteResult, params};
-use std::path::Path;
-use crate::models::{ClipboardEntry, ContentType, Content, ImageFile, ImageFormat, SourceApplication};
+use crate::models::{
+    ClipboardEntry, Content, ContentType, ImageFile, ImageFormat, SourceApplication,
+};
 use chrono::{DateTime, Utc};
 use log::{debug, error, info, warn};
+use rusqlite::{params, Connection, Result as SqliteResult};
+use std::path::Path;
 
 /// Error types for database operations with context
 #[derive(Debug, thiserror::Error)]
@@ -21,29 +23,19 @@ pub enum DatabaseError {
 
     /// 数据库连接失败，包含路径信息
     #[error("Failed to connect to database at '{path}': {reason}")]
-    Connection {
-        path: String,
-        reason: String,
-    },
+    Connection { path: String, reason: String },
 
     /// 数据库迁移失败
     #[error("Migration to version {version} failed: {reason}")]
-    Migration {
-        version: i32,
-        reason: String,
-    },
+    Migration { version: i32, reason: String },
 
     /// 条目未找到（可能不是错误）
     #[error("Entry not found: {id}")]
-    EntryNotFound {
-        id: String,
-    },
+    EntryNotFound { id: String },
 
     /// 数据库锁定，重试失败
     #[error("Database is busy, retry attempts: {attempts}")]
-    DatabaseLocked {
-        attempts: u32,
-    },
+    DatabaseLocked { attempts: u32 },
 
     /// IO错误
     #[error("IO error during database operation: {0}")]
@@ -80,16 +72,15 @@ impl DatabaseError {
         match self {
             DatabaseError::Sqlite(err) => {
                 matches!(err, rusqlite::Error::SqliteFailure(_, _))
-            },
+            }
             DatabaseError::SqliteWithOperation { source, .. } => {
                 matches!(source, rusqlite::Error::SqliteFailure(_, _))
-            },
+            }
             DatabaseError::DatabaseLocked { .. } => true,
             _ => false,
         }
     }
 }
-
 
 /// Database connection manager
 pub struct Database {
@@ -102,11 +93,10 @@ impl Database {
         let db_path_str = db_path.as_ref().display().to_string();
         info!("Opening database at: {}", db_path_str);
 
-        let conn = Connection::open(&db_path)
-            .map_err(|e| {
-                error!("Failed to open database: {}", e);
-                DatabaseError::connection_error(db_path_str.clone(), e.to_string())
-            })?;
+        let conn = Connection::open(&db_path).map_err(|e| {
+            error!("Failed to open database: {}", e);
+            DatabaseError::connection_error(db_path_str.clone(), e.to_string())
+        })?;
 
         // Enable WAL mode for better concurrency
         debug!("Configuring WAL mode for better concurrency");
@@ -148,7 +138,9 @@ impl Database {
                     if attempt < max_attempts - 1 {
                         warn!(
                             "{} failed (database busy), retry {} in {}ms",
-                            operation_name, attempt + 1, delay_ms
+                            operation_name,
+                            attempt + 1,
+                            delay_ms
                         );
                         std::thread::sleep(std::time::Duration::from_millis(delay_ms));
                         delay_ms *= 2; // Exponential backoff
@@ -176,7 +168,9 @@ impl Database {
     /// Initialize database schema and run migrations
     fn initialize(&self) -> Result<(), DatabaseError> {
         // Check if migration table exists
-        let user_version: i32 = self.conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
+        let user_version: i32 = self
+            .conn
+            .pragma_query_value(None, "user_version", |row| row.get(0))?;
 
         if user_version == 0 {
             // Run initial migration
@@ -192,7 +186,8 @@ impl Database {
             1 => {
                 info!("Running migration version 1: initial schema");
                 let migration_sql = include_str!("../../migrations/001_initial.up.sql");
-                self.conn.execute_batch(migration_sql)
+                self.conn
+                    .execute_batch(migration_sql)
                     .map_err(|e| DatabaseError::migration_error(version, e.to_string()))?;
             }
             _ => {
@@ -258,9 +253,9 @@ impl Database {
             WHERE content_hash = ?1
         ";
 
-        let result = self.conn.query_row(query, params![hash], |row| {
-            Ok(Self::row_to_entry(row)?)
-        });
+        let result = self
+            .conn
+            .query_row(query, params![hash], |row| Ok(Self::row_to_entry(row)?));
 
         match result {
             Ok(entry) => Ok(Some(entry)),
@@ -290,7 +285,11 @@ impl Database {
     }
 
     /// Update latest copy time for existing entry
-    pub fn update_latest_copy_time(&self, hash: &str, new_time: DateTime<Utc>) -> Result<(), DatabaseError> {
+    pub fn update_latest_copy_time(
+        &self,
+        hash: &str,
+        new_time: DateTime<Utc>,
+    ) -> Result<(), DatabaseError> {
         self.conn.execute(
             "UPDATE clipboard_entries SET latest_copy_time_ms = ?1 WHERE content_hash = ?2",
             params![new_time.timestamp_millis(), hash],
@@ -300,40 +299,77 @@ impl Database {
     }
 
     /// Get all entries (with pagination)
-    pub fn get_all_entries(&self, limit: usize, offset: usize) -> Result<Vec<ClipboardEntry>, DatabaseError> {
+    pub fn get_all_entries(
+        &self,
+        limit: usize,
+        offset: usize,
+    ) -> Result<Vec<ClipboardEntry>, DatabaseError> {
         let mut stmt = self.conn.prepare(
             "SELECT id, content_hash, content_type, timestamp, latest_copy_time_ms,
                     text_content, image_path, source_bundle_id, source_app_name, source_pid
              FROM clipboard_entries
              ORDER BY timestamp DESC
-             LIMIT ?1 OFFSET ?2"
+             LIMIT ?1 OFFSET ?2",
         )?;
 
-        let entries = stmt.query_map(params![limit as i64, offset as i64], |row| {
-            Ok(Self::row_to_entry(row)?)
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+        let entries = stmt
+            .query_map(params![limit as i64, offset as i64], |row| {
+                Ok(Self::row_to_entry(row)?)
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(entries)
     }
 
     /// Get entries by content type
-    pub fn get_entries_by_type(&self, content_type: ContentType, limit: usize, offset: usize) -> Result<Vec<ClipboardEntry>, DatabaseError> {
+    pub fn get_entries_by_type(
+        &self,
+        content_type: ContentType,
+        limit: usize,
+        offset: usize,
+    ) -> Result<Vec<ClipboardEntry>, DatabaseError> {
         let mut stmt = self.conn.prepare(
             "SELECT id, content_hash, content_type, timestamp, latest_copy_time_ms,
                     text_content, image_path, source_bundle_id, source_app_name, source_pid
              FROM clipboard_entries
              WHERE content_type = ?1
              ORDER BY timestamp DESC
-             LIMIT ?2 OFFSET ?3"
+             LIMIT ?2 OFFSET ?3",
         )?;
 
-        let entries = stmt.query_map(params![content_type.as_str(), limit as i64, offset as i64], |row| {
-            Ok(Self::row_to_entry(row)?)
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+        let entries = stmt
+            .query_map(
+                params![content_type.as_str(), limit as i64, offset as i64],
+                |row| Ok(Self::row_to_entry(row)?),
+            )?
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(entries)
+    }
+
+    pub fn count_entries(&self) -> Result<i64, DatabaseError> {
+        let count: i64 =
+            self.conn
+                .query_row("SELECT COUNT(*) FROM clipboard_entries", [], |row| {
+                    row.get(0)
+                })?;
+        Ok(count)
+    }
+
+    pub fn delete_oldest_unpinned_entries(&self, limit: usize) -> Result<usize, DatabaseError> {
+        self.execute_with_retry("delete_oldest_unpinned", || {
+            let deleted = self.conn.execute(
+                "DELETE FROM clipboard_entries 
+                 WHERE id IN (
+                     SELECT id FROM clipboard_entries 
+                     WHERE is_pinned = 0
+                     ORDER BY timestamp ASC 
+                     LIMIT ?
+                 )",
+                params![limit as i64],
+            )?;
+            Ok(deleted)
+        })
     }
 
     /// Convert database row to ClipboardEntry
@@ -341,13 +377,13 @@ impl Database {
         use uuid::Uuid;
 
         let id_str: String = row.get(0)?;
-        let id = Uuid::parse_str(&id_str)
-            .map_err(|_| rusqlite::Error::InvalidQuery)?;
+        let id = Uuid::parse_str(&id_str).map_err(|_| rusqlite::Error::InvalidQuery)?;
 
         let content_hash: String = row.get(1)?;
         let content_type_str: String = row.get(2)?;
-        let content_type = ContentType::from_str(&content_type_str)
-            .ok_or_else(|| rusqlite::Error::InvalidParameterName("Invalid content_type".to_owned()))?;
+        let content_type = ContentType::from_str(&content_type_str).ok_or_else(|| {
+            rusqlite::Error::InvalidParameterName("Invalid content_type".to_owned())
+        })?;
 
         let timestamp_ms: i64 = row.get(3)?;
         let timestamp = DateTime::<Utc>::from_timestamp_millis(timestamp_ms)
@@ -355,7 +391,9 @@ impl Database {
 
         let latest_copy_ms: i64 = row.get(4)?;
         let latest_copy_time_ms = DateTime::<Utc>::from_timestamp_millis(latest_copy_ms)
-            .ok_or_else(|| rusqlite::Error::InvalidParameterName("Invalid latest_copy_time_ms".to_owned()))?;
+            .ok_or_else(|| {
+                rusqlite::Error::InvalidParameterName("Invalid latest_copy_time_ms".to_owned())
+            })?;
 
         let text_content: Option<String> = row.get(5)?;
         let image_path: Option<String> = row.get(6)?;
@@ -410,7 +448,10 @@ mod tests {
         let db = Database::open(temp_file.path()).unwrap();
 
         // Check that version is set
-        let version: i32 = db.conn.pragma_query_value(None, "user_version", |row| row.get(0)).unwrap();
+        let version: i32 = db
+            .conn
+            .pragma_query_value(None, "user_version", |row| row.get(0))
+            .unwrap();
         assert_eq!(version, 1);
     }
 
@@ -419,7 +460,8 @@ mod tests {
         let temp_file = NamedTempFile::new().unwrap();
         let db = Database::open(temp_file.path()).unwrap();
 
-        let source = SourceApplication::new("com.test.App".to_string(), "TestApp".to_string(), 1234);
+        let source =
+            SourceApplication::new("com.test.App".to_string(), "TestApp".to_string(), 1234);
         let entry = ClipboardEntry::new(
             "test_hash_123".to_string(),
             ContentType::Text,
@@ -441,7 +483,8 @@ mod tests {
 
         assert!(!db.entry_exists("nonexistent").unwrap());
 
-        let source = SourceApplication::new("com.test.App".to_string(), "TestApp".to_string(), 1234);
+        let source =
+            SourceApplication::new("com.test.App".to_string(), "TestApp".to_string(), 1234);
         let entry = ClipboardEntry::new(
             "test_hash".to_string(),
             ContentType::Text,

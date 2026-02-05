@@ -662,22 +662,12 @@ class ClipboardPanelWindow: NSPanel {
     }
 
     private func saveScrollPosition() {
-        guard let scrollView = scrollView.documentView as? NSScrollView else {
-            Logger.debug("No scroll view found for saving position")
-            return
-        }
-
         let scrollPosition = scrollView.contentView.bounds.origin.y
         UserDefaults.standard.set(scrollPosition, forKey: scrollPositionKey)
         Logger.debug("Saved scroll position: \(scrollPosition)")
     }
 
     private func restoreScrollPosition() {
-        guard let scrollView = scrollView.documentView as? NSScrollView else {
-            Logger.debug("No scroll view found for restoring position")
-            return
-        }
-
         if let savedPosition = UserDefaults.standard.object(forKey: scrollPositionKey) as? CGFloat {
             let point = NSPoint(x: 0, y: savedPosition)
             scrollView.contentView.scroll(point)
