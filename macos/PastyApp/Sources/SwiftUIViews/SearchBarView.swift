@@ -1,44 +1,46 @@
 import SwiftUI
 
-/// Search bar view with dark theme matching design.jpeg
 struct SearchBarView: View {
     @ObservedObject var viewModel: MainPanelViewModel
 
     var body: some View {
         HStack(spacing: 10) {
-            // Command key icon
-            Image(systemName: "command")
-                .foregroundColor(Color(red: 0.5, green: 0.5, blue: 0.5))
-                .font(.system(size: 16, weight: .medium))
+            Text("⌘")
+                .font(.system(size: 13))
+                .foregroundColor(DesignColors.icon)
 
-            TextField("Search clipboard...", text: $viewModel.searchText)
+            TextField("Search clipboard…", text: $viewModel.searchText)
                 .textFieldStyle(.plain)
-                .font(.system(size: 15))
-                .foregroundColor(Color(red: 0.7, green: 0.7, blue: 0.7))
-                .accentColor(Color(red: 0.8, green: 0.4, blue: 0.6))  // Pink/purple accent
+                .font(.system(size: 13))
+                .foregroundColor(DesignColors.text2)
 
             if !viewModel.searchText.isEmpty {
                 Button(action: {
                     viewModel.searchText = ""
                 }) {
                     Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(Color(red: 0.4, green: 0.4, blue: 0.4))
+                        .foregroundColor(DesignColors.text1)
                         .font(.system(size: 14))
                 }
                 .buttonStyle(.plain)
-                .help("Clear search")
             }
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .background(Color(red: 0.12, green: 0.12, blue: 0.14))  // Darker background #1f1f24
-        .cornerRadius(10)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.white.opacity(0.10))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(DesignColors.stroke, lineWidth: 1)
+                )
+        )
     }
 }
 
 #Preview {
     ZStack {
-        Color(red: 0.102, green: 0.102, blue: 0.102)  // #1a1a1a
+        DesignColors.mat1
         SearchBarView(viewModel: MainPanelViewModel())
             .frame(width: 300)
     }

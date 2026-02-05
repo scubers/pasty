@@ -53,9 +53,9 @@ class ClipboardPanelWindow: NSPanel {
         self.previewPanelViewModel = previewPanelViewModel
         self.tableView = NSTableView(frame: .zero)
 
-        // Initialize panel - 40/60 split layout
+        // Initialize panel - 520px width matching HTML design (1.06:0.94 split)
         super.init(
-            contentRect: NSRect(x: 0, y: 0, width: 1000, height: 600),
+            contentRect: NSRect(x: 0, y: 0, width: 900, height: 560),
             styleMask: [.borderless, .fullSizeContentView, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -86,18 +86,25 @@ class ClipboardPanelWindow: NSPanel {
         alphaValue = 1.0
         hasShadow = true
 
-        // ✅ 背景、圆角都在 contentView 上画
         if let contentView = contentView {
             contentView.wantsLayer = true
             contentView.layer?.cornerRadius = 16
             contentView.layer?.masksToBounds = true
 
-            contentView.layer?.backgroundColor = NSColor(hex: "#1a1a1e")
-                .withAlphaComponent(0.98)
-                .cgColor
+            let visualEffectView = NSVisualEffectView()
+            visualEffectView.material = .popover
+            visualEffectView.blendingMode = .behindWindow
+            visualEffectView.state = .active
+            visualEffectView.wantsLayer = true
+            visualEffectView.layer?.cornerRadius = 16
+            visualEffectView.layer?.masksToBounds = true
 
-            contentView.layer?.borderWidth = 0
-            contentView.layer?.borderColor = nil
+            for subview in contentView.subviews {
+                subview.removeFromSuperview()
+                visualEffectView.addSubview(subview)
+            }
+
+            self.contentView = visualEffectView
         }
 
         titleVisibility = .hidden
@@ -146,17 +153,17 @@ class ClipboardPanelWindow: NSPanel {
         tv.delegate = self
         tv.dataSource = self
         tv.headerView = nil
-        tv.intercellSpacing = NSSize(width: 0, height: 4)
+        tv.intercellSpacing = NSSize(width: 0, height: 8)
         tv.backgroundColor = .clear
         tv.selectionHighlightStyle = .none
-        tv.rowHeight = 48
+//        tv.rowHeight = 100
         tv.usesAutomaticRowHeights = false
         tv.allowsMultipleSelection = true
         tv.style = .plain
 
         // Add column
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("ClipboardColumn"))
-        column.width = 400
+//        column.width = 400
         tv.addTableColumn(column)
 
         // Configure scroll view
@@ -207,7 +214,7 @@ class ClipboardPanelWindow: NSPanel {
 
     private func setupTopBar() {
         topBarView.wantsLayer = true
-        topBarView.layer?.backgroundColor = NSColor(hex: "#1a1a1e").cgColor
+        topBarView.layer?.backgroundColor = NSColor.DesignColors.mat1.cgColor
     }
 
     private func setupSwiftUIHosts() {
@@ -232,16 +239,16 @@ class ClipboardPanelWindow: NSPanel {
         }
 
         searchHostView.snp.makeConstraints { make in
-            make.left.equalToSuperview().offset(16)
+            make.left.equalToSuperview().offset(14)
             make.centerY.equalToSuperview()
-            make.right.equalTo(filterHostView.snp.left).offset(-16)
-            make.height.equalTo(40)
+            make.right.equalTo(filterHostView.snp.left).offset(-10)
+            make.height.equalTo(36)
         }
 
         filterHostView.snp.makeConstraints { make in
-            make.right.equalToSuperview().offset(-16)
+            make.right.equalToSuperview().offset(-14)
             make.centerY.equalToSuperview()
-            make.height.equalTo(40)
+            make.height.equalTo(32)
         }
     }
 
@@ -264,34 +271,36 @@ class ClipboardPanelWindow: NSPanel {
     private func setupLayout() {
         guard let contentView = contentView else { return }
 
-        // Top bar (search + filters, full width) - increased height for larger controls
+        // Top bar height matching HTML (padding 14px top/bottom)
         topBarView.snp.makeConstraints { make in
             make.top.equalToSuperview()
             make.left.equalToSuperview()
             make.right.equalToSuperview()
-            make.height.equalTo(60)
+            make.height.equalTo(54)
         }
 
-        // Table view (left side, 40%) - adjusted margins
         scrollView.snp.makeConstraints { make in
-            make.top.equalTo(topBarView.snp.bottom).offset(8)
+            make.top.equalTo(topBarView.snp.bottom).offset(12)
             make.left.equalToSuperview().offset(12)
-            make.bottom.equalToSuperview().offset(-12)
+            make.bottom.equalToSuperview().offset(-10)
             make.width.equalTo(contentView.snp.width).multipliedBy(0.40)
         }
 
-        // Divider (vertical) - subtle separator
+        // Divider color matching HTML
+        dividerView.layer?.backgroundColor = NSColor.DesignColors.stroke.cgColor
+
+        // Divider (vertical) matching HTML layout
         dividerView.snp.makeConstraints { make in
-            make.top.equalTo(scrollView.snp.top).offset(4)
-            make.left.equalTo(scrollView.snp.right).offset(8)
-            make.bottom.equalTo(scrollView.snp.bottom).offset(-4)
+            make.top.equalTo(scrollView.snp.top)
+            make.left.equalTo(scrollView.snp.right).offset(12)
+            make.bottom.equalTo(scrollView.snp.bottom)
             make.width.equalTo(1)
         }
 
-        // Preview container (right side, 60%) - adjusted margins
+        // Preview container (right side, 47% matching HTML layout)
         previewContainerView.snp.makeConstraints { make in
             make.top.equalTo(scrollView.snp.top)
-            make.left.equalTo(dividerView.snp.right).offset(8)
+            make.left.equalTo(dividerView.snp.right).offset(12)
             make.right.equalToSuperview().offset(-12)
             make.bottom.equalTo(scrollView.snp.bottom)
         }
@@ -719,7 +728,7 @@ class ClipboardPanelWindow: NSPanel {
             defaultFrame.origin.y = screenFrame.minY
         }
 
-        let screenName = screen.localizedName
+        let _ = screen.localizedName
         Logger.debug("Calculated default position on screen: \(defaultFrame)")
 
         return defaultFrame
@@ -838,7 +847,7 @@ extension ClipboardPanelWindow: NSTableViewDelegate {
     }
 
     func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
-        return 56
+        return 72
     }
 
     func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool {

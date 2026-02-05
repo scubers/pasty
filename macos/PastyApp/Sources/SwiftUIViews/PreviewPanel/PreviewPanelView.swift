@@ -1,21 +1,21 @@
 import SwiftUI
-import AppKit
 
-/// Preview panel view showing clipboard entry content
 struct PreviewPanelView: View {
     @ObservedObject var viewModel: PreviewPanelViewModel
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Header with title and metadata
-            headerView
+        VStack(spacing: 12) {
+            previewCardView
 
-            // Sensitive content warning
-            if viewModel.isSensitive {
-                sensitiveWarningView
-            }
+            tipView
+        }
+        .padding(14)
+    }
 
-            // Preview content
+    private var previewCardView: some View {
+        VStack(spacing: 10) {
+            cardHeaderView
+
             Group {
                 switch viewModel.previewContent {
                 case .empty:
@@ -26,190 +26,111 @@ struct PreviewPanelView: View {
                     ImagePreviewView(image: image)
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .frame(minHeight: 220, maxHeight: .infinity, alignment: .topLeading)
 
-            // Encryption offer for sensitive content
-            if viewModel.isSensitive && !viewModel.isEncrypted {
-                encryptionOfferView
-            }
-
-            // Action buttons
             actionButtonsView
-
-            // Keyboard shortcut tip
-            tipView
         }
-        .background(Color(red: 0.14, green: 0.14, blue: 0.16))
+        .padding(12)
     }
 
-    // MARK: - Header
+    private var cardHeaderView: some View {
+        HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Preview")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(DesignColors.text0)
 
-    private var headerView: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // Preview title
-            Text("Preview")
-                .font(.system(size: 20, weight: .bold))
-                .foregroundColor(.white)
+                HStack(spacing: 8) {
+                    if let icon = viewModel.sourceAppIcon {
+                        Image(nsImage: icon)
+                            .resizable()
+                            .frame(width: 14, height: 14)
+                    }
 
-            // Metadata row
-            HStack(spacing: 8) {
-                // Source app icon
-                if let icon = viewModel.sourceAppIcon {
-                    Image(nsImage: icon)
-                        .resizable()
-                        .frame(width: 16, height: 16)
+                    Text("\(viewModel.sourceAppName) · \(viewModel.timestamp)")
+                        .font(.system(size: 12))
+                        .foregroundColor(DesignColors.text1)
+
+                    if viewModel.isPinned {
+                        Text("📌")
+                            .font(.system(size: 10))
+                    }
                 }
+            }
 
-                // Source app name and timestamp
-                Text("\(viewModel.sourceAppName) · \(viewModel.timestamp)")
-                    .font(.system(size: 12))
-                    .foregroundColor(Color(red: 0.6, green: 0.6, blue: 0.6))
+            Spacer()
 
-                // Pinned badge
-                if viewModel.isPinned {
-                    Text("Pinned")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(Color(red: 0.98, green: 0.75, blue: 0.14))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(Color(red: 0.25, green: 0.2, blue: 0.1))
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 4)
-                                .stroke(Color(red: 0.98, green: 0.75, blue: 0.14), lineWidth: 1)
-                        )
-                }
-
-                Spacer()
+            if viewModel.isPinned {
+                Text("Pinned")
+                    .font(.system(size: 11))
+                    .foregroundColor(DesignColors.text1)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(
+                        Capsule()
+                            .fill(Color.white.opacity(0.08))
+                            .overlay(
+                                Capsule()
+                                    .stroke(DesignColors.stroke, lineWidth: 1)
+                            )
+                    )
             }
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 20)
-        .padding(.bottom, 12)
     }
-
-    // MARK: - Empty State
 
     private var emptyStateView: some View {
         VStack(spacing: 12) {
             Image(systemName: "doc.text.viewfinder")
                 .font(.system(size: 48))
-                .foregroundColor(Color(red: 0.4, green: 0.4, blue: 0.4))
+                .foregroundColor(DesignColors.text1)
             Text("Select an entry to preview")
-                .font(.system(size: 14))
-                .foregroundColor(Color(red: 0.5, green: 0.5, blue: 0.5))
+                .font(.system(size: 13))
+                .foregroundColor(DesignColors.text1)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
-
-    // MARK: - Sensitive Warning
-
-    private var sensitiveWarningView: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 16))
-                .foregroundColor(Color(red: 0.96, green: 0.47, blue: 0.04))
-            Text("Sensitive content detected")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundColor(Color(red: 0.8, green: 0.8, blue: 0.8))
-            Spacer()
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 6)
-                .fill(Color(red: 0.23, green: 0.14, blue: 0.06))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(Color(red: 0.96, green: 0.47, blue: 0.04), lineWidth: 1)
-        )
-    }
-
-    // MARK: - Encryption Offer
-
-    private var encryptionOfferView: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "lock.shield")
-                .font(.system(size: 16))
-                .foregroundColor(Color(red: 0.96, green: 0.47, blue: 0.04))
-            VStack(alignment: .leading, spacing: 4) {
-                Text("This content looks sensitive")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.white)
-                Text("Encrypt to protect it")
-                    .font(.system(size: 12))
-                    .foregroundColor(Color(red: 0.6, green: 0.6, blue: 0.6))
-            }
-            Spacer()
-            Button(action: {
-                viewModel.encryptSensitiveContent()
-            }) {
-                Text("Encrypt")
-                    .font(.system(size: 13, weight: .medium))
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color(red: 0.25, green: 0.25, blue: 0.28))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color(red: 0.96, green: 0.47, blue: 0.04), lineWidth: 1)
-        )
-    }
-
-    // MARK: - Action Buttons
 
     private var actionButtonsView: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
             Spacer()
 
-            // Copy button
             Button(action: {
                 viewModel.handleCopyAction()
             }) {
-                HStack(spacing: 8) {
-                    Image(systemName: "doc.on.doc")
-                        .font(.system(size: 14))
-                    Text("Copy")
-                        .font(.system(size: 14, weight: .medium))
-                }
-                .foregroundColor(.white)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 10)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color(red: 0.25, green: 0.25, blue: 0.28))
-                )
+                Text("Copy")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(DesignColors.text0)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 9)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.white.opacity(0.10))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(DesignColors.stroke, lineWidth: 1)
+                            )
+                    )
             }
             .buttonStyle(.plain)
             .disabled(!viewModel.copyButtonEnabled)
             .opacity(viewModel.copyButtonEnabled ? 1.0 : 0.5)
 
-            // Paste button
             Button(action: {
                 viewModel.handlePasteAction()
             }) {
-                HStack(spacing: 8) {
-                    Image(systemName: "doc.on.clipboard")
-                        .font(.system(size: 14))
-                    Text("Paste")
-                        .font(.system(size: 14, weight: .medium))
-                }
-                .foregroundColor(.white)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 10)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color(red: 0.25, green: 0.25, blue: 0.28))
-                )
+                Text("Paste")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(DesignColors.text0)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 9)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color(red: 0.039, green: 0.518, blue: 1.0, opacity: 0.18))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color(red: 0.039, green: 0.518, blue: 1.0, opacity: 0.35), lineWidth: 1)
+                            )
+                    )
             }
             .buttonStyle(.plain)
             .disabled(!viewModel.pasteButtonEnabled)
@@ -217,25 +138,21 @@ struct PreviewPanelView: View {
 
             Spacer()
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 16)
     }
-
-    // MARK: - Keyboard Shortcut Tip
 
     private var tipView: some View {
         HStack {
             Spacer()
             Text("Tip: ⌘↵ paste · ⌘C copy")
                 .font(.system(size: 12))
-                .foregroundColor(Color(red: 0.5, green: 0.5, blue: 0.5))
+                .foregroundColor(DesignColors.text1)
             Spacer()
         }
-        .padding(.bottom, 12)
     }
 }
 
 #Preview {
     PreviewPanelView(viewModel: PreviewPanelViewModel())
-        .frame(width: 400, height: 300)
+        .frame(width: 400, height: 400)
+        .background(DesignColors.mat2)
 }

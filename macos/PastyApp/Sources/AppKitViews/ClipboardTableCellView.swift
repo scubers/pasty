@@ -1,10 +1,7 @@
 import Cocoa
 import SnapKit
 
-/// Table cell view for clipboard entries with dark theme matching design.jpeg
 class ClipboardTableCellView: NSTableCellView {
-    // MARK: - UI Components
-
     var entryId: String?
     weak var viewModel: MainPanelViewModel?
     var isPinned: Bool = false
@@ -20,10 +17,8 @@ class ClipboardTableCellView: NSTableCellView {
         }
     }
 
-    private let iconImageView: NSImageView = {
+    private let typeIconImageView: NSImageView = {
         let imageView = NSImageView()
-        imageView.wantsLayer = true
-        imageView.layer?.cornerRadius = 6
         imageView.imageScaling = .scaleProportionallyUpOrDown
         imageView.setContentHuggingPriority(.defaultHigh, for: .horizontal)
         return imageView
@@ -31,49 +26,50 @@ class ClipboardTableCellView: NSTableCellView {
 
     private let titleLabel: NSTextField = {
         let textField = NSTextField(labelWithString: "")
-        textField.font = NSFont.systemFont(ofSize: 14, weight: .medium)
-        textField.textColor = NSColor(hex: "#ffffff")
+        textField.font = NSFont.systemFont(ofSize: 13, weight: .medium)
+        textField.textColor = NSColor.DesignColors.text0
         textField.lineBreakMode = .byTruncatingTail
         textField.maximumNumberOfLines = 1
+        textField.isEditable = false
+        textField.isSelectable = false
+        textField.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        textField.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        if let cell = textField.cell as? NSTextFieldCell {
+            cell.wraps = false
+            cell.truncatesLastVisibleLine = true
+        }
+        return textField
+    }()
+
+    private let appIconImageView: NSImageView = {
+        let imageView = NSImageView()
+        imageView.wantsLayer = true
+        imageView.layer?.cornerRadius = 3
+        imageView.imageScaling = .scaleProportionallyUpOrDown
+        imageView.setContentHuggingPriority(.defaultHigh, for: .horizontal)
+        return imageView
+    }()
+
+    private let metaLabel: NSTextField = {
+        let textField = NSTextField(labelWithString: "")
+        textField.font = NSFont.systemFont(ofSize: 11)
+        textField.textColor = NSColor.DesignColors.text1
         textField.isEditable = false
         textField.isSelectable = false
         textField.setContentHuggingPriority(.defaultLow, for: .horizontal)
         return textField
     }()
 
-    private let timestampLabel: NSTextField = {
-        let textField = NSTextField(labelWithString: "")
-        textField.font = NSFont.systemFont(ofSize: 12, weight: .regular)
-        textField.textColor = NSColor(hex: "#888888")
-        textField.alignment = .right
-        textField.isEditable = false
-        textField.isSelectable = false
-        return textField
-    }()
-
-    private let enterIconView: NSImageView = {
-        let imageView = NSImageView()
-        imageView.imageScaling = .scaleProportionallyUpOrDown
-        imageView.contentTintColor = NSColor(hex: "#888888")
-        imageView.isHidden = true
-        if let icon = NSImage(systemSymbolName: "return", accessibilityDescription: "Enter") {
-            imageView.image = icon
-        }
-        return imageView
-    }()
-
     private let sensitiveIconView: NSImageView = {
         let imageView = NSImageView()
         imageView.imageScaling = .scaleProportionallyUpOrDown
-        imageView.contentTintColor = NSColor(hex: "#f59e0b")
+        imageView.contentTintColor = NSColor.DesignColors.pin
         imageView.isHidden = true
         if let icon = NSImage(systemSymbolName: "exclamationmark.triangle.fill", accessibilityDescription: "Sensitive Content") {
             imageView.image = icon
         }
         return imageView
     }()
-
-    // MARK: - Initialization
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -85,85 +81,106 @@ class ClipboardTableCellView: NSTableCellView {
         setupUI()
     }
 
-    // MARK: - Setup
-
     private func setupUI() {
         wantsLayer = true
         layer?.cornerRadius = 10
         layer?.masksToBounds = true
-        layer?.backgroundColor = NSColor(hex: "#1e1e22").cgColor
+        layer?.backgroundColor = NSColor.DesignColors.mat2.cgColor
+        layer?.borderWidth = 1
+        layer?.borderColor = NSColor.DesignColors.stroke.cgColor
 
-        addSubview(iconImageView)
+        addSubview(typeIconImageView)
         addSubview(titleLabel)
-        addSubview(timestampLabel)
-        addSubview(enterIconView)
+        addSubview(appIconImageView)
+        addSubview(metaLabel)
         addSubview(sensitiveIconView)
 
         setupLayout()
     }
 
     private func setupLayout() {
-        iconImageView.snp.makeConstraints { make in
+        typeIconImageView.snp.makeConstraints { make in
             make.left.equalToSuperview().offset(12)
             make.centerY.equalToSuperview()
-            make.width.height.equalTo(24)
+            make.width.height.equalTo(20)
         }
 
         titleLabel.snp.makeConstraints { make in
-            make.left.equalTo(iconImageView.snp.right).offset(10)
-            make.centerY.equalToSuperview()
-            make.right.lessThanOrEqualTo(timestampLabel.snp.left).offset(-12)
+            make.left.equalTo(typeIconImageView.snp.right).offset(12)
+            make.top.equalToSuperview().offset(14)
+            make.right.equalToSuperview().offset(-12)
+            make.height.equalTo(17)
         }
 
-        timestampLabel.snp.makeConstraints { make in
-            make.right.equalTo(enterIconView.snp.left).offset(-10)
-            make.centerY.equalToSuperview()
-            make.width.lessThanOrEqualTo(70)
-        }
-
-        sensitiveIconView.snp.makeConstraints { make in
-            make.right.equalTo(timestampLabel.snp.left).offset(-8)
-            make.centerY.equalToSuperview()
+        appIconImageView.snp.makeConstraints { make in
+            make.left.equalTo(typeIconImageView.snp.right).offset(12)
+            make.top.equalTo(titleLabel.snp.bottom).offset(8)
             make.width.height.equalTo(14)
         }
 
-        enterIconView.snp.makeConstraints { make in
-            make.right.equalToSuperview().offset(-16)
+        metaLabel.snp.makeConstraints { make in
+            make.left.equalTo(appIconImageView.snp.right).offset(6)
+            make.centerY.equalTo(appIconImageView.snp.centerY)
+            make.right.lessThanOrEqualToSuperview().offset(-12)
+        }
+
+        sensitiveIconView.snp.makeConstraints { make in
+            make.right.equalToSuperview().offset(-12)
             make.centerY.equalToSuperview()
             make.width.height.equalTo(14)
         }
     }
-
-    // MARK: - Configuration
 
     func configure(with entry: ClipboardEntryListItem) {
         self.entryId = entry.id
         self.isPinned = entry.isPinned
         self.isSensitive = entry.isSensitive
 
-        // Configure icon
-        if let icon = entry.sourceIcon {
-            iconImageView.image = icon
-            iconImageView.isHidden = false
-        } else {
-            if let defaultIcon = NSImage(systemSymbolName: "app.dashed", accessibilityDescription: "Application") {
-                iconImageView.image = defaultIcon
-                iconImageView.contentTintColor = NSColor(hex: "#666666")
+        if entry.contentType == .image {
+            if let imageIcon = NSImage(systemSymbolName: "photo", accessibilityDescription: "Image") {
+                typeIconImageView.image = imageIcon
+                typeIconImageView.contentTintColor = NSColor.DesignColors.icon
             }
-            iconImageView.isHidden = false
+        } else {
+            if let textIcon = NSImage(systemSymbolName: "text.alignleft", accessibilityDescription: "Text") {
+                typeIconImageView.image = textIcon
+                typeIconImageView.contentTintColor = NSColor.DesignColors.icon
+            }
         }
 
-        // Configure title
         titleLabel.stringValue = entry.title
 
-        // Configure timestamp
-        timestampLabel.stringValue = entry.timestamp
+        if let appIcon = entry.sourceIcon {
+            appIconImageView.image = appIcon
+            appIconImageView.isHidden = false
+        } else {
+            appIconImageView.isHidden = true
+        }
 
-        // Update background for selected state
+        var metaText = entry.sourceApp
+        metaText += " · "
+        metaText += entry.timestamp
+        if isPinned {
+            metaText += " 📌"
+        }
+        metaLabel.stringValue = metaText
+
         updateSelectionState()
     }
 
-    // MARK: - Mouse Events
+    private func updateSelectionState() {
+        if isSelected {
+            layer?.backgroundColor = NSColor.DesignColors.selected.cgColor
+            layer?.borderColor = NSColor.DesignColors.accent.cgColor
+            layer?.borderWidth = 1
+        } else {
+            layer?.backgroundColor = NSColor.DesignColors.mat2.cgColor
+            layer?.borderColor = NSColor.DesignColors.stroke.cgColor
+            layer?.borderWidth = 1
+        }
+
+        sensitiveIconView.isHidden = !isSensitive
+    }
 
     override func rightMouseDown(with event: NSEvent) {
         super.rightMouseDown(with: event)
@@ -192,38 +209,12 @@ class ClipboardTableCellView: NSTableCellView {
         menu.popUp(positioning: nil, at: convert(event.locationInWindow, from: nil), in: self)
     }
 
-    private func updateSelectionState() {
-        if isSelected {
-            // Selected state with orange/yellow border matching design
-            layer?.backgroundColor = NSColor(hex: "#2a2520").cgColor
-            layer?.borderColor = NSColor(hex: "#f59e0b").cgColor
-            layer?.borderWidth = 2
-            enterIconView.isHidden = false
-        } else if isPinned {
-            // Pinned state with subtle orange tint
-            layer?.backgroundColor = NSColor(hex: "#2a2520").withAlphaComponent(0.6).cgColor
-            layer?.borderColor = NSColor(hex: "#f59e0b").cgColor
-            layer?.borderWidth = 1
-            enterIconView.isHidden = true
-        } else if isSensitive {
-            // Sensitive state with yellow warning tint
-            layer?.backgroundColor = NSColor(hex: "#2a2520").withAlphaComponent(0.6).cgColor
-            layer?.borderColor = NSColor(hex: "#f59e0b").cgColor
-            layer?.borderWidth = 1
-            enterIconView.isHidden = true
-        } else {
-            // Normal state
-            layer?.backgroundColor = NSColor(hex: "#1e1e22").cgColor
-            layer?.borderWidth = 0
-            enterIconView.isHidden = true
-        }
-
-        // Show/hide sensitive icon based on state
-        sensitiveIconView.isHidden = !isSensitive
+    override func updateLayer() {
+        super.updateLayer()
+        wantsLayer = true
+        layer?.masksToBounds = true
     }
 }
-
-// MARK: - Context Menu Actions
 
 extension ClipboardTableCellView {
     @objc private func handlePinAction(_ sender: NSMenuItem) {
