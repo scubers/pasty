@@ -20,6 +20,7 @@ pub struct FfiClipboardEntry {
     pub content_hash: *const c_char,
     pub content_type: FfiContentType,
     pub timestamp_ms: i64,
+    pub latest_copy_time_ms: i64,
     pub text_content: *const c_char,
     pub image_path: *const c_char,
     pub source_bundle_id: *const c_char,
@@ -392,6 +393,7 @@ fn entry_to_ffi(entry: ClipboardEntry) -> FfiClipboardEntry {
         content_hash: CString::new(entry.content_hash).unwrap().into_raw(),
         content_type: entry.content_type.into(),
         timestamp_ms: entry.timestamp.timestamp_millis(),
+        latest_copy_time_ms: entry.latest_copy_time_ms.timestamp_millis(),
         text_content: match &entry.content {
             Content::Text(text) => CString::new(text.clone()).unwrap().into_raw(),
             Content::Image(_) => ptr::null(),
