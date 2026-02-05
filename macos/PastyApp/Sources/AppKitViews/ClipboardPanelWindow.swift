@@ -30,9 +30,21 @@ class ClipboardPanelWindow: NSPanel {
     // Divider
     private let dividerView = NSView()
 
-    // Window persistence keys
-    private let windowFrameKey = "clipboardPanelWindowFrame"
-    private let scrollPositionKey = "clipboardPanelScrollPosition"
+    // MARK: - Window Position Management (In-Memory)
+
+    /// Store window frame in memory (not persisted)
+    private var storedWindowFrame: NSRect?
+    /// Store screen identifier where window was last shown
+    private var lastScreenIdentifier: String?
+    /// Store scroll position in memory
+    private var storedScrollPosition: CGFloat?
+    /// Track panel visibility state (used since hidesOnDeactivate doesn't change isVisible)
+    private var panelIsShown = false
+
+    /// Returns true if panel is currently shown (including when hidden via hidesOnDeactivate)
+    var isPanelShown: Bool {
+        return panelIsShown
+    }
 
     // MARK: - Initialization
 
@@ -43,7 +55,7 @@ class ClipboardPanelWindow: NSPanel {
 
         // Initialize panel - 40/60 split layout
         super.init(
-            contentRect: NSRect(x: 0, y: 0, width: 760, height: 450),
+            contentRect: NSRect(x: 0, y: 0, width: 1000, height: 600),
             styleMask: [.borderless, .fullSizeContentView, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -65,7 +77,7 @@ class ClipboardPanelWindow: NSPanel {
         isFloatingPanel = true
         level = .popUpMenu
         isMovableByWindowBackground = true
-        hidesOnDeactivate = false
+        hidesOnDeactivate = true  // Hide when clicking outside or losing focus
         worksWhenModal = true
 
         // ✅ 关键：Window 本体透明（不要用 window.backgroundColor 来画半透明背景）
@@ -326,16 +338,16 @@ class ClipboardPanelWindow: NSPanel {
     func showPanel() {
         mainPanelViewModel.handle(.loadEntries)
 
-        // Restore saved window frame and scroll position
-        restoreWindowFrame()
+        // Restore scroll position from memory
         restoreScrollPosition()
 
-        // CRITICAL: Temporarily switch to .regular activation policy to receive keyboard events
-        // This is REQUIRED for NSPanel to receive keyboard events (Alfred, Maccy do this)
-        NSApp.setActivationPolicy(.regular)
+        // Position window on mouse screen
+        positionWindowOnMouseScreen()
+
+        // Mark panel as shown
+        panelIsShown = true
 
         // Force activate this application BEFORE showing window
-        // Using both methods for maximum compatibility
         NSApp.activate(ignoringOtherApps: true)
 
         // Small delay to ensure activation takes effect
@@ -345,7 +357,10 @@ class ClipboardPanelWindow: NSPanel {
             // Now make window key and front
             self.makeKeyAndOrderFront(nil)
 
-            // Use a loop to ensure window becomes key (standard approach from research)
+            // Save current frame and screen identifier to memory
+            self.storeCurrentPosition()
+
+            // Use a loop to ensure window becomes key
             self.ensureWindowBecomesKey()
         }
 
@@ -395,17 +410,13 @@ class ClipboardPanelWindow: NSPanel {
     }
 
     func hidePanel() {
-        // Save window frame and scroll position before closing
-        saveWindowFrame()
+        // Save scroll position to memory before closing
         saveScrollPosition()
 
-        orderOut(nil)
+        // Mark panel as hidden
+        panelIsShown = false
 
-        // Restore .accessory activation policy after hiding panel
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            NSApp.setActivationPolicy(.accessory)
-            Logger.info("Activation policy restored to .accessory")
-        }
+        orderOut(nil)
 
         Logger.info("Clipboard panel hidden")
     }
@@ -642,36 +653,98 @@ class ClipboardPanelWindow: NSPanel {
         NSLog("✅ Deleted \(ids.count) entr\(ids.count == 1 ? "y" : "ies")")
     }
 
-    // MARK: - Window Persistence
+    // MARK: - Window Position Management
 
-    private func saveWindowFrame() {
-        let frame = frame
-        UserDefaults.standard.set(NSStringFromRect(frame), forKey: windowFrameKey)
-        Logger.debug("Saved window frame: \(frame)")
-    }
-
-    private func restoreWindowFrame() {
-        guard let frameString = UserDefaults.standard.string(forKey: windowFrameKey) else {
-            Logger.debug("No saved window frame found")
-            return
-        }
-
-        let frame = NSRectFromString(frameString)
-        self.setFrame(frame, display: true)
-        Logger.debug("Restored window frame: \(frame)")
+    /// Reposition panel to mouse screen (for cross-screen scenarios)
+    /// This is called by shortcut when panel is already visible
+    func repositionToMouseScreen() {
+        NSLog("🔔 Repositioning panel to mouse screen")
+        positionWindowOnMouseScreen()
+        makeKeyAndOrderFront(nil)
     }
 
     private func saveScrollPosition() {
         let scrollPosition = scrollView.contentView.bounds.origin.y
-        UserDefaults.standard.set(scrollPosition, forKey: scrollPositionKey)
-        Logger.debug("Saved scroll position: \(scrollPosition)")
+        storedScrollPosition = scrollPosition
+        Logger.debug("Saved scroll position to memory: \(scrollPosition)")
     }
 
     private func restoreScrollPosition() {
-        if let savedPosition = UserDefaults.standard.object(forKey: scrollPositionKey) as? CGFloat {
-            let point = NSPoint(x: 0, y: savedPosition)
-            scrollView.contentView.scroll(point)
-            Logger.debug("Restored scroll position: \(savedPosition)")
+        guard let savedPosition = storedScrollPosition else {
+            Logger.debug("No saved scroll position in memory")
+            return
+        }
+        let point = NSPoint(x: 0, y: savedPosition)
+        scrollView.contentView.scroll(point)
+        Logger.debug("Restored scroll position from memory: \(savedPosition)")
+    }
+
+    private func storeCurrentPosition() {
+        storedWindowFrame = frame
+        lastScreenIdentifier = NSScreen.screens.first(where: { screen in
+            screen.frame.contains(frame.origin)
+        })?.localizedName
+
+        Logger.debug("Stored window frame to memory: \(frame)")
+        Logger.debug("Stored screen identifier: \(lastScreenIdentifier ?? "unknown")")
+    }
+
+    private func getMouseScreen() -> NSScreen? {
+        let mouseLocation = NSEvent.mouseLocation
+        return NSScreen.screens.first { screen in
+            screen.frame.contains(mouseLocation)
+        }
+    }
+
+    private func calculateDefaultPosition(on screen: NSScreen) -> NSRect {
+        let screenFrame = screen.visibleFrame
+        let windowSize = frame.size
+
+        let x = screenFrame.midX - (windowSize.width / 2)
+        let y = screenFrame.midY - (windowSize.height / 4)
+
+        var defaultFrame = NSRect(x: x, y: y, width: windowSize.width, height: windowSize.height)
+
+        // Ensure window stays within screen bounds
+        if defaultFrame.maxX > screenFrame.maxX {
+            defaultFrame.origin.x = screenFrame.maxX - defaultFrame.width
+        }
+        if defaultFrame.minX < screenFrame.minX {
+            defaultFrame.origin.x = screenFrame.minX
+        }
+        if defaultFrame.maxY > screenFrame.maxY {
+            defaultFrame.origin.y = screenFrame.maxY - defaultFrame.height
+        }
+        if defaultFrame.minY < screenFrame.minY {
+            defaultFrame.origin.y = screenFrame.minY
+        }
+
+        let screenName = screen.localizedName
+        Logger.debug("Calculated default position on screen: \(defaultFrame)")
+
+        return defaultFrame
+    }
+
+    private func positionWindowOnMouseScreen() {
+        guard let mouseScreen = getMouseScreen() else {
+            Logger.warning("Could not determine mouse screen, using default position")
+            let mainScreen = NSScreen.main ?? NSScreen.screens[0]
+            let defaultPos = calculateDefaultPosition(on: mainScreen)
+            setFrame(defaultPos, display: true)
+            return
+        }
+
+        let currentScreenId = mouseScreen.localizedName
+
+        if let lastScreenId = lastScreenIdentifier,
+           lastScreenId == currentScreenId,
+           let savedFrame = storedWindowFrame {
+            Logger.debug("Same screen as last time, restoring saved position: \(savedFrame)")
+            setFrame(savedFrame, display: true)
+        } else {
+            Logger.debug("Different screen or first show, using default position")
+            let defaultPos = calculateDefaultPosition(on: mouseScreen)
+            setFrame(defaultPos, display: true)
         }
     }
 
@@ -709,6 +782,20 @@ class ClipboardPanelWindow: NSPanel {
 
     override func close() {
         hidePanel()
+    }
+
+    /// Called when window resigns key status (including when hidesOnDeactivate triggers)
+    /// We need to sync our panelIsShown state since hidesOnDeactivate doesn't call hidePanel()
+    override func resignKey() {
+        super.resignKey()
+
+        // If hidesOnDeactivate is true and we're still marked as shown, sync the state
+        // This happens when user clicks outside the panel
+        if panelIsShown {
+            NSLog("🔔 Window resigned key while panel marked as shown, syncing state")
+            saveScrollPosition()
+            panelIsShown = false
+        }
     }
 }
 

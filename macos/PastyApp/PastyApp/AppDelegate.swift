@@ -28,6 +28,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSLog("PastyApp launched successfully")
 
+        // Set activation policy to .accessory to hide from Dock
+        // This ensures the app doesn't appear in the Dock when running
+        NSApp.setActivationPolicy(.accessory)
+        NSLog("✓ Application activation policy set to .accessory (hidden from Dock)")
+
         // Get storage paths BEFORE initializing Rust
         let storageManager = StorageManager.shared
         let dbPath = storageManager.getDatabasePath().path

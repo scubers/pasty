@@ -58,6 +58,7 @@ targets:
       CLANG_ENABLE_MODULES: YES
       ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES: YES
       INFOPLIST_FILE: PastyApp/Info.plist
+      INFOPLIST_KEY_LSUIElement: true
 
       # Link against Rust static library
       OTHER_LDFLAGS:

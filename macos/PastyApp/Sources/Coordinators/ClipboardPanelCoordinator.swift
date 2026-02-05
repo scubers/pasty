@@ -46,10 +46,15 @@ class ClipboardPanelCoordinator: NSObject {
 
     /// Toggle panel visibility
     func togglePanel() {
-        NSLog("🔔 togglePanel called - window.isVisible = \(window.isVisible)")
-        if window.isVisible {
-            hidePanel()
+        NSLog("🔔 togglePanel called - window.isPanelShown = \(window.isPanelShown)")
+
+        // Cmd+Shift+V only shows the panel, never hides it
+        // Use isPanelShown to track panel state since isVisible may not update correctly with hidesOnDeactivate
+        if window.isPanelShown {
+            NSLog("🔔 Panel already visible, ensuring it's on current screen")
+            window.repositionToMouseScreen()
         } else {
+            NSLog("🔔 Panel not visible, showing it")
             showPanel()
         }
     }
