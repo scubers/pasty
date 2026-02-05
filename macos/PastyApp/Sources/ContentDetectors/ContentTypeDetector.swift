@@ -1,30 +1,43 @@
 import Cocoa
 import UniformTypeIdentifiers
 
-/// Content type detection with priority ordering
 struct ContentTypeDetector {
+    private static let imageTypes: [String] = [
+        UTType.image.identifier,
+        UTType.png.identifier,
+        UTType.jpeg.identifier,
+        "public.jpg",
+        UTType.tiff.identifier,
+        UTType.gif.identifier,
+        UTType.webP.identifier,
+        UTType.bmp.identifier,
+        UTType.icns.identifier,
+        "public.heic",
+        "public.heif",
+        "com.apple.pict",
+        "com.compuserve.gif",
+        "public.svg-image",
+    ]
 
-    /// Detects clipboard content type with priority ordering: text > image > file > unsupported
     func detectContentType(from pasteboard: NSPasteboard) -> ClipboardContentType {
         let types = pasteboard.types ?? []
 
-        // Priority 1: Text (most common, always preferred if available)
         if types.contains(NSPasteboard.PasteboardType(UTType.text.identifier)) ||
-           types.contains(NSPasteboard.PasteboardType(UTType.utf8PlainText.identifier)) {
+           types.contains(NSPasteboard.PasteboardType(UTType.utf8PlainText.identifier)) ||
+           types.contains(NSPasteboard.PasteboardType(UTType.plainText.identifier)) {
             return .text
         }
 
-        // Priority 2: Image
-        if types.contains(NSPasteboard.PasteboardType(UTType.image.identifier)) {
-            return .image
+        for imageType in Self.imageTypes {
+            if types.contains(NSPasteboard.PasteboardType(imageType)) {
+                return .image
+            }
         }
 
-        // Priority 3: File/folder reference
         if types.contains(NSPasteboard.PasteboardType(UTType.fileURL.identifier)) {
             return .fileReference
         }
 
-        // Priority 4: Unsupported
         return .unsupported
     }
 }

@@ -1,21 +1,38 @@
 import Foundation
 import Cocoa
+import UniformTypeIdentifiers
 
 struct ImageHandler: ContentHandler {
+    private static let supportedImageFormats: [(uti: String, format: String)] = [
+        (UTType.png.identifier, "png"),
+        (UTType.jpeg.identifier, "jpeg"),
+        ("public.jpg", "jpg"),
+        (UTType.tiff.identifier, "tiff"),
+        (UTType.gif.identifier, "gif"),
+        (UTType.webP.identifier, "webp"),
+        (UTType.bmp.identifier, "bmp"),
+        ("public.heic", "heic"),
+        ("public.heif", "heif"),
+        (UTType.icns.identifier, "icns"),
+        ("com.apple.pict", "pict"),
+    ]
+
     func handle(pasteboard: NSPasteboard, source: SourceApplication, coordinator: ClipboardCoordinator) {
-        guard let imageData = pasteboard.data(forType: .png) ?? pasteboard.data(forType: .tiff) else {
+        var imageData: Data?
+        var format: String = "png"
+
+        for (uti, fmt) in Self.supportedImageFormats {
+            if let data = pasteboard.data(forType: NSPasteboard.PasteboardType(uti)) {
+                imageData = data
+                format = fmt
+                break
+            }
+        }
+
+        guard let finalData = imageData else {
             return
         }
 
-        // Determine format
-        let format: String
-        if pasteboard.data(forType: .png) != nil {
-            format = "png"
-        } else {
-            format = "tiff"
-        }
-
-        // Delegate to platform logic layer
-        coordinator.storeImageContent(imageData, format: format, source: source)
+        coordinator.storeImageContent(finalData, format: format, source: source)
     }
 }
