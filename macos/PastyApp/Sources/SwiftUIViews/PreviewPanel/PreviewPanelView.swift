@@ -10,6 +10,11 @@ struct PreviewPanelView: View {
             // Header with title and metadata
             headerView
 
+            // Sensitive content warning
+            if viewModel.isSensitive {
+                sensitiveWarningView
+            }
+
             // Preview content
             Group {
                 switch viewModel.previewContent {
@@ -22,6 +27,11 @@ struct PreviewPanelView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+
+            // Encryption offer for sensitive content
+            if viewModel.isSensitive && !viewModel.isEncrypted {
+                encryptionOfferView
+            }
 
             // Action buttons
             actionButtonsView
@@ -87,12 +97,72 @@ struct PreviewPanelView: View {
             Image(systemName: "doc.text.viewfinder")
                 .font(.system(size: 48))
                 .foregroundColor(Color(red: 0.4, green: 0.4, blue: 0.4))
-
             Text("Select an entry to preview")
                 .font(.system(size: 14))
                 .foregroundColor(Color(red: 0.5, green: 0.5, blue: 0.5))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    // MARK: - Sensitive Warning
+
+    private var sensitiveWarningView: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 16))
+                .foregroundColor(Color(red: 0.96, green: 0.47, blue: 0.04))
+            Text("Sensitive content detected")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(Color(red: 0.8, green: 0.8, blue: 0.8))
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color(red: 0.23, green: 0.14, blue: 0.06))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(Color(red: 0.96, green: 0.47, blue: 0.04), lineWidth: 1)
+        )
+    }
+
+    // MARK: - Encryption Offer
+
+    private var encryptionOfferView: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "lock.shield")
+                .font(.system(size: 16))
+                .foregroundColor(Color(red: 0.96, green: 0.47, blue: 0.04))
+            VStack(alignment: .leading, spacing: 4) {
+                Text("This content looks sensitive")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.white)
+                Text("Encrypt to protect it")
+                    .font(.system(size: 12))
+                    .foregroundColor(Color(red: 0.6, green: 0.6, blue: 0.6))
+            }
+            Spacer()
+            Button(action: {
+                viewModel.encryptSensitiveContent()
+            }) {
+                Text("Encrypt")
+                    .font(.system(size: 13, weight: .medium))
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color(red: 0.25, green: 0.25, blue: 0.28))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color(red: 0.96, green: 0.47, blue: 0.04), lineWidth: 1)
+        )
     }
 
     // MARK: - Action Buttons

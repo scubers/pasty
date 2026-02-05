@@ -8,6 +8,7 @@ class ClipboardTableCellView: NSTableCellView {
     var entryId: String?
     weak var viewModel: MainPanelViewModel?
     var isPinned: Bool = false
+    var isSensitive: Bool = false
 
     private var _isSelected: Bool = false
 
@@ -61,6 +62,17 @@ class ClipboardTableCellView: NSTableCellView {
         return imageView
     }()
 
+    private let sensitiveIconView: NSImageView = {
+        let imageView = NSImageView()
+        imageView.imageScaling = .scaleProportionallyUpOrDown
+        imageView.contentTintColor = NSColor(hex: "#f59e0b")
+        imageView.isHidden = true
+        if let icon = NSImage(systemSymbolName: "exclamationmark.triangle.fill", accessibilityDescription: "Sensitive Content") {
+            imageView.image = icon
+        }
+        return imageView
+    }()
+
     // MARK: - Initialization
 
     override init(frame frameRect: NSRect) {
@@ -81,11 +93,11 @@ class ClipboardTableCellView: NSTableCellView {
         layer?.masksToBounds = true
         layer?.backgroundColor = NSColor(hex: "#1e1e22").cgColor
 
-        // Add subviews
         addSubview(iconImageView)
         addSubview(titleLabel)
         addSubview(timestampLabel)
         addSubview(enterIconView)
+        addSubview(sensitiveIconView)
 
         setupLayout()
     }
@@ -109,6 +121,12 @@ class ClipboardTableCellView: NSTableCellView {
             make.width.lessThanOrEqualTo(70)
         }
 
+        sensitiveIconView.snp.makeConstraints { make in
+            make.right.equalTo(timestampLabel.snp.left).offset(-8)
+            make.centerY.equalToSuperview()
+            make.width.height.equalTo(14)
+        }
+
         enterIconView.snp.makeConstraints { make in
             make.right.equalToSuperview().offset(-16)
             make.centerY.equalToSuperview()
@@ -121,6 +139,7 @@ class ClipboardTableCellView: NSTableCellView {
     func configure(with entry: ClipboardEntryListItem) {
         self.entryId = entry.id
         self.isPinned = entry.isPinned
+        self.isSensitive = entry.isSensitive
 
         // Configure icon
         if let icon = entry.sourceIcon {
@@ -186,12 +205,21 @@ class ClipboardTableCellView: NSTableCellView {
             layer?.borderColor = NSColor(hex: "#f59e0b").cgColor
             layer?.borderWidth = 1
             enterIconView.isHidden = true
+        } else if isSensitive {
+            // Sensitive state with yellow warning tint
+            layer?.backgroundColor = NSColor(hex: "#2a2520").withAlphaComponent(0.6).cgColor
+            layer?.borderColor = NSColor(hex: "#f59e0b").cgColor
+            layer?.borderWidth = 1
+            enterIconView.isHidden = true
         } else {
             // Normal state
             layer?.backgroundColor = NSColor(hex: "#1e1e22").cgColor
             layer?.borderWidth = 0
             enterIconView.isHidden = true
         }
+
+        // Show/hide sensitive icon based on state
+        sensitiveIconView.isHidden = !isSensitive
     }
 }
 

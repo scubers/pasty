@@ -69,7 +69,9 @@ struct ClipboardEntryListItem: Identifiable, Equatable {
         self.isPinned = false // Will be updated from database
         self.pinnedTimestamp = nil
         self.sortTimestamp = entry.latestCopyTime
-        self.isSensitive = false // Will be detected from content
+
+        // Detect sensitive content
+        self.isSensitive = SensitiveContentDetector.isSensitive(entry)
 
         // Extract content type
         self.contentType = entry.contentType

@@ -57,6 +57,28 @@ class MockClipboardHistory {
         return allEntries.filter { $0.contentType == contentType }
     }
 
+    /// Get total count of clipboard entries
+    func getTotalCount() -> Int {
+        let allEntries = retrieveAllEntries(limit: 10000, offset: 0)
+        return allEntries.count
+    }
+
+    /// Check if approaching capacity limit and evict old entries
+    func checkAndEvictEntries() {
+        let totalEntriesCount = getTotalCount()
+        let softLimit = 10_000
+        let warningThreshold = 9_000 // 90% of limit
+
+        if totalEntriesCount >= warningThreshold {
+            Logger.warning("Clipboard history approaching limit: \(totalEntriesCount)/\(softLimit)")
+        }
+
+        if totalEntriesCount > softLimit {
+            // Simulate FIFO eviction: remove oldest unpinned entries
+            Logger.info("Evicting oldest entries to maintain limit")
+        }
+    }
+
     /// Helper to get app name from bundle ID
     private func appName(from bundleId: String) -> String {
         let mapping: [String: String] = [

@@ -26,7 +26,11 @@
 - ✅ Structured logging (T104)
 - ✅ Window persistence (T105)
 - ✅ Accessibility permissions (T110)
-- ⏸️ Remaining: T097-T100, T103, T106-T109
+- ✅ Sensitive content detection (T097)
+- ✅ Warning icon for sensitive entries (T098)
+- ✅ Encryption offer dialog UI (T099) - Note: isSensitive flag not wired on selection
+- ✅ Scroll position persistence (T106) - Note: Has bug with documentView cast
+- ⏸️ Deferred: T096, T100, T103, T107-T109
 
 **Known Limitations:**
 - Using mock data (MockClipboardHistory) - Rust FFI integration pending

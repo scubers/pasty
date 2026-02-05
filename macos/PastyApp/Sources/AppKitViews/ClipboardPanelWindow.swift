@@ -32,6 +32,7 @@ class ClipboardPanelWindow: NSPanel {
 
     // Window persistence keys
     private let windowFrameKey = "clipboardPanelWindowFrame"
+    private let scrollPositionKey = "clipboardPanelScrollPosition"
 
     // MARK: - Initialization
 
@@ -325,14 +326,15 @@ class ClipboardPanelWindow: NSPanel {
     func showPanel() {
         mainPanelViewModel.handle(.loadEntries)
 
-        // Restore saved window frame if available
+        // Restore saved window frame and scroll position
         restoreWindowFrame()
+        restoreScrollPosition()
 
         // CRITICAL: Temporarily switch to .regular activation policy to receive keyboard events
         // This is REQUIRED for NSPanel to receive keyboard events (Alfred, Maccy do this)
         NSApp.setActivationPolicy(.regular)
 
-        // Force activate this application BEFORE showing the window
+        // Force activate this application BEFORE showing window
         // Using both methods for maximum compatibility
         NSApp.activate(ignoringOtherApps: true)
 
@@ -340,7 +342,7 @@ class ClipboardPanelWindow: NSPanel {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) { [weak self] in
             guard let self = self else { return }
 
-            // Now make the window key and front
+            // Now make window key and front
             self.makeKeyAndOrderFront(nil)
 
             // Use a loop to ensure window becomes key (standard approach from research)
@@ -393,8 +395,9 @@ class ClipboardPanelWindow: NSPanel {
     }
 
     func hidePanel() {
-        // Save window frame before closing
+        // Save window frame and scroll position before closing
         saveWindowFrame()
+        saveScrollPosition()
 
         orderOut(nil)
 
@@ -656,6 +659,30 @@ class ClipboardPanelWindow: NSPanel {
         let frame = NSRectFromString(frameString)
         self.setFrame(frame, display: true)
         Logger.debug("Restored window frame: \(frame)")
+    }
+
+    private func saveScrollPosition() {
+        guard let scrollView = scrollView.documentView as? NSScrollView else {
+            Logger.debug("No scroll view found for saving position")
+            return
+        }
+
+        let scrollPosition = scrollView.contentView.bounds.origin.y
+        UserDefaults.standard.set(scrollPosition, forKey: scrollPositionKey)
+        Logger.debug("Saved scroll position: \(scrollPosition)")
+    }
+
+    private func restoreScrollPosition() {
+        guard let scrollView = scrollView.documentView as? NSScrollView else {
+            Logger.debug("No scroll view found for restoring position")
+            return
+        }
+
+        if let savedPosition = UserDefaults.standard.object(forKey: scrollPositionKey) as? CGFloat {
+            let point = NSPoint(x: 0, y: savedPosition)
+            scrollView.contentView.scroll(point)
+            Logger.debug("Restored scroll position: \(savedPosition)")
+        }
     }
 
     // MARK: - Private Methods

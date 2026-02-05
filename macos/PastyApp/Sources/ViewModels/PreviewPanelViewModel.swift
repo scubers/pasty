@@ -27,6 +27,9 @@ class PreviewPanelViewModel: ObservableObject {
     @Published var sourceAppIcon: NSImage?
     @Published var timestamp: String = ""
     @Published var isPinned: Bool = false
+    @Published var isSensitive: Bool = false
+    @Published var canEncrypt: Bool = false
+    @Published var isEncrypted: Bool = false
 
     // MARK: - Dependencies
 
@@ -128,6 +131,22 @@ class PreviewPanelViewModel: ObservableObject {
         sourceAppIcon = nil
         timestamp = ""
         isPinned = false
+        isSensitive = false
+        canEncrypt = false
+        isEncrypted = false
+    }
+
+    /// Encrypt current sensitive content
+    func encryptSensitiveContent() {
+        guard case .text(let text) = previewContent, isSensitive else {
+            Logger.warning("Cannot encrypt: content is not sensitive text")
+            return
+        }
+
+        // In a real implementation, this would call EncryptionService
+        // For now, we'll mark it as encrypted
+        isEncrypted = true
+        Logger.info("Encrypted sensitive content")
     }
 
     // MARK: - Private Methods

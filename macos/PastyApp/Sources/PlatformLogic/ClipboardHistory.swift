@@ -91,6 +91,29 @@ class ClipboardHistory {
         return allEntries.filter { $0.contentType == contentType }
     }
 
+    /// Check if clipboard history is approaching the 10,000 entry limit
+    /// - Returns: True if total count is >= 90% of limit (9,000 entries)
+    func isNearCapacityLimit() -> Bool {
+        let totalEntriesCount = getTotalCount()
+        let softLimit = 10_000
+        let warningThreshold = Int(Double(softLimit) * 0.9) // 90% of limit
+
+        return totalEntriesCount >= warningThreshold
+    }
+
+    /// Get total count of clipboard entries
+    /// - Returns: Total number of entries in history
+    private func getTotalCount() -> Int {
+        if useMockData {
+            return mockHistory.getTotalCount()
+        }
+
+        // Note: In production, this would be optimized via FFI
+        // For now, retrieve all entries (unbounded) to get count
+        let allEntries = retrieveAllEntries(limit: Int.max, offset: 0)
+        return allEntries.count
+    }
+
     /// Retrieve a single clipboard entry by ID
     /// - Parameter id: UUID string of the entry to retrieve
     /// - Returns: ClipboardEntry if found, nil otherwise
