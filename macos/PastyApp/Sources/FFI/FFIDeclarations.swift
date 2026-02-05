@@ -14,6 +14,7 @@ struct ClipboardFfiEntry {
     var content_hash: UnsafeMutablePointer<CChar>
     var content_type: ClipboardFfiContentType
     var timestamp_ms: Int64
+    var latest_copy_time_ms: Int64
     var text_content: UnsafeMutablePointer<CChar>
     var image_path: UnsafeMutablePointer<CChar>
     var source_bundle_id: UnsafeMutablePointer<CChar>

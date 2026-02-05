@@ -225,6 +225,9 @@ class ClipboardHistory {
         // Extract timestamp
         let timestamp = Date(timeIntervalSince1970: TimeInterval(ffiEntry.timestamp_ms) / 1000.0)
 
+        // Extract latest copy time
+        let latestCopyTime = Date(timeIntervalSince1970: TimeInterval(ffiEntry.latest_copy_time_ms) / 1000.0)
+
         // Extract content type
         let contentType: ContentType
         switch ffiEntry.content_type {
@@ -262,7 +265,7 @@ class ClipboardHistory {
             contentHash: contentHash,
             contentType: contentType,
             timestamp: timestamp,
-            latestCopyTime: timestamp, // Using same timestamp for now
+            latestCopyTime: latestCopyTime,
             content: content,
             source: source
         )
