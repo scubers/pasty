@@ -31,6 +31,14 @@ struct PreviewPanelView: View {
             actionButtonsView
         }
         .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color.white.opacity(0.06))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(DesignColors.stroke, lineWidth: 1)
+                )
+        )
     }
 
     private var cardHeaderView: some View {
