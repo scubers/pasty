@@ -21,12 +21,12 @@ No setup tasks required. Existing structure and integration points are already i
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T001 [P] Add single-entry delete API in `core/src/services/clipboard_store.rs` and `core/src/services/database.rs` (remove DB row and linked image file via `core/src/services/storage.rs`)
-- [ ] T002 [P] Add batch delete API in `core/src/services/clipboard_store.rs` and `core/src/services/database.rs` (delete by id list)
-- [ ] T003 [P] Add update-latest-copy-time API by entry id in `core/src/services/clipboard_store.rs` and `core/src/services/database.rs` (do not rely on content_hash)
-- [ ] T004 [P] Expose delete/update APIs via FFI in `core/src/ffi/clipboard.rs` and `core/src/lib.rs`
-- [ ] T005 [P] Extend Swift FFI declarations in `macos/PastyApp/Sources/FFI/FFIDeclarations.swift` for delete and update-latest-copy-time APIs
-- [ ] T006 Add Swift bridge helpers in `macos/PastyApp/Sources/PlatformLogic/ClipboardHistory.swift` for delete and latest-copy-time updates
+- [x] T001 [P] Add single-entry delete API in `core/src/services/clipboard_store.rs` and `core/src/services/database.rs` (remove DB row and linked image file via `core/src/services/storage.rs`)
+- [x] T002 [P] Add batch delete API in `core/src/services/clipboard_store.rs` and `core/src/services/database.rs` (delete by id list)
+- [x] T003 [P] Add update-latest-copy-time API by entry id in `core/src/services/clipboard_store.rs` and `core/src/services/database.rs` (do not rely on content_hash)
+- [x] T004 [P] Expose delete/update APIs via FFI in `core/src/ffi/clipboard.rs` and `core/src/lib.rs`
+- [x] T005 [P] Extend Swift FFI declarations in `macos/PastyApp/Sources/FFI/FFIDeclarations.swift` for delete and update-latest-copy-time APIs
+- [x] T006 Add Swift bridge helpers in `macos/PastyApp/Sources/PlatformLogic/ClipboardHistory.swift` for delete and latest-copy-time updates
 
 **Checkpoint**: Core delete/update-copy-time operations are available via FFI and callable from Swift.
 
@@ -40,9 +40,9 @@ No setup tasks required. Existing structure and integration points are already i
 
 ### Implementation for User Story 1
 
-- [ ] T007 [US1] Update `MainPanelViewModel.copyEntry` in `macos/PastyApp/Sources/ViewModels/MainPanelViewModel.swift` to support image copy and update latest_copy_time via `ClipboardHistory`
-- [ ] T008 [US1] Update `PreviewPanelViewModel.handleCopyAction` in `macos/PastyApp/Sources/ViewModels/PreviewPanelViewModel.swift` to copy images and update latest_copy_time
-- [ ] T009 [US1] Add Cmd+Enter handling in `macos/PastyApp/Sources/AppKitViews/ClipboardPanelWindow.swift` to trigger copy without paste and keep search focus
+- [x] T007 [US1] Update `MainPanelViewModel.copyEntry` in `macos/PastyApp/Sources/ViewModels/MainPanelViewModel.swift` to support image copy and update latest_copy_time via `ClipboardHistory`
+- [x] T008 [US1] Update `PreviewPanelViewModel.handleCopyAction` in `macos/PastyApp/Sources/ViewModels/PreviewPanelViewModel.swift` to copy images and update latest_copy_time
+- [x] T009 [US1] Add Cmd+Enter handling in `macos/PastyApp/Sources/AppKitViews/ClipboardPanelWindow.swift` to trigger copy without paste and keep search focus
 
 **Checkpoint**: User Story 1 complete and independently testable.
 
@@ -56,10 +56,10 @@ No setup tasks required. Existing structure and integration points are already i
 
 ### Implementation for User Story 2
 
-- [ ] T010 [US2] Capture previous active app on panel show in `macos/PastyApp/Sources/AppKitViews/ClipboardPanelWindow.swift` (or coordinator) and expose for paste decisions
-- [ ] T011 [US2] Update `MainPanelViewModel.pasteEntry` in `macos/PastyApp/Sources/ViewModels/MainPanelViewModel.swift` to skip Cmd+V when previous app is this app and to handle no-focused-app case
-- [ ] T012 [US2] Update Enter key handling and down-arrow wrap-around in `macos/PastyApp/Sources/AppKitViews/ClipboardPanelWindow.swift` for paste+close and list navigation
-- [ ] T013 [US2] Align `PreviewPanelViewModel.handlePasteAction` in `macos/PastyApp/Sources/ViewModels/PreviewPanelViewModel.swift` with previous-app skip logic
+- [x] T010 [US2] Capture previous active app on panel show in `macos/PastyApp/Sources/AppKitViews/ClipboardPanelWindow.swift` (or coordinator) and expose for paste decisions
+- [x] T011 [US2] Update `MainPanelViewModel.pasteEntry` in `macos/PastyApp/Sources/ViewModels/MainPanelViewModel.swift` to skip Cmd+V when previous app is this app and to handle no-focused-app case
+- [x] T012 [US2] Update Enter key handling and down-arrow wrap-around in `macos/PastyApp/Sources/AppKitViews/ClipboardPanelWindow.swift` for paste+close and list navigation
+- [x] T013 [US2] Align `PreviewPanelViewModel.handlePasteAction` in `macos/PastyApp/Sources/ViewModels/PreviewPanelViewModel.swift` with previous-app skip logic
 
 **Checkpoint**: User Stories 1 and 2 both independently functional.
 
@@ -73,9 +73,9 @@ No setup tasks required. Existing structure and integration points are already i
 
 ### Implementation for User Story 4
 
-- [ ] T014 [US4] Present delete confirmation as a sheet above the panel in `macos/PastyApp/Sources/AppKitViews/ClipboardPanelWindow.swift`
-- [ ] T015 [US4] Update `MainPanelViewModel.deleteEntry`/`deleteEntries` in `macos/PastyApp/Sources/ViewModels/MainPanelViewModel.swift` to call `ClipboardHistory` delete APIs and adjust selection per spec
-- [ ] T016 [US4] Update Cmd+D handling in `macos/PastyApp/Sources/AppKitViews/ClipboardPanelWindow.swift` to trigger delete flow and keep search focus
+- [x] T014 [US4] Present delete confirmation as a sheet above the panel in `macos/PastyApp/Sources/AppKitViews/ClipboardPanelWindow.swift`
+- [x] T015 [US4] Update `MainPanelViewModel.deleteEntry`/`deleteEntries` in `macos/PastyApp/Sources/ViewModels/MainPanelViewModel.swift` to call `ClipboardHistory` delete APIs and adjust selection per spec
+- [x] T016 [US4] Update Cmd+D handling in `macos/PastyApp/Sources/AppKitViews/ClipboardPanelWindow.swift` to trigger delete flow and keep search focus
 
 **Checkpoint**: Delete flow is functional, confirmed, and fully synchronized with storage.
 
@@ -85,8 +85,8 @@ No setup tasks required. Existing structure and integration points are already i
 
 **Purpose**: Logging, error feedback, and quickstart validation.
 
-- [ ] T017 [P] Add operation logging and user-facing error messages in `macos/PastyApp/Sources/ViewModels/MainPanelViewModel.swift` and `macos/PastyApp/Sources/ViewModels/PreviewPanelViewModel.swift`
-- [ ] T018 Validate quickstart steps and update `specs/004-clipboard-operations/quickstart.md` if deviations are found
+- [x] T017 [P] Add operation logging and user-facing error messages in `macos/PastyApp/Sources/ViewModels/MainPanelViewModel.swift` and `macos/PastyApp/Sources/ViewModels/PreviewPanelViewModel.swift`
+- [x] T018 Validate quickstart steps and update `specs/004-clipboard-operations/quickstart.md` if deviations are found
 
 ---
 
