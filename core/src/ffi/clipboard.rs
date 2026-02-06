@@ -61,8 +61,16 @@ pub extern "C" fn pasty_clipboard_init(
 
     match ClipboardStore::new(db_path, storage_path) {
         Ok(store) => {
-            *CLIPBOARD_STORE.lock().unwrap() = Some(store);
-            FfiErrorCode::Success
+            match CLIPBOARD_STORE.lock() {
+                Ok(mut guard) => {
+                    *guard = Some(store);
+                    FfiErrorCode::Success
+                }
+                Err(_) => {
+                    set_error("Internal error: clipboard store lock poisoned");
+                    FfiErrorCode::InternalError
+                }
+            }
         }
         Err(e) => {
             set_error(&e.to_string());
@@ -103,7 +111,13 @@ pub extern "C" fn pasty_clipboard_store_text(
         source_pid,
     );
 
-    let store_guard = CLIPBOARD_STORE.lock().unwrap();
+    let store_guard = match CLIPBOARD_STORE.lock() {
+        Ok(guard) => guard,
+        Err(_) => {
+            set_error("Internal error: clipboard store lock poisoned");
+            return ptr::null_mut();
+        }
+    };
     let store = match store_guard.as_ref() {
         Some(s) => s,
         None => {
@@ -159,7 +173,13 @@ pub extern "C" fn pasty_clipboard_store_image(
         source_pid,
     );
 
-    let store_guard = CLIPBOARD_STORE.lock().unwrap();
+    let store_guard = match CLIPBOARD_STORE.lock() {
+        Ok(guard) => guard,
+        Err(_) => {
+            set_error("Internal error: clipboard store lock poisoned");
+            return ptr::null_mut();
+        }
+    };
     let store = match store_guard.as_ref() {
         Some(s) => s,
         None => {
@@ -202,7 +222,13 @@ pub extern "C" fn pasty_clipboard_update_latest_copy_time_by_id(
         }
     };
 
-    let store_guard = CLIPBOARD_STORE.lock().unwrap();
+    let store_guard = match CLIPBOARD_STORE.lock() {
+        Ok(guard) => guard,
+        Err(_) => {
+            set_error("Internal error: clipboard store lock poisoned");
+            return FfiErrorCode::InternalError;
+        }
+    };
     let store = match store_guard.as_ref() {
         Some(s) => s,
         None => {
@@ -249,7 +275,13 @@ pub extern "C" fn pasty_clipboard_delete_entry_by_id(
         }
     };
 
-    let store_guard = CLIPBOARD_STORE.lock().unwrap();
+    let store_guard = match CLIPBOARD_STORE.lock() {
+        Ok(guard) => guard,
+        Err(_) => {
+            set_error("Internal error: clipboard store lock poisoned");
+            return FfiErrorCode::InternalError;
+        }
+    };
     let store = match store_guard.as_ref() {
         Some(s) => s,
         None => {
@@ -308,7 +340,13 @@ pub extern "C" fn pasty_clipboard_delete_entries_by_ids(
         entry_ids.push(entry_id);
     }
 
-    let store_guard = CLIPBOARD_STORE.lock().unwrap();
+    let store_guard = match CLIPBOARD_STORE.lock() {
+        Ok(guard) => guard,
+        Err(_) => {
+            set_error("Internal error: clipboard store lock poisoned");
+            return FfiErrorCode::InternalError;
+        }
+    };
     let store = match store_guard.as_ref() {
         Some(s) => s,
         None => {
@@ -371,10 +409,12 @@ pub extern "C" fn pasty_clipboard_entry_free(entry: *mut FfiClipboardEntry) {
 #[no_mangle]
 pub extern "C" fn pasty_get_last_error() -> *const c_char {
     LAST_ERROR.with(|error| {
-        let error_guard = error.lock().unwrap();
-        match error_guard.as_ref() {
-            Some(msg) => msg.as_ptr(),
-            None => ptr::null(),
+        match error.lock() {
+            Ok(error_guard) => match error_guard.as_ref() {
+                Some(msg) => msg.as_ptr(),
+                None => ptr::null(),
+            },
+            Err(_) => ptr::null(),
         }
     })
 }
@@ -382,28 +422,35 @@ pub extern "C" fn pasty_get_last_error() -> *const c_char {
 /// Set thread-local error message
 fn set_error(message: &str) {
     LAST_ERROR.with(|error| {
-        *error.lock().unwrap() = Some(CString::new(message).unwrap_or_default());
+        if let Ok(mut guard) = error.lock() {
+            *guard = Some(CString::new(message).unwrap_or_default());
+        }
     });
 }
 
 /// Convert ClipboardEntry to FFI representation
 fn entry_to_ffi(entry: ClipboardEntry) -> FfiClipboardEntry {
+    // Helper to create CString safely, using empty string on NUL character error
+    fn safe_cstring(s: String) -> *mut c_char {
+        CString::new(s).unwrap_or_else(|_| CString::new("").unwrap()).into_raw()
+    }
+
     FfiClipboardEntry {
-        id: CString::new(entry.id.to_string()).unwrap().into_raw(),
-        content_hash: CString::new(entry.content_hash).unwrap().into_raw(),
+        id: safe_cstring(entry.id.to_string()),
+        content_hash: safe_cstring(entry.content_hash),
         content_type: entry.content_type.into(),
         timestamp_ms: entry.timestamp.timestamp_millis(),
         latest_copy_time_ms: entry.latest_copy_time_ms.timestamp_millis(),
         text_content: match &entry.content {
-            Content::Text(text) => CString::new(text.clone()).unwrap().into_raw(),
+            Content::Text(text) => safe_cstring(text.clone()),
             Content::Image(_) => ptr::null(),
         },
         image_path: match &entry.content {
             Content::Text(_) => ptr::null(),
-            Content::Image(img) => CString::new(img.path.clone()).unwrap().into_raw(),
+            Content::Image(img) => safe_cstring(img.path.clone()),
         },
-        source_bundle_id: CString::new(entry.source.bundle_id).unwrap().into_raw(),
-        source_app_name: CString::new(entry.source.app_name).unwrap().into_raw(),
+        source_bundle_id: safe_cstring(entry.source.bundle_id),
+        source_app_name: safe_cstring(entry.source.app_name),
         source_pid: entry.source.pid,
     }
 }
@@ -446,10 +493,13 @@ pub extern "C" fn pasty_init() -> i32 {
 /// Shutdown the clipboard store
 #[no_mangle]
 pub extern "C" fn pasty_shutdown() -> FfiErrorCode {
-    // Clear the global store
-    let mut store_guard = CLIPBOARD_STORE.lock().unwrap();
-    *store_guard = None;
-    FfiErrorCode::Success
+    match CLIPBOARD_STORE.lock() {
+        Ok(mut store_guard) => {
+            *store_guard = None;
+            FfiErrorCode::Success
+        }
+        Err(_) => FfiErrorCode::Success,
+    }
 }
 
 /// Get clipboard history with pagination
@@ -493,7 +543,13 @@ pub extern "C" fn pasty_get_clipboard_history(
     limit: usize,
     offset: usize,
 ) -> *mut FfiClipboardEntryList {
-    let store_guard = CLIPBOARD_STORE.lock().unwrap();
+    let store_guard = match CLIPBOARD_STORE.lock() {
+        Ok(guard) => guard,
+        Err(_) => {
+            set_error("Internal error: clipboard store lock poisoned");
+            return ptr::null_mut();
+        }
+    };
     let store = match store_guard.as_ref() {
         Some(s) => s,
         None => {
@@ -590,7 +646,13 @@ pub extern "C" fn pasty_get_entry_by_id(
         }
     };
 
-    let store_guard = CLIPBOARD_STORE.lock().unwrap();
+    let store_guard = match CLIPBOARD_STORE.lock() {
+        Ok(guard) => guard,
+        Err(_) => {
+            set_error("Internal error: clipboard store lock poisoned");
+            return ptr::null_mut();
+        }
+    };
     let store = match store_guard.as_ref() {
         Some(s) => s,
         None => {

@@ -458,6 +458,7 @@ class ClipboardPanelWindow: NSPanel {
                     NSLog("✅ Window became key after \(attempts) attempts")
                     Task { [weak self] in
                         await MainActor.run { [weak self] in
+                            self?.mainPanelViewModel.searchText = ""
                             self?.mainPanelViewModel.handle(.loadEntries)
                             self?.selectFirstRowIfNeeded()
                         }
@@ -501,6 +502,14 @@ class ClipboardPanelWindow: NSPanel {
         restorePreviousAppFocus()
 
         Logger.info("Clipboard panel hidden")
+        
+        Task { [weak self] in
+            await MainActor.run { [weak self] in
+                self?.mainPanelViewModel.searchText = ""
+                self?.mainPanelViewModel.handle(.loadEntries)
+                self?.selectFirstRowIfNeeded()
+            }
+        }
     }
 
     // MARK: - Focus Management

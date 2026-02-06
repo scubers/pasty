@@ -34,5 +34,6 @@ pub enum FfiErrorCode {
     InvalidArgument = 1,
     DatabaseError = 2,
     StorageError = 3,
+    InternalError = 4,
     Unknown = 99,
 }

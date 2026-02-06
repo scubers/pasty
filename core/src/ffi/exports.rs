@@ -28,19 +28,14 @@ fn set_last_error(message: &str) {
 /// Get the Rust core library version string
 ///
 /// # Returns
-/// Pointer to null-terminated version string (e.g., "0.1.0")
-/// Never returns NULL - always returns a valid static string
+/// Pointer to null-terminated static version string. Never returns NULL.
 ///
 /// # Memory Management
-/// Rust owns this string - caller MUST NOT free it
-/// Swift should copy if needed: `String(validatingUTF8: pasty_get_version())`
-///
-/// # Thread Safety
-/// Safe (returns static string)
+/// This is a static string - caller MUST NOT free it.
 #[no_mangle]
 pub extern "C" fn pasty_get_version() -> *const c_char {
-    let version = env!("CARGO_PKG_VERSION");
-    CString::new(version).unwrap().into_raw()
+    static VERSION: &[u8] = concat!(env!("CARGO_PKG_VERSION"), "\0").as_bytes();
+    VERSION.as_ptr() as *const c_char
 }
 
 /// Initialize the Rust core library

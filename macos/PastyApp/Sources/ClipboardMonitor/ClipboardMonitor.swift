@@ -75,24 +75,17 @@ class ClipboardMonitor {
 
     /// Process clipboard change with debounce
     private func processClipboardChange() {
-        // T081: Error handling - wrap processing in do-catch
-        do {
-            // Detect content type
-            let detectedType = detector.detectContentType(from: pasteboard)
+        let detectedType = detector.detectContentType(from: pasteboard)
 
-            switch detectedType {
-            case .text:
-                handleTextContent()
-            case .image:
-                handleImageContent()
-            case .fileReference:
-                handleFileReference()
-            case .unsupported:
-                NSLog("[ClipboardMonitor] Unsupported content type ignored")
-            }
-        } catch {
-            // T082-T083: Graceful degradation - log error but continue monitoring
-            NSLog("[ClipboardMonitor] Error processing clipboard change: \(error.localizedDescription)")
+        switch detectedType {
+        case .text:
+            handleTextContent()
+        case .image:
+            handleImageContent()
+        case .fileReference:
+            handleFileReference()
+        case .unsupported:
+            NSLog("[ClipboardMonitor] Unsupported content type ignored")
         }
     }
 

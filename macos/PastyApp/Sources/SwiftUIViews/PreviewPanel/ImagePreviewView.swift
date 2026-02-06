@@ -25,7 +25,8 @@ struct ImagePreviewView: View {
 }
 
 #Preview {
-    let image = NSImage(systemSymbolName: "photo", accessibilityDescription: "Sample image")
-    return ImagePreviewView(image: image!)
+    let image = NSImage(systemSymbolName: "photo", accessibilityDescription: "Sample image") 
+        ?? NSImage()
+    return ImagePreviewView(image: image)
         .frame(width: 400, height: 300)
 }
