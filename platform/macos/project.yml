@@ -1,0 +1,64 @@
+name: Pasty2
+
+options:
+  bundleIdPrefix: com.pasty2
+  createIntermediateGroups: true
+  deploymentTarget:
+    macOS: "14.0"
+
+settings:
+  base:
+    CLANG_CXX_LANGUAGE_STANDARD: c++17
+    CLANG_CXX_LIBRARY: libc++
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    SWIFT_VERSION: "5.9"
+
+targets:
+  PastyCore:
+    type: library.static
+    platform: macOS
+    sources:
+      - path: ../../core/src
+        compilerFlags:
+          - -Wall
+      - path: ../../core/include
+        buildPhase: headers
+        headerVisibility: public
+        excludes:
+          - module.modulemap
+    settings:
+      HEADER_SEARCH_PATHS:
+        - $(SRCROOT)/../../core/include
+      PRODUCT_NAME: PastyCore
+      SKIP_INSTALL: YES
+      DEFINES_MODULE: YES
+      MODULEMAP_FILE: $(SRCROOT)/../../core/include/module.modulemap
+
+  Pasty2:
+    type: application
+    platform: macOS
+    sources:
+      - path: .
+        excludes:
+          - "*.xcodeproj"
+          - "*.xcworkspace"
+          - project.yml
+          - "*.h"
+          - "*.mm"
+    settings:
+      INFOPLIST_FILE: Info.plist
+      PRODUCT_BUNDLE_IDENTIFIER: com.pasty2.app
+      PRODUCT_NAME: Pasty2
+      CODE_SIGN_IDENTITY: "-"
+      CODE_SIGNING_REQUIRED: NO
+      SWIFT_OBJC_INTEROP_MODE: objcxx
+      SWIFT_EMIT_LOC_STRINGS: NO
+      OTHER_SWIFT_FLAGS:
+        - -cxx-interoperability-mode=default
+      HEADER_SEARCH_PATHS:
+        - $(SRCROOT)/../../core/include
+      SWIFT_INCLUDE_PATHS:
+        - $(SRCROOT)/../../core/include
+    dependencies:
+      - target: PastyCore
+      - sdk: Cocoa.framework

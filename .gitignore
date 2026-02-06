@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+package.json
+bun.lock
+
+# Build outputs
+build/
+*.app
+*.ipa
+*.apk
+
+# Xcode generated files
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+DerivedData/
+*.xcscmblueprint
+*.xccheckout
+
+# macOS
+.DS_Store
+*.dSYM/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Compiled files
+*.o
+*.a
+*.dylib
+*.so
+*.dll
+
+# Debug
+*.log

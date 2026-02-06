@@ -1,0 +1,8 @@
+// Pasty2 - Copyright (c) 2026. MIT License.
+// Module map for Swift-C++ interoperability
+
+module PastyCore {
+    header "Pasty.h"
+    requires cplusplus
+    export *
+}
