@@ -82,3 +82,9 @@ Image format coverage (recommended): validate at least PNG and JPEG; optionally 
 
 - The Core is currently a skeleton; the demo UI + persistence are introduced as part of this feature implementation.
 - Some clipboard content may be marked transient or concealed by source apps; the MVP defaults to not persisting such content for privacy.
+
+## Validation Log
+
+- 2026-02-07: `./scripts/core-build.sh` passed.
+- 2026-02-07: `xcodegen generate` (from `platform/macos`) passed.
+- 2026-02-07: `./scripts/platform-build-macos.sh Debug` passed and produced `build/macos/Build/Products/Debug/Pasty2.app`.

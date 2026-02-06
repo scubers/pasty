@@ -5,6 +5,9 @@ bun.lock
 
 # Build outputs
 build/
+bin/
+obj/
+out/
 *.app
 *.ipa
 *.apk
@@ -34,9 +37,13 @@ DerivedData/
 *.dylib
 *.so
 *.dll
+*.exe
 
 # Debug
 *.log
+.env*
+*.tmp
+Thumbs.db
 
 # tools
 .sisyphus/

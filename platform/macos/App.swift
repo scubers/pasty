@@ -15,6 +15,8 @@ struct PastyApp {
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var clipboardManager = pasty.ClipboardManager()
+    private let clipboardWatcher = ClipboardWatcher()
+    private var historyWindowController: HistoryWindowController?
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         let version = pasty.ClipboardManager.getVersion()
@@ -22,12 +24,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         print("\(String(appName)) v\(String(version)) launched")
         
+        let appDataPath = AppPaths.appDataDirectory().path
+        appDataPath.withCString { pointer in
+            pasty_history_set_storage_directory(pointer)
+        }
+
         if clipboardManager.initialize() {
             print("Core initialized successfully")
         }
+
+        clipboardWatcher.start(interval: 0.4)
+
+        let windowController = HistoryWindowController()
+        windowController.showWindow(nil)
+        historyWindowController = windowController
     }
-    
+
     func applicationWillTerminate(_ notification: Notification) {
+        clipboardWatcher.stop()
         clipboardManager.shutdown()
         print("Core shutdown")
     }

@@ -3,6 +3,9 @@
 
 module PastyCore {
     header "Pasty.h"
+    header "ClipboardHistoryTypes.h"
+    header "ClipboardHistoryStore.h"
+    header "ClipboardHistory.h"
     requires cplusplus
     export *
 }

@@ -33,6 +33,8 @@ targets:
       SKIP_INSTALL: YES
       DEFINES_MODULE: YES
       MODULEMAP_FILE: $(SRCROOT)/../../core/include/module.modulemap
+    dependencies:
+      - sdk: libsqlite3.tbd
 
   Pasty2:
     type: application
@@ -62,3 +64,4 @@ targets:
     dependencies:
       - target: PastyCore
       - sdk: Cocoa.framework
+      - sdk: libsqlite3.tbd

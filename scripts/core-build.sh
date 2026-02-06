@@ -18,6 +18,16 @@ clang++ -std=c++17 -Wall \
     -c "$PROJECT_ROOT/core/src/Pasty.cpp" \
     -o Pasty.o
 
-ar rcs libPastyCore.a Pasty.o
+clang++ -std=c++17 -Wall \
+    -I"$PROJECT_ROOT/core/include" \
+    -c "$PROJECT_ROOT/core/src/ClipboardHistory.cpp" \
+    -o ClipboardHistory.o
+
+clang++ -std=c++17 -Wall \
+    -I"$PROJECT_ROOT/core/include" \
+    -c "$PROJECT_ROOT/core/src/ClipboardHistoryStore.cpp" \
+    -o ClipboardHistoryStore.o
+
+ar rcs libPastyCore.a Pasty.o ClipboardHistory.o ClipboardHistoryStore.o
 
 echo "Core library built: $BUILD_DIR/libPastyCore.a"
