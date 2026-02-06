@@ -1,31 +1,35 @@
 # Implementation Plan: Clipboard Main Panel (macOS)
 
-**Branch**: `002-clipboard-main-panel` | **Date**: 2026-02-07 | **Spec**: [spec.md](./spec.md)
-**Input**: Feature specification from `/specs/002-clipboard-main-panel/spec.md`
+**Branch**: `002-clipboard-main-panel` | **Date**: 2026-02-07 | **Spec**: `/Users/j/Documents/git-repo/pasty2/specs/002-clipboard-main-panel/spec.md`
+**Input**: Feature specification from `/Users/j/Documents/git-repo/pasty2/specs/002-clipboard-main-panel/spec.md`
 
-**Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/commands/plan.md` for the execution workflow.
+**Architecture References (must follow)**:
+- `/Users/j/Documents/git-repo/pasty2/platform/macos/ARCHITECTURE.md` (MVVM + Combine; `platform/macos/Sources/` layering)
+- `/Users/j/Documents/git-repo/pasty2/core/ARCHITECTURE.md` (portable Core; C API location)
+- `/Users/j/Documents/git-repo/pasty2/.specify/memory/constitution.md` (P1-P5)
 
 ## Summary
 
-Add a real "main panel" UI for the clipboard app: a global shortcut (`cmd+shift+v`) toggles a three-region panel (search input, results list + preview, footer shortcuts) shown on the screen containing the mouse cursor. Search filters clipboard history with like-matching in the portable Core (SQLite-backed store), and the platform shell focuses the search field on open. Retire the feature-001 demo history window behavior (no window shown automatically on launch).
+Implement the application's main panel on macOS with lower implementation code volume by adopting approved third-party libraries:
+
+- **Hotkey**: use `KeyboardShortcuts` to register `cmd+shift+v` and toggle panel visibility.
+- **Layout**: use `SnapKit` for AppKit layout where AppKit views are used.
+- **UI**: keep an outer AppKit window/panel, and embed a simple SwiftUI view inside it for the main panel contents.
+
+Core behavior remains unchanged: clipboard history and like-matching search semantics live in portable Core (SQLite store). macOS remains a thin shell.
 
 ## Technical Context
 
-<!--
-  ACTION REQUIRED: Replace the content in this section with the technical details
-  for the project. The structure here is presented in advisory capacity to guide
-  the iteration process.
--->
-
-**Language/Version**: C++17 (Core), Swift 5.9 (macOS shell)
-**Primary Dependencies**: Cocoa.framework (macOS UI/system integration), system SQLite (local storage), XcodeGen (project generation)
-**Storage**: Local SQLite database for history + local files for image assets (paths stored as relative references)
-**Testing**: Core unit tests via a minimal clang++ test executable (extend for search); manual macOS end-to-end verification via main panel
-**Target Platform**: macOS 14.0+ (feature scope); design keeps Core portable for Windows/Linux parity
-**Project Type**: Desktop application (portable C++ Core + macOS native shell)
-**Performance Goals**: Panel show/hide feels instantaneous; typical query-to-results update under 100ms for up to 1000 items
-**Constraints**: Privacy-first (local-only); Core stays portable (no platform headers); no new top-level directories; no new third-party dependencies; maintain atomic persistence guarantees
-**Scale/Scope**: Up to 1000 retained items; results list displays up to 200 items by default; support `text` and `image` items
+**Language/Version**: C++17 (Core), Swift 5.9 (macOS shell)  
+**Primary Dependencies**: Cocoa.framework (AppKit), SwiftUI (system), Combine (system), XcodeGen, system SQLite  
+**Third-Party Dependencies (explicitly approved)**: `KeyboardShortcuts` (hotkey), `SnapKit` (layout) via Swift Package Manager  
+**Storage**: Local SQLite database for history + local files for image assets (relative paths)  
+**Testing**: Core built with CMake via `/Users/j/Documents/git-repo/pasty2/scripts/core-build.sh`; macOS built via `/Users/j/Documents/git-repo/pasty2/scripts/platform-build-macos.sh Debug`; manual verification via `/Users/j/Documents/git-repo/pasty2/specs/002-clipboard-main-panel/quickstart.md`  
+**Target Platform**: macOS 14.0+  
+**Project Type**: Desktop app (portable Core + macOS thin shell)  
+**Performance Goals**: UI operations remain responsive (<100ms typical for <=1000 items); search input uses debounce + bounded result count  
+**Constraints**: Privacy-first (local-only); Core portable (no platform headers); macOS shell must follow MVVM + Combine; no new top-level directories  
+**Scale/Scope**: <=1000 items retained; list shows up to 200 items; supports text and image items
 
 ## Constitution Check
 
@@ -33,104 +37,80 @@ Add a real "main panel" UI for the clipboard app: a global shortcut (`cmd+shift+
 
 | Principle | Check | Status | Notes |
 |-----------|-------|--------|-------|
-| **P1: Privacy First** | Does feature handle sensitive clipboard data? | [x] | Main panel is a local UI over local history; no network; no cloud sync; no exports in scope.
-| **P2: Performance Responsive** | Are performance goals within constitutional limits? | [x] | Dataset bounded (<=1000); like-matching query constrained and debounced; UI updates avoid heavy work on main thread.
-| **P3: Cross-Platform Compatibility** | Is feature feasible across macOS, Windows, Linux? | [x] | UI/hotkey are platform-specific; search semantics live in Core behind a store interface; platform differences documented in research.
-| **P4: Data Integrity** | Are atomic writes and data validation addressed? | [x] | This feature adds query paths only; persistence remains unchanged (SQLite + atomic asset writes). Search input is escaped to avoid corrupt queries.
-| **P5: Extensible Architecture** | Does feature support plugin/extension model? | [x] | Extend Core API minimally (search query) and keep it stable; UI consumes Core via a narrow C ABI surface.
+| **P1: Privacy First** | Does feature handle sensitive clipboard data? | [x] | Local-only; no network/sync; panel is a viewer over local history.
+| **P2: Performance Responsive** | Are performance goals within constitutional limits? | [x] | Debounced search; bounded result size; Core query uses SQLite; avoid blocking main thread in adapters.
+| **P3: Cross-Platform Compatibility** | Is feature feasible across macOS, Windows, Linux? | [x] | UI libs are macOS-only; Core search API remains portable and reusable by future shells.
+| **P4: Data Integrity** | Are atomic writes and data validation addressed? | [x] | This feature adds query paths; persistence rules stay in Core.
+| **P5: Extensible Architecture** | Does feature support plugin/extension model? | [x] | ViewModel depends on protocols; Core API extension is minimal and stable.
 
-Re-check after Phase 1 design: PASS (Core portability preserved; no third-party deps; no cloud; contracts remain local/internal).
+Re-check after Phase 1 design: PASS.
 
 ## Project Structure
 
 ### Documentation (this feature)
 
 ```text
-specs/002-clipboard-main-panel/
-├── plan.md              # This file (/speckit.plan command output)
-├── research.md          # Phase 0 output (/speckit.plan command)
-├── data-model.md        # Phase 1 output (/speckit.plan command)
-├── quickstart.md        # Phase 1 output (/speckit.plan command)
-├── contracts/           # Phase 1 output (/speckit.plan command)
-└── tasks.md             # Phase 2 output (/speckit.tasks command - NOT created by /speckit.plan)
+/Users/j/Documents/git-repo/pasty2/specs/002-clipboard-main-panel/
+├── plan.md
+├── research.md
+├── data-model.md
+├── quickstart.md
+├── contracts/
+└── tasks.md
 ```
 
 ### Source Code (repository root)
-<!--
-  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
-  for this feature. Delete unused options and expand the chosen structure with
-  real paths (e.g., apps/admin, packages/something). The delivered plan must
-  not include Option labels.
--->
 
 ```text
-core/
-├── include/
-│   ├── Pasty.h
-│   ├── ClipboardHistory.h
-│   ├── ClipboardHistoryStore.h
-│   └── ClipboardHistoryTypes.h
+/Users/j/Documents/git-repo/pasty2/core/
+├── include/pasty/
+│   ├── pasty.h
+│   ├── api/history_api.h
+│   └── history/
+│       ├── types.h
+│       ├── history.h
+│       └── store.h
 └── src/
-    ├── Pasty.cpp
-    ├── ClipboardHistory.cpp
-    └── ClipboardHistoryStore.cpp
+    ├── pasty.cpp
+    └── history/
+        ├── history.cpp
+        └── store_sqlite.cpp
 
-platform/
-└── macos/
-    ├── project.yml
-    ├── Info.plist
-    ├── ARCHITECTURE.md
-    ├── Pasty2.xcodeproj/
-    └── Sources/
-        ├── App.swift
-        ├── Utils/
-        ├── Model/
-        ├── ViewModel/
-        └── View/
-
-scripts/
-├── build.sh
-├── core-build.sh
-└── platform-build-macos.sh
-
-specs/
-└── 002-clipboard-main-panel/
-    ├── spec.md
-    ├── plan.md
-    ├── research.md
-    ├── data-model.md
-    ├── quickstart.md
-    └── contracts/
+/Users/j/Documents/git-repo/pasty2/platform/macos/
+├── project.yml
+├── Info.plist
+└── Sources/
+    ├── App.swift
+    ├── Utils/
+    ├── Model/
+    ├── ViewModel/
+    └── View/
 ```
 
-**Structure Decision**: Keep all business rules and data access (history list/search/delete) in portable C++ Core behind a store interface. macOS is a thin shell: hotkey registration, window/panel presentation, input focus, and rendering list/preview.
+**Structure Decision**:
+- Core: history list/search semantics and persistence in portable C++.
+- macOS: MVVM + Combine. AppKit window/panel container hosts a SwiftUI main panel view (for faster UI iteration) and sends user events as actions to the ViewModel.
+- Third-party libs are used only in macOS shell.
 
 ## Complexity Tracking
 
-> **Fill ONLY if Constitution Check has violations that must be justified**
-
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |-----------|------------|-------------------------------------|
-| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
-| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
+| Third-party dependencies (KeyboardShortcuts, SnapKit) | Reduce code volume for hotkey and layout | Native Carbon + manual Auto Layout are more verbose |
 
 ## Phase 0: Research (output: research.md)
 
-- Decide global hotkey registration approach with minimal permissions and no third-party dependencies.
-- Decide main panel window type and focus/activation sequence for a background utility app.
-- Decide how to choose the target screen (mouse location) and compute the "center-top" position.
-- Decide Core search semantics (like-matching) and how to safely escape user input in SQLite LIKE.
+- Confirm best-practice integration of KeyboardShortcuts with a background utility app (activation + focus).
+- Confirm a clean pattern for hosting SwiftUI in AppKit while preserving MVVM + Combine boundaries.
+- Confirm how to add SPM packages via XcodeGen (`project.yml`) for this repo.
+- Confirm Core LIKE search API shape and safe escaping approach.
 
 ## Phase 1: Design & Contracts (outputs: data-model.md, contracts/*, quickstart.md)
 
-- Define UI state and Core-facing data needed for main panel (search query, results, selection, preview).
-- Define stable internal contracts (not network): list recent, search, delete, and image asset path resolution.
-- Define quickstart steps to build and manually verify the new main panel behavior.
-
-## Phase 1: Agent Context Update
-
-- Run `/Users/j/Documents/git-repo/pasty2/.specify/scripts/bash/update-agent-context.sh` to record the tech stack and paths for this feature.
+- Define `MainPanelViewModel.State`/`Action` and how SwiftUI View binds to state and emits actions.
+- Define macOS adapter protocols: HotkeyService (KeyboardShortcuts-backed), ClipboardHistoryService (Core C API-backed), AssetPathResolver.
+- Define Core additions: `pasty_history_search_json` in `/Users/j/Documents/git-repo/pasty2/core/include/pasty/api/history_api.h` and implementation in `/Users/j/Documents/git-repo/pasty2/core/src/pasty.cpp`.
 
 ## Phase 2: Planning Handoff
 
-- Decompose implementation into tasks.md via `/speckit.tasks` (not created by `/speckit.plan`).
+- Decompose implementation into `/Users/j/Documents/git-repo/pasty2/specs/002-clipboard-main-panel/tasks.md`.
