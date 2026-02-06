@@ -37,3 +37,6 @@ DerivedData/
 
 # Debug
 *.log
+
+# tools
+.sisyphus/
