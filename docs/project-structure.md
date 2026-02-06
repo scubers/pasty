@@ -23,6 +23,14 @@ pasty2/
 │   ├── macos/                     # macOS 平台
 │   │   ├── project.yml           # XcodeGen 配置
 │   │   ├── Info.plist            # 应用配置
+│   │   ├── ARCHITECTURE.md       # macOS 层架构与开发规范（目录结构以此为准）
+│   │   ├── Pasty2.xcodeproj/     # 生成产物：Xcode 工程（不要手工编辑）
+│   │   └── Sources/              # macOS 层源码
+│   │       ├── App.swift
+│   │       ├── Utils/
+│   │       ├── Model/
+│   │       ├── ViewModel/
+│   │       └── View/
 │   ├── windows/                   # Windows 平台（待实现）
 │   ├── ios/                       # iOS 平台（待实现）
 │   └── android/                   # Android 平台（待实现）
@@ -133,7 +141,7 @@ public:
 
 ## 开发规范
 
-参见 [constitution.md](../.specify/memory/constitution.md) 了解完整的开发规范和约束。
+参见 [constitution.md](.specify/memory/constitution.md) 了解完整的开发规范和约束。
 
 ### 关键原则
 

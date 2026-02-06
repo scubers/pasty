@@ -73,9 +73,16 @@ core/
 
 platform/
 └── macos/
-    ├── App.swift
+    ├── project.yml
     ├── Info.plist
-    └── project.yml
+    ├── ARCHITECTURE.md
+    ├── Pasty2.xcodeproj/
+    └── Sources/
+        ├── App.swift
+        ├── Utils/
+        ├── Model/
+        ├── ViewModel/
+        └── View/
 
 scripts/
 ├── build.sh

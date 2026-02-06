@@ -20,6 +20,7 @@
 | 项目宪法 | `.specify/memory/constitution.md` | 核心原则 P1-P5，治理规则 |
 | 项目结构 | `docs/project-structure.md` | 目录结构，架构设计，构建流程 |
 | Agent 指令 | `AGENTS.md` | 最高优先级规则，架构约束 |
+| macOS 架构 | `platform/macos/ARCHITECTURE.md` | macOS 层架构、目录结构与开发规范（改动 macOS 代码时必须阅读） |
 
 ### 1.2 核心原则速查
 
