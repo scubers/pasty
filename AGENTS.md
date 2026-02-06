@@ -37,8 +37,11 @@ This file defines the **highest-priority, non-negotiable** rules for AI coding a
   - How it stays portable
   - How it will be tested
 
-## 7) Project docs (Routing)
+## 7) Paths usage (Must follow)
+- All markdown path used in markdown must be relative to the project root.
+
+## 8) Project docs (Routing)
 Start here, then follow links:
 - `docs/agents-development-flow.md` — AI agent development workflow (must read)
-- `docs/.specify/memory/constitution.md` — project development constitution (must read)
+- `.specify/memory/constitution.md` — project development constitution (must read)
 - `docs/project-structure.md` — top level project structure (must read)
