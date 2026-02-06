@@ -31,6 +31,24 @@
 
 macOS 层必须严格遵循 MVVM，并采用 Combine 做响应式数据流。
 
+## UI 技术栈（AppKit 外壳 + SwiftUI 混合）
+
+- 应用启动与外层结构使用 AppKit：`NSApplication` 生命周期、窗口/菜单、权限、快捷键等都由 AppKit 管理（见 `platform/macos/Sources/App.swift`）。
+- 内部“简单 UI”（小面板、列表单元、设置项等）允许使用 SwiftUI 进行混合编程，并嵌入到 AppKit 中：
+  - AppKit -> SwiftUI：使用 `NSHostingView` / `NSHostingController` 承载 SwiftUI View。
+  - 仍保持 MVVM + Combine：SwiftUI View 只绑定 ViewModel State，事件只发送 Action。
+- 不要因为引入 SwiftUI 就把业务逻辑挪到 View：可移植的逻辑仍然必须留在 C++ Core。
+
+## 布局约定（AppKit）：SnapKit
+
+- AppKit View 的布局统一使用 SnapKit。
+- SnapKit 只允许用于 `platform/macos/`（UI 层）并保持“thin shell”原则；Core 禁止依赖任何第三方 UI 库。
+- 若调整/新增 SnapKit 依赖，必须同时更新 `platform/macos/project.yml` 并确保本地可编译。
+
+## 第三方依赖管理：SPM
+
+- macOS 层新增/管理三方库统一使用 Swift Package Manager（SPM）（通过 XcodeGen 配置接入），避免手工拖入二进制依赖。
+
 核心规则：
 - **Action 触发数据更新**：用户交互/系统事件只能转换为 Action 发送给 ViewModel。
 - **数据变化触发界面更新**：View 只能绑定 ViewModel 的 State（或其派生值）。
