@@ -1,6 +1,6 @@
 // Pasty2 - Copyright (c) 2026. MIT License.
 
-#include "../include/ClipboardHistoryStore.h"
+#include <pasty/history/store.h>
 
 #include <cstddef>
 #include <cstdio>

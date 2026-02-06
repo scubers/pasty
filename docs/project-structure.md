@@ -14,10 +14,23 @@ Pasty2 是一个跨平台剪贴板管理应用，采用 **C++ Core + 平台 Shel
 ```
 pasty2/
 ├── core/                          # C++ 跨平台核心层
+│   ├── CMakeLists.txt            # CMake 构建配置（支持独立构建）
+│   ├── ARCHITECTURE.md           # Core 层架构与开发规范（目录结构以此为准）
 │   ├── include/                   # 公共头文件
-│   │   └── Pasty.h               # Core API 定义
+│   │   ├── module.modulemap      # Swift 模块映射
+│   │   └── pasty/                # 命名空间对应目录
+│   │       ├── pasty.h           # 主入口头文件
+│   │       ├── api/              # C API（供 FFI / Swift 互操作）
+│   │       │   └── history_api.h
+│   │       └── history/          # 剪贴板历史模块
+│   │           ├── types.h
+│   │           ├── history.h
+│   │           └── store.h
 │   └── src/                       # 实现文件
-│       └── Pasty.cpp             # Core 实现
+│       ├── pasty.cpp             # 主入口实现
+│       └── history/              # 历史模块实现
+│           ├── history.cpp
+│           └── store_sqlite.cpp
 │
 ├── platform/                      # 平台特定代码
 │   ├── macos/                     # macOS 平台
@@ -36,6 +49,8 @@ pasty2/
 │   └── android/                   # Android 平台（待实现）
 │
 ├── build/                         # 编译输出目录（git忽略）
+│   ├── core/                      # Core 独立构建产物
+│   │   └── lib/libPastyCore.a
 │   └── macos/                     # macOS 编译产物
 │       └── Build/Products/Debug/
 │           ├── Pasty2.app        # 应用包
@@ -45,7 +60,7 @@ pasty2/
 │   ├── check-requirements.sh     # 环境检查
 │   ├── install-requirements.sh   # 依赖安装
 │   ├── build.sh                  # 主构建入口
-│   ├── core-build.sh             # Core 层构建
+│   ├── core-build.sh             # Core 层构建（CMake）
 │   ├── platform-build-macos.sh   # macOS 构建
 │   ├── platform-build-windows.sh # Windows 构建（占位）
 │   ├── platform-build-ios.sh     # iOS 构建（占位）

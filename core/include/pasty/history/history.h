@@ -1,10 +1,10 @@
 // Pasty2 - Copyright (c) 2026. MIT License.
 
-#ifndef CLIPBOARD_HISTORY_H
-#define CLIPBOARD_HISTORY_H
+#ifndef PASTY_HISTORY_HISTORY_H
+#define PASTY_HISTORY_HISTORY_H
 
-#include "ClipboardHistoryStore.h"
-#include "ClipboardHistoryTypes.h"
+#include <pasty/history/store.h>
+#include <pasty/history/types.h>
 
 #include <memory>
 #include <string>

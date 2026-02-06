@@ -1,9 +1,8 @@
 // Pasty2 - Copyright (c) 2026. MIT License.
 
-#include "../include/Pasty.h"
-
-#include "../include/ClipboardHistory.h"
-#include "../include/ClipboardHistoryStore.h"
+#include <pasty/pasty.h>
+#include <pasty/history/history.h>
+#include <pasty/history/store.h>
 
 #include <chrono>
 #include <cstdint>

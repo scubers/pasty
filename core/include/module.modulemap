@@ -1,11 +1,11 @@
 // Pasty2 - Copyright (c) 2026. MIT License.
-// Module map for Swift-C++ interoperability
 
 module PastyCore {
-    header "Pasty.h"
-    header "ClipboardHistoryTypes.h"
-    header "ClipboardHistoryStore.h"
-    header "ClipboardHistory.h"
+    header "pasty/pasty.h"
+    header "pasty/history/types.h"
+    header "pasty/history/store.h"
+    header "pasty/history/history.h"
+    header "pasty/api/history_api.h"
     requires cplusplus
     export *
 }

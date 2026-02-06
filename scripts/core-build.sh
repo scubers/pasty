@@ -13,21 +13,7 @@ echo "Configuration: $CONFIG"
 mkdir -p "$BUILD_DIR"
 cd "$BUILD_DIR"
 
-clang++ -std=c++17 -Wall \
-    -I"$PROJECT_ROOT/core/include" \
-    -c "$PROJECT_ROOT/core/src/Pasty.cpp" \
-    -o Pasty.o
+cmake "$PROJECT_ROOT/core" -DCMAKE_BUILD_TYPE=$CONFIG
+cmake --build . --config $CONFIG
 
-clang++ -std=c++17 -Wall \
-    -I"$PROJECT_ROOT/core/include" \
-    -c "$PROJECT_ROOT/core/src/ClipboardHistory.cpp" \
-    -o ClipboardHistory.o
-
-clang++ -std=c++17 -Wall \
-    -I"$PROJECT_ROOT/core/include" \
-    -c "$PROJECT_ROOT/core/src/ClipboardHistoryStore.cpp" \
-    -o ClipboardHistoryStore.o
-
-ar rcs libPastyCore.a Pasty.o ClipboardHistory.o ClipboardHistoryStore.o
-
-echo "Core library built: $BUILD_DIR/libPastyCore.a"
+echo "Core library built: $BUILD_DIR/lib/libPastyCore.a"

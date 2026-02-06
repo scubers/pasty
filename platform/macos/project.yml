@@ -18,14 +18,15 @@ targets:
     type: library.static
     platform: macOS
     sources:
-      - path: ../../core/src
+      - path: ../../core/src/pasty.cpp
         compilerFlags:
           - -Wall
-      - path: ../../core/include
+      - path: ../../core/src/history
+        compilerFlags:
+          - -Wall
+      - path: ../../core/include/pasty
         buildPhase: headers
         headerVisibility: public
-        excludes:
-          - module.modulemap
     settings:
       HEADER_SEARCH_PATHS:
         - $(SRCROOT)/../../core/include

@@ -1,7 +1,7 @@
 // Pasty2 - Copyright (c) 2026. MIT License.
 
-#ifndef CLIPBOARD_HISTORY_TYPES_H
-#define CLIPBOARD_HISTORY_TYPES_H
+#ifndef PASTY_HISTORY_TYPES_H
+#define PASTY_HISTORY_TYPES_H
 
 #include <cstdint>
 #include <string>
