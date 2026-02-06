@@ -5,11 +5,18 @@ struct TextPreviewView: View {
 
     var body: some View {
         ScrollView(.vertical) {
-            Text(text)
-                .font(.system(size: 13, design: .monospaced))
-                .foregroundColor(DesignColors.text0)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .padding(12)
+            Group {
+                if #available(macOS 12.0, *) {
+                    Text(text)
+                        .textSelection(.enabled)
+                } else {
+                    Text(text)
+                }
+            }
+            .font(.system(size: 13, design: .monospaced))
+            .foregroundColor(DesignColors.text0)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .padding(12)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
