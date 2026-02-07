@@ -1,5 +1,7 @@
 # pasty2 Development Guidelines
 
+## FIRST: MUST READ AGENTS.md
+
 Auto-generated from all feature plans. Last updated: 2026-02-07
 
 ## Active Technologies
