@@ -23,7 +23,7 @@ final class InAppHotkeyPermissionManager {
     private var tail: HotkeyPermissionNode?
     private var activeNode: HotkeyPermissionNode?
 
-    private var isApplicationActive: Bool = false
+    private var isApplicationActive: Bool = NSApp.isActive
 
     private init() {
         setupApplicationStateObservers()
