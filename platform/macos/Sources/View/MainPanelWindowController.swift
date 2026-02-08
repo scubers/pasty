@@ -6,22 +6,15 @@ private final class MainPanelWindow: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
 
-    var onKeyPress: ((NSEvent) -> Bool)?
     var onWindowDidMove: ((NSPoint) -> Void)?
-
-    override func keyDown(with event: NSEvent) {
-        if onKeyPress?(event) == true {
-            return
-        }
-        super.keyDown(with: event)
-    }
 }
 
-final class MainPanelWindowController: NSWindowController, NSWindowDelegate {
+final class MainPanelWindowController: NSWindowController, NSWindowDelegate, InAppHotkeyOwner {
     private let hostingController: NSHostingController<MainPanelView>
     private let viewModel: MainPanelViewModel
     private var lastShownScreenID: String?
     private var lastFrameOrigin: NSPoint?
+    private var hotkeyPermissionToken: InAppHotkeyPermissionToken?
 
     init(viewModel: MainPanelViewModel) {
         self.viewModel = viewModel
@@ -45,9 +38,6 @@ final class MainPanelWindowController: NSWindowController, NSWindowDelegate {
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
         super.init(window: panel)
-        panel.onKeyPress = { [weak self] event in
-            self?.handleKeyPress(event) ?? false
-        }
         panel.delegate = self
         setupLayout()
     }
@@ -98,10 +88,14 @@ final class MainPanelWindowController: NSWindowController, NSWindowDelegate {
 
         panel.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+
+        hotkeyPermissionToken = InAppHotkeyPermissionManager.shared.request(owner: self)
     }
 
     func hide() {
         window?.orderOut(nil)
+        hotkeyPermissionToken?.resign()
+        hotkeyPermissionToken = nil
     }
 
     func windowDidMove(_ notification: Notification) {
@@ -118,7 +112,7 @@ final class MainPanelWindowController: NSWindowController, NSWindowDelegate {
         (panel as? MainPanelWindow)?.onWindowDidMove?(clampedOrigin)
     }
 
-    private func handleKeyPress(_ event: NSEvent) -> Bool {
+    func canHandleInAppHotkey() -> Bool {
         guard let panel = window,
               panel.isKeyWindow,
               NSApp.keyWindow === panel,
@@ -126,7 +120,11 @@ final class MainPanelWindowController: NSWindowController, NSWindowDelegate {
               viewModel.state.pendingDeleteItem == nil else {
             return false
         }
-        
+
+        return panel.isVisible
+    }
+
+    func handleInAppHotkey(_ event: NSEvent) -> Bool {
         if event.keyCode == 53 {
             self.hide()
             return true
@@ -193,5 +191,9 @@ final class MainPanelWindowController: NSWindowController, NSWindowDelegate {
             return nil
         }
         return number.stringValue
+    }
+
+    var hotkeyOwnerID: String {
+        "mainPanel"
     }
 }

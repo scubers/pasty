@@ -7,19 +7,7 @@ import PastyCore
 
 @main
 class App: NSObject, NSApplicationDelegate {
-    static func shouldHandleEscape(
-        keyCode: UInt16,
-        appIsActive: Bool,
-        panelIsVisible: Bool,
-        hasAttachedSheet: Bool,
-        hasPendingDelete: Bool
-    ) -> Bool {
-        return keyCode == 53
-            && appIsActive
-            && panelIsVisible
-            && !hasAttachedSheet
-            && !hasPendingDelete
-    }
+
 
     static func main() {
         let app = NSApplication.shared
@@ -162,75 +150,11 @@ class App: NSObject, NSApplicationDelegate {
 
     @MainActor
     private func setupKeyboardMonitor() {
-        localEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self else {
-                return event
+        localEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            if InAppHotkeyPermissionManager.shared.handle(event: event) {
+                return nil
             }
-            guard Self.shouldHandleEscape(
-                keyCode: event.keyCode,
-                appIsActive: NSApp.isActive,
-                panelIsVisible: self.viewModel.state.isVisible,
-                hasAttachedSheet: self.windowController.window?.attachedSheet != nil,
-                hasPendingDelete: self.viewModel.state.pendingDeleteItem != nil
-            ) else {
-                if self.handlePanelShortcut(event) {
-                    return nil
-                }
-                return event
-            }
-
-            DispatchQueue.main.async { [weak self] in
-                self?.viewModel.send(.togglePanel)
-            }
-            return nil
-        }
-    }
-
-    @MainActor
-    private func handlePanelShortcut(_ event: NSEvent) -> Bool {
-        // Disable panel shortcuts whenever a secondary UI (sheet/modal) is active.
-        guard viewModel.state.isVisible,
-              let window = windowController.window,
-              window.isVisible,
-              NSApp.keyWindow === window,
-              window.attachedSheet == nil,
-              viewModel.state.pendingDeleteItem == nil else {
-            return false
-        }
-
-        let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        let commandPressed = modifiers.contains(.command)
-
-        switch (event.keyCode, commandPressed) {
-        case (126, _):
-            DispatchQueue.main.async { [weak self] in
-                self?.viewModel.send(.moveSelectionUp)
-            }
-            return true
-        case (125, _):
-            DispatchQueue.main.async { [weak self] in
-                self?.viewModel.send(.moveSelectionDown)
-            }
-            return true
-        case (36, true):
-            DispatchQueue.main.async { [weak self] in
-                self?.viewModel.send(.copySelected)
-            }
-            return true
-        case (36, false):
-            DispatchQueue.main.async { [weak self] in
-                self?.viewModel.send(.pasteSelectedAndClose)
-            }
-            return true
-        case (2, true):
-            if viewModel.state.pendingDeleteItem == nil {
-                DispatchQueue.main.async { [weak self] in
-                    self?.viewModel.send(.prepareDeleteSelected)
-                }
-            }
-            return true
-        default:
-            return false
+            return event
         }
     }
 
@@ -263,6 +187,9 @@ class App: NSObject, NSApplicationDelegate {
     }
 
     @MainActor
+    private var deleteConfirmationToken: InAppHotkeyPermissionToken?
+
+    @MainActor
     private func showDeleteConfirmation() {
         guard viewModel.state.pendingDeleteItem != nil,
               let window = windowController.window else {
@@ -275,6 +202,19 @@ class App: NSObject, NSApplicationDelegate {
         alert.informativeText = "Delete this record from clipboard history? This action cannot be undone."
         alert.addButton(withTitle: "Delete")
         alert.addButton(withTitle: "Cancel")
+        
+        let deleteOwner = DeleteConfirmationHotkeyOwner(
+            alert: alert,
+            onConfirm: { [weak self] in
+                self?.viewModel.send(.deleteSelectedConfirmed)
+            },
+            onCancel: { [weak self] in
+                self?.viewModel.send(.cancelDelete)
+            }
+        )
+        
+        deleteConfirmationToken?.resign()
+        deleteConfirmationToken = InAppHotkeyPermissionManager.shared.request(owner: deleteOwner)
 
         alert.beginSheetModal(for: window) { [weak self] response in
             guard let self else {
@@ -285,6 +225,8 @@ class App: NSObject, NSApplicationDelegate {
             } else {
                 self.viewModel.send(.cancelDelete)
             }
+            self.deleteConfirmationToken?.resign()
+            self.deleteConfirmationToken = nil
         }
     }
     
