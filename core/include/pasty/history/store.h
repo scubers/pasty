@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -21,7 +22,9 @@ public:
 
     virtual std::string upsertTextItem(const ClipboardHistoryItem& item) = 0;
     virtual std::string upsertImageItem(const ClipboardHistoryItem& item, const std::vector<std::uint8_t>& imageBytes) = 0;
+    virtual std::optional<ClipboardHistoryItem> getItem(const std::string& id) = 0;
     virtual ClipboardHistoryListResult listItems(std::int32_t limit, const std::string& cursor) = 0;
+    virtual std::vector<ClipboardHistoryItem> search(const SearchOptions& options) = 0;
     virtual bool deleteItem(const std::string& id) = 0;
     virtual bool enforceRetention(std::int32_t maxItems) = 0;
 };

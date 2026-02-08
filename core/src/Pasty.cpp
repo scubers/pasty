@@ -6,6 +6,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <cstring>
 #include <memory>
 #include <sstream>
 #include <vector>
@@ -40,6 +41,40 @@ static std::string escapeJson(const std::string& value) {
         }
     }
     return escaped;
+}
+
+static std::string serializeItemsToJson(const std::vector<ClipboardHistoryItem>& items) {
+    std::ostringstream stream;
+    stream << "[";
+    for (std::size_t index = 0; index < items.size(); ++index) {
+        const auto& item = items[index];
+        if (index > 0) {
+            stream << ",";
+        }
+        stream << "{";
+        stream << "\"id\":\"" << pasty::escapeJson(item.id) << "\",";
+        stream << "\"type\":\"" << (item.type == pasty::ClipboardItemType::Image ? "image" : "text") << "\",";
+        stream << "\"content\":\"" << pasty::escapeJson(item.content) << "\",";
+        stream << "\"imagePath\":\"" << pasty::escapeJson(item.imagePath) << "\",";
+        stream << "\"imageWidth\":" << item.imageWidth << ",";
+        stream << "\"imageHeight\":" << item.imageHeight << ",";
+        stream << "\"imageFormat\":\"" << pasty::escapeJson(item.imageFormat) << "\",";
+        stream << "\"createTimeMs\":" << item.createTimeMs << ",";
+        stream << "\"updateTimeMs\":" << item.updateTimeMs << ",";
+        stream << "\"lastCopyTimeMs\":" << item.lastCopyTimeMs << ",";
+        stream << "\"sourceAppId\":\"" << pasty::escapeJson(item.sourceAppId) << "\",";
+        stream << "\"contentHash\":\"" << pasty::escapeJson(item.contentHash) << "\",";
+        stream << "\"metadata\":\"" << pasty::escapeJson(item.metadata) << "\"";
+        stream << "}";
+    }
+    stream << "]";
+    return stream.str();
+}
+
+static char* copyString(const std::string& str) {
+    char* buffer = new char[str.size() + 1];
+    std::memcpy(buffer, str.c_str(), str.size() + 1);
+    return buffer;
 }
 
 ClipboardManager::ClipboardManager()
@@ -136,30 +171,58 @@ const char* pasty_history_list_json(int limit) {
     }
 
     const auto result = pasty::HISTORY_SUBSYSTEM->list(limit, std::string());
-    std::ostringstream stream;
-    stream << "[";
-    for (std::size_t index = 0; index < result.items.size(); ++index) {
-        const auto& item = result.items[index];
-        if (index > 0) {
-            stream << ",";
-        }
-        stream << "{";
-        stream << "\"id\":\"" << pasty::escapeJson(item.id) << "\",";
-        stream << "\"type\":\"" << (item.type == pasty::ClipboardItemType::Image ? "image" : "text") << "\",";
-        stream << "\"content\":\"" << pasty::escapeJson(item.content) << "\",";
-        stream << "\"imagePath\":\"" << pasty::escapeJson(item.imagePath) << "\",";
-        stream << "\"imageWidth\":" << item.imageWidth << ",";
-        stream << "\"imageHeight\":" << item.imageHeight << ",";
-        stream << "\"imageFormat\":\"" << pasty::escapeJson(item.imageFormat) << "\",";
-        stream << "\"createTimeMs\":" << item.createTimeMs << ",";
-        stream << "\"updateTimeMs\":" << item.updateTimeMs << ",";
-        stream << "\"lastCopyTimeMs\":" << item.lastCopyTimeMs << ",";
-        stream << "\"sourceAppId\":\"" << pasty::escapeJson(item.sourceAppId) << "\"";
-        stream << "}";
-    }
-    stream << "]";
-    payload = stream.str();
+    payload = pasty::serializeItemsToJson(result.items);
     return payload.c_str();
+}
+
+bool pasty_history_search(const char* query, int limit, char** out_json) {
+    if (!pasty::HISTORY_SUBSYSTEM || out_json == nullptr) {
+        return false;
+    }
+
+    pasty::SearchOptions options;
+    options.query = pasty::fromCString(query);
+    options.limit = limit > 0 ? limit : 100;
+
+    std::vector<pasty::ClipboardHistoryItem> items = pasty::HISTORY_SUBSYSTEM->search(options);
+    std::string json = pasty::serializeItemsToJson(items);
+
+    *out_json = pasty::copyString(json);
+    return true;
+}
+
+char* pasty_history_get_json(const char* id) {
+    if (!pasty::HISTORY_SUBSYSTEM || id == nullptr) {
+        return nullptr;
+    }
+
+    auto item = pasty::HISTORY_SUBSYSTEM->getById(pasty::fromCString(id));
+    if (!item) {
+        return nullptr;
+    }
+
+    std::ostringstream stream;
+    stream << "{";
+    stream << "\"id\":\"" << pasty::escapeJson(item->id) << "\",";
+    stream << "\"type\":\"" << (item->type == pasty::ClipboardItemType::Image ? "image" : "text") << "\",";
+    stream << "\"content\":\"" << pasty::escapeJson(item->content) << "\",";
+    stream << "\"imagePath\":\"" << pasty::escapeJson(item->imagePath) << "\",";
+    stream << "\"imageWidth\":" << item->imageWidth << ",";
+    stream << "\"imageHeight\":" << item->imageHeight << ",";
+    stream << "\"imageFormat\":\"" << pasty::escapeJson(item->imageFormat) << "\",";
+    stream << "\"createTimeMs\":" << item->createTimeMs << ",";
+    stream << "\"updateTimeMs\":" << item->updateTimeMs << ",";
+    stream << "\"lastCopyTimeMs\":" << item->lastCopyTimeMs << ",";
+    stream << "\"sourceAppId\":\"" << pasty::escapeJson(item->sourceAppId) << "\",";
+    stream << "\"contentHash\":\"" << pasty::escapeJson(item->contentHash) << "\",";
+    stream << "\"metadata\":\"" << pasty::escapeJson(item->metadata) << "\"";
+    stream << "}";
+
+    return pasty::copyString(stream.str());
+}
+
+void pasty_free_string(char* str) {
+    delete[] str;
 }
 
 bool pasty_history_delete(const char* id) {

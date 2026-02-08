@@ -6,8 +6,9 @@
 #include <pasty/history/store.h>
 #include <pasty/history/types.h>
 
-#include <memory>
+#include <vector>
 #include <string>
+#include <optional>
 
 namespace pasty {
 
@@ -22,6 +23,8 @@ public:
 
     bool ingest(const ClipboardHistoryIngestEvent& event);
     ClipboardHistoryListResult list(std::int32_t limit, const std::string& cursor) const;
+    std::vector<ClipboardHistoryItem> search(const SearchOptions& options);
+    std::optional<ClipboardHistoryItem> getById(const std::string& id);
     bool deleteById(const std::string& id);
 
 private:

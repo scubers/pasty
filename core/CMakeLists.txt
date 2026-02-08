@@ -14,7 +14,7 @@ find_package(SQLite3 REQUIRED)
 
 # 源文件
 set(PASTY_CORE_SOURCES
-    src/pasty.cpp
+    src/Pasty.cpp
     src/history/history.cpp
     src/history/store_sqlite.cpp
 )
@@ -54,6 +54,14 @@ install(DIRECTORY include/pasty
 
 install(FILES include/module.modulemap
     DESTINATION include
+)
+
+# 安装迁移文件
+install(FILES
+    migrations/0001-initial-schema.sql
+    migrations/0002-add-search-index.sql
+    migrations/0003-add-metadata.sql
+    DESTINATION share/pasty/migrations
 )
 
 # 测试（可选）

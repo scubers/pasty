@@ -5,12 +5,15 @@
 #include <cstddef>
 #include <cstdio>
 #include <cerrno>
+#include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <sstream>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <optional>
 #include <sqlite3.h>
 
 namespace pasty {
@@ -21,10 +24,9 @@ bool ensureDirectoryExists(const std::string& path) {
     if (path.empty()) {
         return false;
     }
-    if (::mkdir(path.c_str(), 0755) == 0) {
-        return true;
-    }
-    return errno == EEXIST;
+    std::error_code ec;
+    std::filesystem::create_directories(path, ec);
+    return !ec;
 }
 
 void logStoreMessage(const std::string& message) {
@@ -96,13 +98,14 @@ public:
         const char* sql =
             "INSERT INTO items ("
             "id, type, content, image_path, image_width, image_height, image_format, "
-            "create_time_ms, update_time_ms, last_copy_time_ms, source_app_id, content_hash"
-            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "create_time_ms, update_time_ms, last_copy_time_ms, source_app_id, content_hash, metadata"
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
             "ON CONFLICT(type, content_hash) DO UPDATE SET "
             "content=excluded.content, "
             "update_time_ms=excluded.update_time_ms, "
             "last_copy_time_ms=excluded.last_copy_time_ms, "
-            "source_app_id=excluded.source_app_id;";
+            "source_app_id=excluded.source_app_id,"
+            "metadata=excluded.metadata;";
 
         if (sqlite3_prepare_v2(m_db, sql, -1, &statement, nullptr) != SQLITE_OK) {
             return std::string();
@@ -140,7 +143,7 @@ public:
                     sqlite3_stmt* update = nullptr;
                     const char* updateSql =
                         "UPDATE items "
-                        "SET update_time_ms = ?1, last_copy_time_ms = ?2, source_app_id = ?3 "
+                        "SET update_time_ms = ?1, last_copy_time_ms = ?2, source_app_id = ?3, metadata = ?5 "
                         "WHERE id = ?4;";
                     if (sqlite3_prepare_v2(m_db, updateSql, -1, &update, nullptr) != SQLITE_OK) {
                         logStoreMessage("upsert image dedupe update prepare failed");
@@ -150,6 +153,7 @@ public:
                     sqlite3_bind_int64(update, 2, item.lastCopyTimeMs);
                     sqlite3_bind_text(update, 3, item.sourceAppId.c_str(), -1, SQLITE_TRANSIENT);
                     sqlite3_bind_text(update, 4, existingId.c_str(), -1, SQLITE_TRANSIENT);
+                    sqlite3_bind_text(update, 5, item.metadata.c_str(), -1, SQLITE_TRANSIENT);
                     const bool updated = sqlite3_step(update) == SQLITE_DONE;
                     sqlite3_finalize(update);
                     if (!updated) {
@@ -174,8 +178,8 @@ public:
         const char* sql =
             "INSERT INTO items ("
             "id, type, content, image_path, image_width, image_height, image_format, "
-            "create_time_ms, update_time_ms, last_copy_time_ms, source_app_id, content_hash"
-            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+            "create_time_ms, update_time_ms, last_copy_time_ms, source_app_id, content_hash, metadata"
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
 
         if (sqlite3_prepare_v2(m_db, sql, -1, &statement, nullptr) != SQLITE_OK) {
             deleteAsset(relativePath);
@@ -198,6 +202,47 @@ public:
         return item.id;
     }
 
+    std::optional<ClipboardHistoryItem> getItem(const std::string& id) override {
+        if (m_db == nullptr || id.empty()) {
+            return std::nullopt;
+        }
+
+        sqlite3_stmt* statement = nullptr;
+        const char* sql =
+            "SELECT id, type, content, image_path, image_width, image_height, image_format, "
+            "create_time_ms, update_time_ms, last_copy_time_ms, source_app_id, content_hash, metadata "
+            "FROM items "
+            "WHERE id = ?1;";
+
+        if (sqlite3_prepare_v2(m_db, sql, -1, &statement, nullptr) != SQLITE_OK) {
+            return std::nullopt;
+        }
+
+        sqlite3_bind_text(statement, 1, id.c_str(), -1, SQLITE_TRANSIENT);
+
+        std::optional<ClipboardHistoryItem> result;
+        if (sqlite3_step(statement) == SQLITE_ROW) {
+            ClipboardHistoryItem item;
+            item.id = readTextColumn(statement, 0);
+            item.type = readTextColumn(statement, 1) == "image" ? ClipboardItemType::Image : ClipboardItemType::Text;
+            item.content = readTextColumn(statement, 2);
+            item.imagePath = readTextColumn(statement, 3);
+            item.imageWidth = sqlite3_column_int(statement, 4);
+            item.imageHeight = sqlite3_column_int(statement, 5);
+            item.imageFormat = readTextColumn(statement, 6);
+            item.createTimeMs = sqlite3_column_int64(statement, 7);
+            item.updateTimeMs = sqlite3_column_int64(statement, 8);
+            item.lastCopyTimeMs = sqlite3_column_int64(statement, 9);
+            item.sourceAppId = readTextColumn(statement, 10);
+            item.contentHash = readTextColumn(statement, 11);
+            item.metadata = readTextColumn(statement, 12);
+            result = item;
+        }
+
+        sqlite3_finalize(statement);
+        return result;
+    }
+
     ClipboardHistoryListResult listItems(std::int32_t limit, const std::string& cursor) override {
         ClipboardHistoryListResult result;
         if (m_db == nullptr) {
@@ -210,7 +255,7 @@ public:
         sqlite3_stmt* statement = nullptr;
         const char* sql =
             "SELECT id, type, content, image_path, image_width, image_height, image_format, "
-            "create_time_ms, update_time_ms, last_copy_time_ms, source_app_id, content_hash "
+            "create_time_ms, update_time_ms, last_copy_time_ms, source_app_id, content_hash, metadata "
             "FROM items "
             "WHERE (?1 = 0 OR last_copy_time_ms < ?1) "
             "ORDER BY last_copy_time_ms DESC "
@@ -237,6 +282,7 @@ public:
             item.lastCopyTimeMs = sqlite3_column_int64(statement, 9);
             item.sourceAppId = readTextColumn(statement, 10);
             item.contentHash = readTextColumn(statement, 11);
+            item.metadata = readTextColumn(statement, 12);
             result.items.push_back(item);
         }
 
@@ -248,6 +294,59 @@ public:
         }
 
         return result;
+    }
+
+    std::vector<ClipboardHistoryItem> search(const SearchOptions& options) override {
+        std::vector<ClipboardHistoryItem> results;
+        if (m_db == nullptr) {
+            return results;
+        }
+
+        std::string sql =
+            "SELECT id, type, content, image_path, image_width, image_height, image_format, "
+            "create_time_ms, update_time_ms, last_copy_time_ms, source_app_id, content_hash, metadata "
+            "FROM items "
+            "WHERE content LIKE ?1 ";
+
+        if (!options.contentType.empty()) {
+            sql += "AND type = ?3 ";
+        }
+
+        sql += "ORDER BY last_copy_time_ms DESC LIMIT ?2;";
+
+        sqlite3_stmt* statement = nullptr;
+        if (sqlite3_prepare_v2(m_db, sql.c_str(), -1, &statement, nullptr) != SQLITE_OK) {
+            return results;
+        }
+
+        std::string pattern = "%" + options.query + "%";
+        sqlite3_bind_text(statement, 1, pattern.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int(statement, 2, static_cast<int>(options.limit));
+
+        if (!options.contentType.empty()) {
+            sqlite3_bind_text(statement, 3, options.contentType.c_str(), -1, SQLITE_TRANSIENT);
+        }
+
+        while (sqlite3_step(statement) == SQLITE_ROW) {
+            ClipboardHistoryItem item;
+            item.id = readTextColumn(statement, 0);
+            item.type = readTextColumn(statement, 1) == "image" ? ClipboardItemType::Image : ClipboardItemType::Text;
+            item.content = readTextColumn(statement, 2);
+            item.imagePath = readTextColumn(statement, 3);
+            item.imageWidth = sqlite3_column_int(statement, 4);
+            item.imageHeight = sqlite3_column_int(statement, 5);
+            item.imageFormat = readTextColumn(statement, 6);
+            item.createTimeMs = sqlite3_column_int64(statement, 7);
+            item.updateTimeMs = sqlite3_column_int64(statement, 8);
+            item.lastCopyTimeMs = sqlite3_column_int64(statement, 9);
+            item.sourceAppId = readTextColumn(statement, 10);
+            item.contentHash = readTextColumn(statement, 11);
+            item.metadata = readTextColumn(statement, 12);
+            results.push_back(item);
+        }
+
+        sqlite3_finalize(statement);
+        return results;
     }
 
     bool deleteItem(const std::string& id) override {
@@ -324,38 +423,76 @@ public:
 
 private:
     bool migrateSchema() {
-        static const char* kSchemaSql =
-            "CREATE TABLE IF NOT EXISTS items ("
-            "id TEXT PRIMARY KEY,"
-            "type TEXT NOT NULL,"
-            "content TEXT,"
-            "image_path TEXT,"
-            "image_width INTEGER,"
-            "image_height INTEGER,"
-            "image_format TEXT,"
-            "create_time_ms INTEGER NOT NULL,"
-            "update_time_ms INTEGER NOT NULL,"
-            "last_copy_time_ms INTEGER NOT NULL,"
-            "source_app_id TEXT NOT NULL DEFAULT '',"
-            "content_hash TEXT NOT NULL DEFAULT ''"
-            ");"
-            "CREATE INDEX IF NOT EXISTS idx_items_last_copy_time ON items(last_copy_time_ms DESC);"
-            "CREATE INDEX IF NOT EXISTS idx_items_type ON items(type);"
-            "CREATE UNIQUE INDEX IF NOT EXISTS idx_items_type_hash ON items(type, content_hash);"
-            "PRAGMA user_version = 1;";
+        int currentVersion = 0;
+        sqlite3_stmt* stmt = nullptr;
+        if (sqlite3_prepare_v2(m_db, "PRAGMA user_version;", -1, &stmt, nullptr) == SQLITE_OK) {
+            if (sqlite3_step(stmt) == SQLITE_ROW) {
+                currentVersion = sqlite3_column_int(stmt, 0);
+            }
+            sqlite3_finalize(stmt);
+        }
 
-        sqlite3_exec(m_db, "ALTER TABLE items ADD COLUMN source_app_id TEXT NOT NULL DEFAULT '';", nullptr, nullptr, nullptr);
-        sqlite3_exec(m_db, "ALTER TABLE items ADD COLUMN content_hash TEXT NOT NULL DEFAULT '';", nullptr, nullptr, nullptr);
+        const std::vector<std::function<bool()>> migrations = {
+            [&]() { return applyMigration(1, "0001-initial-schema.sql"); },
+            [&]() { return applyMigration(2, "0002-add-search-index.sql"); },
+            [&]() { return applyMigration(3, "0003-add-metadata.sql"); },
+        };
+
+        for (size_t i = currentVersion; i < migrations.size(); ++i) {
+            if (!migrations[i]()) {
+                logStoreMessage("migration failed at version " + std::to_string(i + 1));
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    bool applyMigration(int targetVersion, const std::string& migrationFile) {
+        std::vector<std::string> searchPaths = {
+            m_baseDirectory + "/migrations/" + migrationFile,
+            m_baseDirectory + "/../migrations/" + migrationFile,
+            "migrations/" + migrationFile,
+            "core/migrations/" + migrationFile,
+            "../../core/migrations/" + migrationFile
+        };
+
+        std::string sql;
+        bool found = false;
+
+        for (const auto& path : searchPaths) {
+            std::ifstream file(path);
+            if (file.is_open()) {
+                sql = std::string((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+                found = true;
+                break;
+            }
+        }
+
+        if (!found) {
+             logStoreMessage("migration file not found: " + migrationFile);
+             return false;
+        }
 
         char* error = nullptr;
-        const int rc = sqlite3_exec(m_db, kSchemaSql, nullptr, nullptr, &error);
-        if (error != nullptr) {
+        if (sqlite3_exec(m_db, "BEGIN TRANSACTION;", nullptr, nullptr, &error) != SQLITE_OK) {
+             sqlite3_free(error);
+             return false;
+        }
+
+        if (sqlite3_exec(m_db, sql.c_str(), nullptr, nullptr, &error) != SQLITE_OK) {
+            logStoreMessage("migration SQL error: " + std::string(error ? error : "unknown"));
             sqlite3_free(error);
+            sqlite3_exec(m_db, "ROLLBACK;", nullptr, nullptr, nullptr);
+            return false;
         }
-        if (rc != SQLITE_OK) {
-            logStoreMessage("schema migration failed");
+
+        if (sqlite3_exec(m_db, "COMMIT;", nullptr, nullptr, &error) != SQLITE_OK) {
+            sqlite3_free(error);
+            return false;
         }
-        return rc == SQLITE_OK;
+
+        return true;
     }
 
     bool recreateFromCorruption() {
@@ -412,6 +549,7 @@ private:
         sqlite3_bind_int64(statement, 10, item.lastCopyTimeMs);
         sqlite3_bind_text(statement, 11, item.sourceAppId.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(statement, 12, item.contentHash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 13, item.metadata.c_str(), -1, SQLITE_TRANSIENT);
     }
 
     static std::string readTextColumn(sqlite3_stmt* statement, int column) {

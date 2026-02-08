@@ -52,6 +52,13 @@ struct ClipboardHistoryItem {
     HistoryTimestampMs lastCopyTimeMs = 0;
     std::string sourceAppId;
     std::string contentHash;
+    std::string metadata;
+};
+
+struct SearchOptions {
+    std::string query;
+    std::size_t limit = 100;
+    std::string contentType;
 };
 
 struct ClipboardHistoryListResult {

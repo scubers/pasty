@@ -6,6 +6,14 @@ options:
   deploymentTarget:
     macOS: "14.0"
 
+packages:
+  KeyboardShortcuts:
+    url: https://github.com/sindresorhus/KeyboardShortcuts
+    from: "2.0.0"
+  SnapKit:
+    url: https://github.com/SnapKit/SnapKit
+    from: "5.0.0"
+
 settings:
   base:
     CLANG_CXX_LANGUAGE_STANDARD: c++17
@@ -18,7 +26,7 @@ targets:
     type: library.static
     platform: macOS
     sources:
-      - path: ../../core/src/pasty.cpp
+      - path: ../../core/src/Pasty.cpp
         compilerFlags:
           - -Wall
       - path: ../../core/src/history
@@ -44,6 +52,12 @@ targets:
       - path: Sources
       - path: Info.plist
         buildPhase: none
+      - path: ../../core/migrations/0001-initial-schema.sql
+        buildPhase: resources
+      - path: ../../core/migrations/0002-add-search-index.sql
+        buildPhase: resources
+      - path: ../../core/migrations/0003-add-metadata.sql
+        buildPhase: resources
     settings:
       INFOPLIST_FILE: Info.plist
       PRODUCT_BUNDLE_IDENTIFIER: com.pasty2.app
@@ -62,3 +76,5 @@ targets:
       - target: PastyCore
       - sdk: Cocoa.framework
       - sdk: libsqlite3.tbd
+      - package: KeyboardShortcuts
+      - package: SnapKit

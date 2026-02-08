@@ -82,6 +82,7 @@ C 语言接口层，供平台层通过 FFI 调用：
 
 pasty_history_ingest_text("Hello", "com.app.source");
 const char* json = pasty_history_list_json(100);
+bool success = pasty_history_search("Hello", 10, &out_json);
 pasty_history_delete("item-id");
 ```
 
@@ -258,9 +259,9 @@ Core 层**禁止**包含以下头文件：
 
 ### 单元测试
 
-- 测试文件放在 `core/tests/`（待创建）
-- 使用 GoogleTest 或 Catch2
-- 通过 CMake 集成：`cmake --build . --target test`
+- 测试文件放在 `core/tests/`
+- 使用 CMake 自带的 CTest 框架
+- 通过 CMake 集成：`cmake --build .` 后运行 `ctest`
 
 ### 测试覆盖
 

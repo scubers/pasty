@@ -175,6 +175,22 @@ ClipboardHistoryListResult ClipboardHistory::list(std::int32_t limit, const std:
     return m_store->listItems(limit, cursor);
 }
 
+std::vector<ClipboardHistoryItem> ClipboardHistory::search(const SearchOptions& options) {
+    if (!m_initialized || !m_store) {
+        return {};
+    }
+
+    return m_store->search(options);
+}
+
+std::optional<ClipboardHistoryItem> ClipboardHistory::getById(const std::string& id) {
+    if (!m_initialized || !m_store) {
+        return std::nullopt;
+    }
+
+    return m_store->getItem(id);
+}
+
 bool ClipboardHistory::deleteById(const std::string& id) {
     if (!m_initialized || !m_store) {
         return false;

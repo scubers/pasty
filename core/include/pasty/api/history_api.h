@@ -3,6 +3,8 @@
 #ifndef PASTY_API_HISTORY_API_H
 #define PASTY_API_HISTORY_API_H
 
+#include <stddef.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -19,6 +21,12 @@ bool pasty_history_ingest_image(
 );
 
 const char* pasty_history_list_json(int limit);
+
+bool pasty_history_search(const char* query, int limit, char** out_json);
+
+char* pasty_history_get_json(const char* id);
+
+void pasty_free_string(char* str);
 
 bool pasty_history_delete(const char* id);
 
