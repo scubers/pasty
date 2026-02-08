@@ -69,7 +69,7 @@ enum MainPanelTokens {
         /// Compact spacing used inside list rows and metadata groups.
         static let paddingCompact: CGFloat = 8
         /// Split ratio for main content area: list / preview.
-        static let splitRatio: CGFloat = 0.4
+        static let splitRatio: CGFloat = 0.45
     }
 }
 

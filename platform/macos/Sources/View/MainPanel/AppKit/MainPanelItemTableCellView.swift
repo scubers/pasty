@@ -61,12 +61,14 @@ final class MainPanelItemTableCellView: NSTableCellView {
         iconView.imageScaling = .scaleProportionallyUpOrDown
 
         titleLabel.lineBreakMode = .byTruncatingTail
-        titleLabel.font = NSFont.systemFont(ofSize: 13, weight: .medium)
+        titleLabel.font = NSFont.systemFont(ofSize: 15, weight: .medium)
         titleLabel.textColor = NSColor(calibratedWhite: 0.92, alpha: 1)
         titleLabel.maximumNumberOfLines = 1
         titleLabel.cell?.usesSingleLineMode = true
         titleLabel.cell?.wraps = false
         titleLabel.cell?.lineBreakMode = .byTruncatingTail
+        titleLabel.setContentHuggingPriority(.required, for: .vertical)
+        titleLabel.setContentCompressionResistancePriority(.required, for: .vertical)
 
         subtitleLabel.lineBreakMode = .byTruncatingTail
         subtitleLabel.font = NSFont.systemFont(ofSize: 11, weight: .regular)
@@ -74,11 +76,13 @@ final class MainPanelItemTableCellView: NSTableCellView {
         subtitleLabel.maximumNumberOfLines = 1
         subtitleLabel.cell?.usesSingleLineMode = true
         subtitleLabel.cell?.wraps = false
+        subtitleLabel.setContentHuggingPriority(.required, for: .vertical)
+        subtitleLabel.setContentCompressionResistancePriority(.required, for: .vertical)
 
         stackView.orientation = .vertical
-        stackView.spacing = 2
+        stackView.spacing = 4
         stackView.alignment = .leading
-        stackView.distribution = .fill
+        stackView.distribution = .fillEqually
         stackView.addArrangedSubview(titleLabel)
         stackView.addArrangedSubview(subtitleLabel)
 
@@ -94,7 +98,7 @@ final class MainPanelItemTableCellView: NSTableCellView {
         iconView.snp.makeConstraints { make in
             make.leading.equalToSuperview().offset(8)
             make.centerY.equalToSuperview()
-            make.width.height.equalTo(16)
+            make.width.height.equalTo(18)
         }
 
         stackView.snp.makeConstraints { make in
