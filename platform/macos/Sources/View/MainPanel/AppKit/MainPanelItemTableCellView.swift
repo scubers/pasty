@@ -19,10 +19,14 @@ final class MainPanelItemTableCellView: NSTableCellView {
 
     func configure(item: ClipboardItemRow, selected: Bool, hovered: Bool, focused: Bool) {
         iconView.image = NSImage(systemSymbolName: item.type == .image ? "photo" : "text.alignleft", accessibilityDescription: nil)
-        titleLabel.stringValue = item.content
-            .replacingOccurrences(of: "\r\n", with: " ")
-            .replacingOccurrences(of: "\n", with: " ")
-            .replacingOccurrences(of: "\r", with: " ")
+        if item.type == .image {
+            titleLabel.stringValue = "Image[\(item.imageWidth ?? 0) x \(item.imageHeight ?? 0)]"
+        } else {
+            titleLabel.stringValue = item.content
+                .replacingOccurrences(of: "\r\n", with: " ")
+                .replacingOccurrences(of: "\n", with: " ")
+                .replacingOccurrences(of: "\r", with: " ")
+        }
         subtitleLabel.stringValue = "\(item.sourceAppId) • \(item.timestamp.formatted(date: .omitted, time: .shortened))"
 
         if selected {

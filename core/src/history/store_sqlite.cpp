@@ -342,7 +342,7 @@ public:
             "SELECT id, type, content, image_path, image_width, image_height, image_format, "
             "create_time_ms, update_time_ms, last_copy_time_ms, source_app_id, content_hash, metadata "
             "FROM items "
-            "WHERE content LIKE ?1 ";
+            "WHERE COALESCE(content, '') LIKE ?1 ";
 
         if (!options.contentType.empty()) {
             sql += "AND type = ?3 ";

@@ -41,7 +41,39 @@ void testSearch() {
     std::cout << "testSearch PASSED" << std::endl;
 }
 
+void testSearchReturnsImagesWhenQueryIsEmpty() {
+    std::cout << "Running testSearchReturnsImagesWhenQueryIsEmpty..." << std::endl;
+    auto store = pasty::createClipboardHistoryStore();
+    pasty::ClipboardHistory history(std::move(store));
+
+    std::filesystem::remove_all("test_history_images");
+    assert(history.initialize("test_history_images"));
+
+    pasty::ClipboardHistoryIngestEvent textEvent;
+    textEvent.text = "Hello World";
+    textEvent.timestampMs = 1000;
+    history.ingest(textEvent);
+
+    pasty::ClipboardHistoryIngestEvent imageEvent;
+    imageEvent.itemType = pasty::ClipboardItemType::Image;
+    imageEvent.image.bytes = {0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A}; // PNG signature (minimal valid PNG)
+    imageEvent.image.formatHint = "png";
+    imageEvent.timestampMs = 2000;
+    history.ingest(imageEvent);
+
+    pasty::SearchOptions options;
+    options.query = "";
+    auto results = history.search(options);
+
+    assert(results.size() == 2);
+    assert(results[0].type == pasty::ClipboardItemType::Image); // Results sorted by time DESC
+    assert(results[1].type == pasty::ClipboardItemType::Text);
+
+    std::cout << "testSearchReturnsImagesWhenQueryIsEmpty PASSED" << std::endl;
+}
+
 int main() {
     testSearch();
+    testSearchReturnsImagesWhenQueryIsEmpty();
     return 0;
 }

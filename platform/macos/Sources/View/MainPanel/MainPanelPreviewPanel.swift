@@ -1,9 +1,10 @@
 import AppKit
 import SwiftUI
+import Foundation
 
 struct MainPanelPreviewPanel: View {
     let item: ClipboardItemRow?
-    @StateObject private var imageLoader = MainPanelImageLoader()
+    @StateObject private var imageLoader = MainPanelImageLoader(baseDirectory: AppPaths.appDataDirectory())
 
     var body: some View {
         Group {

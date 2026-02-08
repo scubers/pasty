@@ -17,7 +17,7 @@ struct HistoryItemViewModel: Decodable {
 
     var titleText: String {
         if type == "image" {
-            return "image \(imageWidth)x\(imageHeight) \(imageFormat)"
+            return "Image[\(imageWidth)x\(imageHeight)]"
         }
 
         let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
