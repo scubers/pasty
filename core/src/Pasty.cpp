@@ -175,7 +175,7 @@ const char* pasty_history_list_json(int limit) {
     return payload.c_str();
 }
 
-bool pasty_history_search(const char* query, int limit, char** out_json) {
+bool pasty_history_search(const char* query, int limit, int preview_length, char** out_json) {
     if (!pasty::HISTORY_SUBSYSTEM || out_json == nullptr) {
         return false;
     }
@@ -183,6 +183,7 @@ bool pasty_history_search(const char* query, int limit, char** out_json) {
     pasty::SearchOptions options;
     options.query = pasty::fromCString(query);
     options.limit = limit > 0 ? limit : 100;
+    options.previewLength = preview_length > 0 ? static_cast<std::size_t>(preview_length) : 200;
 
     std::vector<pasty::ClipboardHistoryItem> items = pasty::HISTORY_SUBSYSTEM->search(options);
     std::string json = pasty::serializeItemsToJson(items);

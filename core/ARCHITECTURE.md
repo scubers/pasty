@@ -82,7 +82,7 @@ C 语言接口层，供平台层通过 FFI 调用：
 
 pasty_history_ingest_text("Hello", "com.app.source");
 const char* json = pasty_history_list_json(100);
-bool success = pasty_history_search("Hello", 10, &out_json);
+bool success = pasty_history_search("Hello", 10, 200, &out_json);
 pasty_history_delete("item-id");
 ```
 

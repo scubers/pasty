@@ -58,6 +58,7 @@ struct ClipboardHistoryItem {
 struct SearchOptions {
     std::string query;
     std::size_t limit = 100;
+    std::size_t previewLength = 200;
     std::string contentType;
 };
 

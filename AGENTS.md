@@ -43,5 +43,4 @@ This file defines the **highest-priority, non-negotiable** rules for AI coding a
 ## 8) Project docs (MUST Follow)
 MUST READ BEFORE EVERY TASK
 - `docs/agents-development-flow.md` — AI agent development workflow (must read)
-- `.specify/memory/constitution.md` — project development constitution (must read)
 - `docs/project-structure.md` — top level project structure (must read)

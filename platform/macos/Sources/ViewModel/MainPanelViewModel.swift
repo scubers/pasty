@@ -19,6 +19,7 @@ final class MainPanelViewModel: ObservableObject {
         case hidePanel
         case searchChanged(String)
         case itemSelected(ClipboardItemRow)
+        case clipboardContentChanged
     }
 
     @Published private(set) var state = State()
@@ -48,7 +49,9 @@ final class MainPanelViewModel: ObservableObject {
         case let .searchChanged(query):
             search(query: query)
         case let .itemSelected(item):
-            state.selectedItem = item
+            selectItem(item)
+        case .clipboardContentChanged:
+            refreshList()
         }
     }
 
@@ -80,6 +83,33 @@ final class MainPanelViewModel: ObservableObject {
                 },
                 receiveValue: { [weak self] items in
                     self?.state.items = items
+                }
+            )
+            .store(in: &cancellables)
+    }
+
+    private func refreshList() {
+        historyService.invalidateSearchCache()
+        performSearch(query: state.searchQuery)
+    }
+
+    private func selectItem(_ item: ClipboardItemRow) {
+        state.selectedItem = item
+        historyService.get(id: item.id)
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { [weak self] completion in
+                    if case let .failure(error) = completion {
+                        self?.state.errorMessage = error.localizedDescription
+                    }
+                },
+                receiveValue: { [weak self] fullItem in
+                    guard let self, let fullItem else {
+                        return
+                    }
+                    if self.state.selectedItem?.id == fullItem.id {
+                        self.state.selectedItem = fullItem
+                    }
                 }
             )
             .store(in: &cancellables)

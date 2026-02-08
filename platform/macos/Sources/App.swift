@@ -6,6 +6,10 @@ import PastyCore
 
 @main
 class App: NSObject, NSApplicationDelegate {
+    static func shouldHandleEscape(keyCode: UInt16, appIsActive: Bool, panelIsVisible: Bool) -> Bool {
+        return keyCode == 53 && appIsActive && panelIsVisible
+    }
+
     static func main() {
         let app = NSApplication.shared
         let delegate = App()
@@ -22,6 +26,7 @@ class App: NSObject, NSApplicationDelegate {
     private var windowController: MainPanelWindowController!
     private var viewModel: MainPanelViewModel!
     private var cancellables = Set<AnyCancellable>()
+    private var localEventMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Initialize Core
@@ -41,19 +46,28 @@ class App: NSObject, NSApplicationDelegate {
             print("Core initialized successfully")
         }
         
-        // Start Clipboard Watcher
-        clipboardWatcher.start(interval: 0.4)
-
         // UI Setup
         NSApp.setActivationPolicy(.accessory)
         
         setupDependencies()
         setupMenuBar()
+        setupKeyboardMonitor()
         setupBindings()
+
+        // Start Clipboard Watcher
+        clipboardWatcher.start(interval: 0.4, onChange: { [weak self] in
+            Task { @MainActor in
+                self?.viewModel.send(.clipboardContentChanged)
+            }
+        })
     }
     
     func applicationWillTerminate(_ notification: Notification) {
         clipboardWatcher.stop()
+        if let localEventMonitor {
+            NSEvent.removeMonitor(localEventMonitor)
+            self.localEventMonitor = nil
+        }
         clipboardManager.shutdown()
     }
 
@@ -101,6 +115,25 @@ class App: NSObject, NSApplicationDelegate {
                 }
             }
             .store(in: &cancellables)
+    }
+
+    @MainActor
+    private func setupKeyboardMonitor() {
+        localEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self else {
+                return event
+            }
+            guard Self.shouldHandleEscape(
+                keyCode: event.keyCode,
+                appIsActive: NSApp.isActive,
+                panelIsVisible: self.viewModel.state.isVisible
+            ) else {
+                return event
+            }
+
+            self.viewModel.send(.togglePanel)
+            return nil
+        }
     }
 
     @MainActor

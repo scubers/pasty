@@ -85,7 +85,7 @@ private struct ItemRow: View {
                 .frame(width: 20)
             
             VStack(alignment: .leading, spacing: 2) {
-                Text(item.content.trimmingCharacters(in: .whitespacesAndNewlines))
+                Text(item.content)
                     .font(.body)
                     .lineLimit(1)
                     .foregroundColor(isSelected ? .white : .primary)
@@ -176,4 +176,3 @@ private struct FooterView: View {
         .background(Color(NSColor.windowBackgroundColor))
     }
 }
-

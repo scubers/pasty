@@ -22,7 +22,7 @@ bool pasty_history_ingest_image(
 
 const char* pasty_history_list_json(int limit);
 
-bool pasty_history_search(const char* query, int limit, char** out_json);
+bool pasty_history_search(const char* query, int limit, int preview_length, char** out_json);
 
 char* pasty_history_get_json(const char* id);
 

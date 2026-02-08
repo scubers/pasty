@@ -14,6 +14,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <optional>
+#include <mutex>
 #include <sqlite3.h>
 
 namespace pasty {
@@ -33,6 +34,37 @@ void logStoreMessage(const std::string& message) {
     std::cerr << "[core.store] " << message << std::endl;
 }
 
+std::string truncateUtf8(const std::string& value, std::size_t maxCodePoints) {
+    if (maxCodePoints == 0 || value.empty()) {
+        return std::string();
+    }
+
+    std::size_t index = 0;
+    std::size_t codePoints = 0;
+    while (index < value.size() && codePoints < maxCodePoints) {
+        const unsigned char lead = static_cast<unsigned char>(value[index]);
+        std::size_t charLength = 1;
+        if ((lead & 0x80) == 0x00) {
+            charLength = 1;
+        } else if ((lead & 0xE0) == 0xC0) {
+            charLength = 2;
+        } else if ((lead & 0xF0) == 0xE0) {
+            charLength = 3;
+        } else if ((lead & 0xF8) == 0xF0) {
+            charLength = 4;
+        }
+
+        if (index + charLength > value.size()) {
+            break;
+        }
+
+        index += charLength;
+        ++codePoints;
+    }
+
+    return value.substr(0, index);
+}
+
 class SQLiteClipboardHistoryStore final : public ClipboardHistoryStore {
 public:
     SQLiteClipboardHistoryStore()
@@ -45,6 +77,7 @@ public:
     }
 
     bool open(const std::string& baseDirectory) override {
+        std::lock_guard<std::mutex> lock(m_mutex);
         if (m_db != nullptr) {
             return true;
         }
@@ -69,7 +102,7 @@ public:
             nullptr
         );
         if (openResult != SQLITE_OK || m_db == nullptr) {
-            close();
+            closeUnlocked();
             return recreateFromCorruption();
         }
 
@@ -78,18 +111,17 @@ public:
             return true;
         }
 
-        close();
+        closeUnlocked();
         return recreateFromCorruption();
     }
 
     void close() override {
-        if (m_db != nullptr) {
-            sqlite3_close(m_db);
-            m_db = nullptr;
-        }
+        std::lock_guard<std::mutex> lock(m_mutex);
+        closeUnlocked();
     }
 
     std::string upsertTextItem(const ClipboardHistoryItem& item) override {
+        std::lock_guard<std::mutex> lock(m_mutex);
         if (m_db == nullptr || item.id.empty()) {
             return std::string();
         }
@@ -121,12 +153,13 @@ public:
             return std::string();
         }
 
-        enforceRetention(m_itemsLimit);
+        enforceRetentionUnlocked(m_itemsLimit);
         logStoreMessage("upsert text succeeded");
         return item.id;
     }
 
     std::string upsertImageItem(const ClipboardHistoryItem& item, const std::vector<std::uint8_t>& imageBytes) override {
+        std::lock_guard<std::mutex> lock(m_mutex);
         if (m_db == nullptr || item.id.empty() || imageBytes.empty()) {
             return std::string();
         }
@@ -160,7 +193,7 @@ public:
                         logStoreMessage("upsert image dedupe update failed");
                         return std::string();
                     }
-                    enforceRetention(m_itemsLimit);
+                    enforceRetentionUnlocked(m_itemsLimit);
                     logStoreMessage("upsert image dedupe hit");
                     return existingId;
                 }
@@ -197,12 +230,13 @@ public:
             return std::string();
         }
 
-        enforceRetention(m_itemsLimit);
+        enforceRetentionUnlocked(m_itemsLimit);
         logStoreMessage("upsert image inserted");
         return item.id;
     }
 
     std::optional<ClipboardHistoryItem> getItem(const std::string& id) override {
+        std::lock_guard<std::mutex> lock(m_mutex);
         if (m_db == nullptr || id.empty()) {
             return std::nullopt;
         }
@@ -244,6 +278,7 @@ public:
     }
 
     ClipboardHistoryListResult listItems(std::int32_t limit, const std::string& cursor) override {
+        std::lock_guard<std::mutex> lock(m_mutex);
         ClipboardHistoryListResult result;
         if (m_db == nullptr) {
             return result;
@@ -297,6 +332,7 @@ public:
     }
 
     std::vector<ClipboardHistoryItem> search(const SearchOptions& options) override {
+        std::lock_guard<std::mutex> lock(m_mutex);
         std::vector<ClipboardHistoryItem> results;
         if (m_db == nullptr) {
             return results;
@@ -327,6 +363,7 @@ public:
             sqlite3_bind_text(statement, 3, options.contentType.c_str(), -1, SQLITE_TRANSIENT);
         }
 
+        const std::size_t previewLength = options.previewLength == 0 ? 200 : options.previewLength;
         while (sqlite3_step(statement) == SQLITE_ROW) {
             ClipboardHistoryItem item;
             item.id = readTextColumn(statement, 0);
@@ -342,6 +379,9 @@ public:
             item.sourceAppId = readTextColumn(statement, 10);
             item.contentHash = readTextColumn(statement, 11);
             item.metadata = readTextColumn(statement, 12);
+            if (item.type == ClipboardItemType::Text && !item.content.empty()) {
+                item.content = truncateUtf8(item.content, previewLength);
+            }
             results.push_back(item);
         }
 
@@ -350,6 +390,24 @@ public:
     }
 
     bool deleteItem(const std::string& id) override {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        return deleteItemUnlocked(id);
+    }
+
+    bool enforceRetention(std::int32_t maxItems) override {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        return enforceRetentionUnlocked(maxItems);
+    }
+
+private:
+    void closeUnlocked() {
+        if (m_db != nullptr) {
+            sqlite3_close(m_db);
+            m_db = nullptr;
+        }
+    }
+
+    bool deleteItemUnlocked(const std::string& id) {
         if (m_db == nullptr || id.empty()) {
             return false;
         }
@@ -390,7 +448,7 @@ public:
         return true;
     }
 
-    bool enforceRetention(std::int32_t maxItems) override {
+    bool enforceRetentionUnlocked(std::int32_t maxItems) {
         if (m_db == nullptr || maxItems <= 0) {
             return false;
         }
@@ -416,7 +474,7 @@ public:
 
         bool ok = true;
         for (const auto& id : toDelete) {
-            ok = deleteItem(id) && ok;
+            ok = deleteItemUnlocked(id) && ok;
         }
         return ok;
     }
@@ -448,7 +506,7 @@ private:
         return true;
     }
 
-    bool applyMigration(int targetVersion, const std::string& migrationFile) {
+    bool applyMigration(int /*targetVersion*/, const std::string& migrationFile) {
         std::vector<std::string> searchPaths = {
             m_baseDirectory + "/migrations/" + migrationFile,
             m_baseDirectory + "/../migrations/" + migrationFile,
@@ -509,7 +567,7 @@ private:
             nullptr
         );
         if (openResult != SQLITE_OK || m_db == nullptr) {
-            close();
+            closeUnlocked();
             logStoreMessage("sqlite recreation failed");
             return false;
         }
@@ -618,6 +676,7 @@ private:
     std::string m_assetsDirectory;
     std::string m_dbPath;
     std::int32_t m_itemsLimit;
+    std::mutex m_mutex;
 };
 
 }
