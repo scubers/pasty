@@ -2,6 +2,11 @@ import Cocoa
 import SwiftUI
 import SnapKit
 
+private final class MainPanelWindow: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+}
+
 final class MainPanelWindowController: NSWindowController {
     private let hostingController: NSHostingController<MainPanelView>
     private let viewModel: MainPanelViewModel
@@ -11,14 +16,16 @@ final class MainPanelWindowController: NSWindowController {
         let view = MainPanelView(viewModel: viewModel)
         self.hostingController = NSHostingController(rootView: view)
 
-        let panel = NSPanel(
+        let panel = MainPanelWindow(
             contentRect: NSRect(x: 0, y: 0, width: 800, height: 600),
-            styleMask: [.nonactivatingPanel, .borderless, .fullSizeContentView],
+            styleMask: [.nonactivatingPanel, .borderless, .fullSizeContentView, .resizable],
             backing: .buffered,
             defer: false
         )
 
         panel.isFloatingPanel = true
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
         panel.level = .floating
         panel.titleVisibility = .hidden
         panel.titlebarAppearsTransparent = true
@@ -35,6 +42,18 @@ final class MainPanelWindowController: NSWindowController {
 
     private func setupLayout() {
         guard let panel = window, let contentView = panel.contentView else { return }
+        
+        contentView.wantsLayer = true
+        contentView.layer?.cornerRadius = 16
+        contentView.layer?.masksToBounds = true
+        
+        let view = NSView()
+        for subview in contentView.subviews {
+            subview.removeFromSuperview()
+            view.addSubview(subview)
+            
+            panel.contentView = view
+        }
 
         contentView.addSubview(hostingController.view)
         hostingController.view.snp.makeConstraints { make in

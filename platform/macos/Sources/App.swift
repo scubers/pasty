@@ -1,6 +1,7 @@
 import Cocoa
 import SwiftUI
 import Combine
+import QuartzCore
 import KeyboardShortcuts
 import PastyCore
 
@@ -27,6 +28,7 @@ class App: NSObject, NSApplicationDelegate {
     private var viewModel: MainPanelViewModel!
     private var cancellables = Set<AnyCancellable>()
     private var localEventMonitor: Any?
+    private var benchmarkCancellable: AnyCancellable?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Initialize Core
@@ -53,6 +55,13 @@ class App: NSObject, NSApplicationDelegate {
         setupMenuBar()
         setupKeyboardMonitor()
         setupBindings()
+
+        if ProcessInfo.processInfo.environment["PASTY_UI_BENCH"] == "1" {
+            Task { @MainActor in
+                await runUIBenchmark()
+            }
+            return
+        }
 
         // Start Clipboard Watcher
         clipboardWatcher.start(interval: 0.4, onChange: { [weak self] in
@@ -190,5 +199,105 @@ class App: NSObject, NSApplicationDelegate {
         } catch {
             print("Failed to copy migrations: \(error)")
         }
+    }
+
+    @MainActor
+    private func runUIBenchmark() async {
+        print("PASTY_UI_BENCH_START")
+        var panelSamples = [Double]()
+        for _ in 0..<20 {
+            let start = CACurrentMediaTime()
+            windowController.window?.makeKeyAndOrderFront(nil)
+            windowController.window?.orderOut(nil)
+            panelSamples.append((CACurrentMediaTime() - start) * 1000)
+        }
+
+        let searchMs = await measureSearchLatency(query: "test")
+        let previewMs = await measurePreviewSwitchLatency()
+        let listIterationMs = await measureListIterationLatency()
+
+        let summary = [
+            "panel_avg_ms": panelSamples.reduce(0, +) / Double(max(panelSamples.count, 1)),
+            "panel_p95_ms": percentile(panelSamples, 0.95),
+            "search_ms": searchMs,
+            "preview_switch_ms": previewMs,
+            "list_iteration_ms": listIterationMs,
+        ]
+
+        if let data = try? JSONSerialization.data(withJSONObject: summary, options: [.sortedKeys]),
+           let text = String(data: data, encoding: .utf8) {
+            print("PASTY_UI_BENCH_RESULT \(text)")
+        }
+
+        print("PASTY_UI_BENCH_END")
+        NSApp.terminate(nil)
+    }
+
+    @MainActor
+    private func measureSearchLatency(query: String) async -> Double {
+        let start = CACurrentMediaTime()
+        viewModel.send(.searchChanged(query))
+
+        try? await Task.sleep(nanoseconds: 220_000_000)
+
+        let timeout = CACurrentMediaTime() + 3.0
+        while CACurrentMediaTime() < timeout {
+            if !viewModel.state.isLoading {
+                return (CACurrentMediaTime() - start) * 1000
+            }
+            try? await Task.sleep(nanoseconds: 20_000_000)
+        }
+
+        return (CACurrentMediaTime() - start) * 1000
+    }
+
+    @MainActor
+    private func measurePreviewSwitchLatency() async -> Double {
+        if viewModel.state.items.count < 2 {
+            viewModel.send(.searchChanged(""))
+            try? await Task.sleep(nanoseconds: 300_000_000)
+        }
+
+        guard viewModel.state.items.count >= 2 else {
+            return 0
+        }
+
+        let first = viewModel.state.items[0]
+        let second = viewModel.state.items[1]
+
+        let start = CACurrentMediaTime()
+        for _ in 0..<20 {
+            viewModel.send(.itemSelected(first))
+            viewModel.send(.itemSelected(second))
+        }
+        return ((CACurrentMediaTime() - start) * 1000) / 40.0
+    }
+
+    @MainActor
+    private func measureListIterationLatency() async -> Double {
+        if viewModel.state.items.isEmpty {
+            viewModel.send(.searchChanged(""))
+            try? await Task.sleep(nanoseconds: 300_000_000)
+        }
+
+        guard !viewModel.state.items.isEmpty else {
+            return 0
+        }
+
+        let samples = Array(viewModel.state.items.prefix(50))
+        let start = CACurrentMediaTime()
+        for item in samples {
+            viewModel.send(.itemSelected(item))
+        }
+        return ((CACurrentMediaTime() - start) * 1000) / Double(max(samples.count, 1))
+    }
+
+    private func percentile(_ values: [Double], _ p: Double) -> Double {
+        guard !values.isEmpty else {
+            return 0
+        }
+        let sorted = values.sorted()
+        let index = min(sorted.count - 1, Int(Double(sorted.count - 1) * p))
+        return sorted[index]
     }
 }
