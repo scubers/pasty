@@ -17,7 +17,6 @@
 
 | 文档 | 路径 | 内容 |
 |------|------|------|
-| 项目宪法 | `.specify/memory/constitution.md` | 核心原则 P1-P5，治理规则 |
 | 项目结构 | `docs/project-structure.md` | 目录结构，架构设计，构建流程 |
 | Agent 指令 | `AGENTS.md` | 最高优先级规则，架构约束 |
 | macOS 架构 | `platform/macos/ARCHITECTURE.md` | macOS 层架构、目录结构与开发规范（改动 macOS 代码时必须阅读） |
@@ -278,7 +277,6 @@ LSP 工具（如 clangd、VSCode 语言扩展等）可能因项目配置复杂�
 
 ### 6.1 开发前检查
 
-- [ ] 已阅读 `.specify/memory/constitution.md`
 - [ ] 已阅读 `docs/project-structure.md`
 - [ ] 已理解修改范围和影响
 

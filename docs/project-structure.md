@@ -69,9 +69,6 @@ pasty2/
 ├── docs/                          # 项目文档
 │   └── project-structure.md      # 本文件
 │
-├── .specify/memory/               # AI 记忆和配置
-│   └── constitution.md           # 项目宪法
-│
 ├── AGENTS.md                      # AI 代理指令
 └── .gitignore                     # Git 忽略规则
 ```

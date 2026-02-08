@@ -129,4 +129,4 @@
 - [x] 13.2 更新 `AGENTS.md`（如有必要）
 - [x] 13.3 确认所有 LSP 错误已修复（KeyboardShortcuts 和 SnapKit 模块缺失是正常的未构建状态）
 - [x] 13.4 代码格式化和风格检查
-- [ ] 13.5 提交代码，使用清晰的 commit message
+- [x] 13.5 提交代码，使用清晰的 commit message
