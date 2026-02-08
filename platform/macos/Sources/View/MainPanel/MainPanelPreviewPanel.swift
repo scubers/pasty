@@ -11,8 +11,8 @@ struct MainPanelPreviewPanel: View {
             if let item {
                 VStack(alignment: .leading, spacing: MainPanelTokens.Layout.paddingCompact) {
                     header
-                    metadata(for: item)
                     content(for: item)
+                    metadata(for: item)
                 }
                 .padding(MainPanelTokens.Layout.padding)
             } else {
@@ -37,9 +37,9 @@ struct MainPanelPreviewPanel: View {
                 .foregroundStyle(MainPanelTokens.Colors.textSecondary)
                 .textCase(.uppercase)
             Spacer()
-            actionButton("Copy", icon: "doc.on.doc", primary: true)
-            actionButton("Edit", icon: "pencil")
-            actionButton("Delete", icon: "trash")
+//            actionButton("Copy", icon: "doc.on.doc", primary: true)
+//            actionButton("Edit", icon: "pencil")
+//            actionButton("Delete", icon: "trash")
         }
     }
 
@@ -75,8 +75,8 @@ struct MainPanelPreviewPanel: View {
                 MainPanelLongTextRepresentable(itemId: item.id, text: item.content)
             }
         }
-        .padding(8)
-        .background(MainPanelTokens.Effects.materialRegular.opacity(0.2))
+//        .padding(8)
+//        .background(MainPanelTokens.Effects.materialRegular.opacity(0.2))
         .clipShape(RoundedRectangle(cornerRadius: MainPanelTokens.Layout.cornerRadiusSmall))
         .onAppear {
             imageLoader.load(path: item.type == .image ? item.imagePath : nil)
