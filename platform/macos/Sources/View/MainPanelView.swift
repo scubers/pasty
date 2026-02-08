@@ -45,6 +45,6 @@ struct MainPanelView: View {
             x: MainPanelTokens.Effects.panelShadow.x,
             y: MainPanelTokens.Effects.panelShadow.y
         )
-        .frame(minWidth: 800, minHeight: 600)
+//        .frame(minWidth: 800, minHeight: 600)
     }
 }

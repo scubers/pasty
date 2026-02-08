@@ -22,7 +22,7 @@ final class MainPanelWindowController: NSWindowController, NSWindowDelegate, InA
         self.hostingController = NSHostingController(rootView: view)
 
         let panel = MainPanelWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 800, height: 600),
+            contentRect: NSRect(x: 0, y: 0, width: 800, height: 500),
             styleMask: [.borderless, .fullSizeContentView, .resizable],
             backing: .buffered,
             defer: false
