@@ -221,3 +221,4 @@ platform/macos/
 - 生成工程产物（如 `platform/macos/Pasty2.xcodeproj/`）视为生成文件：原则上不手工编辑。
 - 不引入新第三方依赖，除非得到明确批准。
 - 修改 `platform/macos/` 后应运行 `scripts/platform-build-macos.sh` 验证可编译（见 `docs/agents-development-flow.md`）。
+- 禁止滥用全局通知（`NotificationCenter`），业务交互使用 Coordinator 模式实现。
