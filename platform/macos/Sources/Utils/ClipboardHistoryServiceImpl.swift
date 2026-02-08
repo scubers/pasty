@@ -7,6 +7,7 @@ final class ClipboardHistoryServiceImpl: ClipboardHistoryService {
         let query: String
         let limit: Int
         let previewLength: Int
+        let filterType: String?
     }
 
     private let cacheLimit = 50
@@ -16,8 +17,8 @@ final class ClipboardHistoryServiceImpl: ClipboardHistoryService {
     private var cacheOrder: [CacheKey] = []
     private let cacheLock = NSLock()
 
-    func search(query: String, limit: Int) -> AnyPublisher<[ClipboardItemRow], Error> {
-        let cacheKey = CacheKey(query: query, limit: limit, previewLength: previewLength)
+    func search(query: String, limit: Int, filterType: ClipboardItemRow.ItemType?) -> AnyPublisher<[ClipboardItemRow], Error> {
+        let cacheKey = CacheKey(query: query, limit: limit, previewLength: previewLength, filterType: filterType?.rawValue)
         if let cached = cachedValue(for: cacheKey) {
             return Just(cached)
                 .setFailureType(to: Error.self)
@@ -27,7 +28,8 @@ final class ClipboardHistoryServiceImpl: ClipboardHistoryService {
         return Future { promise in
             self.workQueue.async {
                 var outJson: UnsafeMutablePointer<CChar>? = nil
-                let success = pasty_history_search(query, Int32(limit), Int32(self.previewLength), &outJson)
+                let contentType = filterType?.rawValue ?? ""
+                let success = pasty_history_search(query, Int32(limit), Int32(self.previewLength), contentType, &outJson)
 
                 if !success {
                     promise(.failure(NSError(domain: "ClipboardHistoryError", code: -1, userInfo: nil)))

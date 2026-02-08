@@ -3,6 +3,7 @@ import SwiftUI
 struct MainPanelSearchBar: View {
     @Binding var text: String
     @Binding var focusRequest: Bool
+    @Binding var filterType: ClipboardItemRow.ItemType?
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -22,6 +23,33 @@ struct MainPanelSearchBar: View {
                         .foregroundStyle(MainPanelTokens.Colors.textSecondary)
                 }
                 .buttonStyle(.plain)
+            }
+
+            // Filter buttons
+            HStack(spacing: 8) {
+                Button(action: { filterType = nil }) {
+                    Text("All")
+                }
+                .buttonStyle(.plain)
+                .fontWeight(filterType == nil ? .bold : .regular)
+                .font(MainPanelTokens.Typography.body)
+                .foregroundStyle(MainPanelTokens.Colors.textPrimary)
+
+                Button(action: { filterType = .text }) {
+                    Text("Text")
+                }
+                .buttonStyle(.plain)
+                .fontWeight(filterType == .text ? .bold : .regular)
+                .font(MainPanelTokens.Typography.body)
+                .foregroundStyle(MainPanelTokens.Colors.textPrimary)
+
+                Button(action: { filterType = .image }) {
+                    Text("Image")
+                }
+                .buttonStyle(.plain)
+                .fontWeight(filterType == .image ? .bold : .regular)
+                .font(MainPanelTokens.Typography.body)
+                .foregroundStyle(MainPanelTokens.Colors.textPrimary)
             }
         }
         .padding(.horizontal, MainPanelTokens.Layout.padding)

@@ -11,6 +11,9 @@ struct MainPanelView: View {
             ), focusRequest: Binding(
                 get: { viewModel.state.shouldFocusSearch },
                 set: { _ in }
+            ), filterType: Binding(
+                get: { viewModel.state.filterType },
+                set: { viewModel.send(.filterChanged($0)) }
             ))
 
             Rectangle()

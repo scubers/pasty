@@ -16,6 +16,7 @@ final class MainPanelViewModel: ObservableObject {
         var searchQuery = ""
         var isLoading = false
         var errorMessage: String? = nil
+        var filterType: ClipboardItemRow.ItemType? = nil
     }
 
     enum Action {
@@ -36,13 +37,14 @@ final class MainPanelViewModel: ObservableObject {
         case cancelDelete
         case frontmostApplicationTracked(FrontmostAppTracker?)
         case clipboardContentChanged
+        case filterChanged(ClipboardItemRow.ItemType?)
     }
 
     @Published private(set) var state = State()
-    
+
     // Internal so App.swift can bind to visibility
     var cancellables = Set<AnyCancellable>()
-    
+
     private let historyService: ClipboardHistoryService
     private let hotkeyService: HotkeyService
     private let interactionService: MainPanelInteractionService
@@ -56,7 +58,7 @@ final class MainPanelViewModel: ObservableObject {
         self.historyService = historyService
         self.hotkeyService = hotkeyService
         self.interactionService = interactionService
-        
+
         setupSearchPipeline()
         setupHotkey()
     }
@@ -76,6 +78,7 @@ final class MainPanelViewModel: ObservableObject {
             refreshList(selectFirst: true)
         case .panelHidden:
             state.searchQuery = ""
+            state.filterType = nil
             state.pendingDeleteItem = nil
             state.selectionIndex = nil
             state.selectedItem = nil
@@ -105,6 +108,11 @@ final class MainPanelViewModel: ObservableObject {
             requestSearchFocus()
         case let .frontmostApplicationTracked(tracker):
             state.previousFrontmostApp = tracker
+        case let .filterChanged(newFilter):
+            state.filterType = newFilter
+            historyService.invalidateSearchCache()
+            requestSearchFocus()
+            performSearch(query: state.searchQuery, filterType: newFilter)
         case .clipboardContentChanged:
             refreshList(selectFirst: true)
         }
@@ -113,36 +121,51 @@ final class MainPanelViewModel: ObservableObject {
     private func search(query: String) {
         state.searchQuery = query
     }
-    
+
     private func setupSearchPipeline() {
         $state
             .map(\.searchQuery)
             .removeDuplicates()
             .debounce(for: .milliseconds(200), scheduler: DispatchQueue.main)
             .sink { [weak self] query in
-                self?.performSearch(query: query)
+                self?.performSearch(query: query, filterType: self?.state.filterType)
+            }
+            .store(in: &cancellables)
+
+        $state
+            .map(\.filterType)
+            .removeDuplicates()
+            .sink { [weak self] filterType in
+                self?.historyService.invalidateSearchCache()
+                self?.performSearch(query: self?.state.searchQuery ?? "", filterType: filterType)
             }
             .store(in: &cancellables)
     }
-    
-    private func performSearch(query: String) {
+
+    private func performSearch(query: String, filterType: ClipboardItemRow.ItemType?) {
         state.isLoading = true
-        historyService.search(query: query, limit: 100)
+        historyService.search(query: query, limit: 100, filterType: filterType)
             .receive(on: DispatchQueue.main)
             .sink(
                 receiveCompletion: { [weak self] completion in
-                    self?.state.isLoading = false
+                    guard let self else {
+                        return
+                    }
+                    self.state.isLoading = false
                     if case let .failure(error) = completion {
-                        self?.state.errorMessage = error.localizedDescription
+                        self.state.errorMessage = error.localizedDescription
                     }
                 },
                 receiveValue: { [weak self] items in
-                    self?.state.items = items
-                    if let self, let preferredIndex = self.pendingSelectionIndexAfterRefresh {
+                    guard let self else {
+                        return
+                    }
+                    self.state.items = items
+                    if let preferredIndex = self.pendingSelectionIndexAfterRefresh {
                         self.pendingSelectionIndexAfterRefresh = nil
                         self.selectAfterDeletion(preferredIndex: preferredIndex)
                     } else {
-                        self?.send(.selectFirstIfNeeded)
+                        send(.selectFirstIfNeeded)
                     }
                 }
             )
@@ -150,8 +173,7 @@ final class MainPanelViewModel: ObservableObject {
     }
 
     private func refreshList(selectFirst: Bool) {
-        historyService.invalidateSearchCache()
-        performSearch(query: state.searchQuery)
+        performSearch(query: state.searchQuery, filterType: state.filterType)
         if selectFirst {
             send(.selectFirstIfNeeded)
         }
@@ -165,8 +187,8 @@ final class MainPanelViewModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink(
                 receiveCompletion: { [weak self] completion in
-                    if case let .failure(error) = completion {
-                        self?.state.errorMessage = error.localizedDescription
+                    if let self, case let .failure(error) = completion {
+                        self.state.errorMessage = error.localizedDescription
                     }
                 },
                 receiveValue: { [weak self] fullItem in
