@@ -4,6 +4,15 @@ import SnapKit
 private final class MainPanelTableView: NSTableView {
     var onExplicitNavigation: ((Int) -> Void)?
 
+    // Keep keyboard focus on the search field while still allowing row selection.
+    override var acceptsFirstResponder: Bool {
+        false
+    }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        true
+    }
+
     override func keyDown(with event: NSEvent) {
         switch event.keyCode {
         case 115: // Home
@@ -35,6 +44,7 @@ final class MainPanelItemTableView: NSView, NSTableViewDataSource, NSTableViewDe
     private let column = NSTableColumn(identifier: .init("main-panel-item"))
     private var hoveredRow: Int = -1
     private var previouslySelectedRow: Int = -1
+    private var isSyncingSelection = false
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -43,6 +53,10 @@ final class MainPanelItemTableView: NSView, NSTableViewDataSource, NSTableViewDe
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        true
     }
 
     func update(items: [ClipboardItemRow], selectedId: String?) {
@@ -100,19 +114,27 @@ final class MainPanelItemTableView: NSView, NSTableViewDataSource, NSTableViewDe
 
     func tableViewSelectionDidChange(_ notification: Notification) {
         let row = tableView.selectedRow
-        guard row >= 0, row < items.count else {
-            return
+        let selectedRow = (row >= 0 && row < items.count) ? row : -1
+        selectedId = selectedRow >= 0 ? items[selectedRow].id : nil
+
+        if selectedRow >= 0 {
+            let selectedItem = items[selectedRow]
+            if isSyncingSelection {
+                DispatchQueue.main.async { [weak self] in
+                    self?.onSelect?(selectedItem)
+                }
+            } else {
+                onSelect?(selectedItem)
+            }
         }
-        selectedId = items[row].id
-        onSelect?(items[row])
 
         // Reload both previously selected row and newly selected row to update their visual states
-        if previouslySelectedRow != row {
-            let rowsToReload = IndexSet([previouslySelectedRow, row].compactMap { $0 >= 0 ? $0 : nil })
+        if previouslySelectedRow != selectedRow {
+            let rowsToReload = IndexSet([previouslySelectedRow, selectedRow].compactMap { $0 >= 0 ? $0 : nil })
             if !rowsToReload.isEmpty {
                 tableView.reloadData(forRowIndexes: rowsToReload, columnIndexes: IndexSet(integer: 0))
             }
-            previouslySelectedRow = row
+            previouslySelectedRow = selectedRow
         }
     }
 
@@ -190,6 +212,9 @@ final class MainPanelItemTableView: NSView, NSTableViewDataSource, NSTableViewDe
     }
 
     private func selectCurrentRowIfNeeded() {
+        isSyncingSelection = true
+        defer { isSyncingSelection = false }
+
         guard let selectedId,
               let row = items.firstIndex(where: { $0.id == selectedId })
         else {

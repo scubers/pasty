@@ -7,8 +7,18 @@ import PastyCore
 
 @main
 class App: NSObject, NSApplicationDelegate {
-    static func shouldHandleEscape(keyCode: UInt16, appIsActive: Bool, panelIsVisible: Bool) -> Bool {
-        return keyCode == 53 && appIsActive && panelIsVisible
+    static func shouldHandleEscape(
+        keyCode: UInt16,
+        appIsActive: Bool,
+        panelIsVisible: Bool,
+        hasAttachedSheet: Bool,
+        hasPendingDelete: Bool
+    ) -> Bool {
+        return keyCode == 53
+            && appIsActive
+            && panelIsVisible
+            && !hasAttachedSheet
+            && !hasPendingDelete
     }
 
     static func main() {
@@ -26,8 +36,10 @@ class App: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var windowController: MainPanelWindowController!
     private var viewModel: MainPanelViewModel!
+    private var interactionService: MainPanelInteractionService!
     private var cancellables = Set<AnyCancellable>()
     private var localEventMonitor: Any?
+    private var mouseDownMonitor: AnyCancellable?
     private var benchmarkCancellable: AnyCancellable?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -54,6 +66,7 @@ class App: NSObject, NSApplicationDelegate {
         setupDependencies()
         setupMenuBar()
         setupKeyboardMonitor()
+        setupOutsideClickMonitor()
         setupBindings()
 
         if ProcessInfo.processInfo.environment["PASTY_UI_BENCH"] == "1" {
@@ -77,6 +90,8 @@ class App: NSObject, NSApplicationDelegate {
             NSEvent.removeMonitor(localEventMonitor)
             self.localEventMonitor = nil
         }
+        mouseDownMonitor?.cancel()
+        mouseDownMonitor = nil
         clipboardManager.shutdown()
     }
 
@@ -84,10 +99,13 @@ class App: NSObject, NSApplicationDelegate {
     private func setupDependencies() {
         let historyService = ClipboardHistoryServiceImpl()
         let hotkeyService = HotkeyServiceImpl()
+        let interactionService = MainPanelInteractionServiceImpl()
+        self.interactionService = interactionService
         
         viewModel = MainPanelViewModel(
             historyService: historyService,
-            hotkeyService: hotkeyService
+            hotkeyService: hotkeyService,
+            interactionService: interactionService
         )
         
         windowController = MainPanelWindowController(viewModel: viewModel)
@@ -124,6 +142,22 @@ class App: NSObject, NSApplicationDelegate {
                 }
             }
             .store(in: &cancellables)
+
+        viewModel.$state
+            .map(\.pendingDeleteItem)
+            .sink { [weak self] pendingItem in
+                guard let self else {
+                    return
+                }
+                guard pendingItem != nil else {
+                    return
+                }
+                guard self.windowController.window?.attachedSheet == nil else {
+                    return
+                }
+                self.showDeleteConfirmation()
+            }
+            .store(in: &cancellables)
     }
 
     @MainActor
@@ -135,13 +169,68 @@ class App: NSObject, NSApplicationDelegate {
             guard Self.shouldHandleEscape(
                 keyCode: event.keyCode,
                 appIsActive: NSApp.isActive,
-                panelIsVisible: self.viewModel.state.isVisible
+                panelIsVisible: self.viewModel.state.isVisible,
+                hasAttachedSheet: self.windowController.window?.attachedSheet != nil,
+                hasPendingDelete: self.viewModel.state.pendingDeleteItem != nil
             ) else {
+                if self.handlePanelShortcut(event) {
+                    return nil
+                }
                 return event
             }
 
-            self.viewModel.send(.togglePanel)
+            DispatchQueue.main.async { [weak self] in
+                self?.viewModel.send(.togglePanel)
+            }
             return nil
+        }
+    }
+
+    @MainActor
+    private func handlePanelShortcut(_ event: NSEvent) -> Bool {
+        // Disable panel shortcuts whenever a secondary UI (sheet/modal) is active.
+        guard viewModel.state.isVisible,
+              let window = windowController.window,
+              window.isVisible,
+              NSApp.keyWindow === window,
+              window.attachedSheet == nil,
+              viewModel.state.pendingDeleteItem == nil else {
+            return false
+        }
+
+        let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let commandPressed = modifiers.contains(.command)
+
+        switch (event.keyCode, commandPressed) {
+        case (126, _):
+            DispatchQueue.main.async { [weak self] in
+                self?.viewModel.send(.moveSelectionUp)
+            }
+            return true
+        case (125, _):
+            DispatchQueue.main.async { [weak self] in
+                self?.viewModel.send(.moveSelectionDown)
+            }
+            return true
+        case (36, true):
+            DispatchQueue.main.async { [weak self] in
+                self?.viewModel.send(.copySelected)
+            }
+            return true
+        case (36, false):
+            DispatchQueue.main.async { [weak self] in
+                self?.viewModel.send(.pasteSelectedAndClose)
+            }
+            return true
+        case (2, true):
+            if viewModel.state.pendingDeleteItem == nil {
+                DispatchQueue.main.async { [weak self] in
+                    self?.viewModel.send(.prepareDeleteSelected)
+                }
+            }
+            return true
+        default:
+            return false
         }
     }
 
@@ -152,6 +241,8 @@ class App: NSObject, NSApplicationDelegate {
     
     @MainActor
     private func showPanel() {
+        let tracker = interactionService.trackAndRestoreFrontmostApplication()
+        viewModel.send(.frontmostApplicationTracked(tracker))
         let mouseLocation = NSEvent.mouseLocation
         windowController.show(at: mouseLocation)
     }
@@ -159,6 +250,42 @@ class App: NSObject, NSApplicationDelegate {
     @MainActor
     private func hidePanel() {
         windowController.hide()
+        interactionService.restoreFrontmostApplication()
+    }
+
+    @MainActor
+    private func setupOutsideClickMonitor() {
+        mouseDownMonitor = NotificationCenter.default
+            .publisher(for: NSApplication.didResignActiveNotification)
+            .sink { [weak self] _ in
+                self?.viewModel.send(.hidePanel)
+            }
+    }
+
+    @MainActor
+    private func showDeleteConfirmation() {
+        guard viewModel.state.pendingDeleteItem != nil,
+              let window = windowController.window else {
+            return
+        }
+
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Delete clipboard item"
+        alert.informativeText = "Delete this record from clipboard history? This action cannot be undone."
+        alert.addButton(withTitle: "Delete")
+        alert.addButton(withTitle: "Cancel")
+
+        alert.beginSheetModal(for: window) { [weak self] response in
+            guard let self else {
+                return
+            }
+            if response == .alertFirstButtonReturn {
+                self.viewModel.send(.deleteSelectedConfirmed)
+            } else {
+                self.viewModel.send(.cancelDelete)
+            }
+        }
     }
     
     private func copyMigrations(to destination: URL) {

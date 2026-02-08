@@ -91,6 +91,23 @@ final class ClipboardHistoryServiceImpl: ClipboardHistoryService {
         .eraseToAnyPublisher()
     }
 
+    func delete(id: String) -> AnyPublisher<Void, Error> {
+        return Future { promise in
+            self.workQueue.async {
+                let deleted = id.withCString { pointer in
+                    pasty_history_delete(pointer)
+                }
+                if deleted {
+                    self.invalidateSearchCache()
+                    promise(.success(()))
+                } else {
+                    promise(.failure(NSError(domain: "ClipboardHistoryError", code: -4, userInfo: [NSLocalizedDescriptionKey: "Delete failed"])))
+                }
+            }
+        }
+        .eraseToAnyPublisher()
+    }
+
     func invalidateSearchCache() {
         cacheLock.lock()
         searchCache.removeAll(keepingCapacity: false)

@@ -8,6 +8,9 @@ struct MainPanelView: View {
             MainPanelSearchBar(text: Binding(
                 get: { viewModel.state.searchQuery },
                 set: { viewModel.send(.searchChanged($0)) }
+            ), focusRequest: Binding(
+                get: { viewModel.state.shouldFocusSearch },
+                set: { _ in }
             ))
 
             Rectangle()

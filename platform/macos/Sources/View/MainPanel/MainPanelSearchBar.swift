@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MainPanelSearchBar: View {
     @Binding var text: String
+    @Binding var focusRequest: Bool
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -38,5 +39,11 @@ struct MainPanelSearchBar: View {
             y: 0
         )
         .padding(MainPanelTokens.Layout.padding)
+        .onChange(of: focusRequest) { _, _ in
+            focused = true
+        }
+        .onAppear {
+            focused = true
+        }
     }
 }
