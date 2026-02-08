@@ -13,7 +13,7 @@ final class MainPanelWindowController: NSWindowController {
 
         let panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 800, height: 600),
-            styleMask: [.nonactivatingPanel, .borderless, .resizable],
+            styleMask: [.nonactivatingPanel, .borderless, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
