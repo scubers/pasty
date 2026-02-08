@@ -1,0 +1,207 @@
+import AppKit
+import Foundation
+import PastyCore
+import Vision
+
+final class OCRService {
+    static let shared = OCRService()
+
+    private struct TaskPayload: Decodable {
+        let id: String
+        let imagePath: String
+    }
+
+    private let queue = DispatchQueue(label: "OCRService", qos: .background)
+    private var isProcessing = false
+    private var started = false
+    private var imageCaptureObserver: NSObjectProtocol?
+    private let appDataDirectory: URL
+
+    private init(appDataDirectory: URL = AppPaths.appDataDirectory()) {
+        self.appDataDirectory = appDataDirectory
+    }
+
+    func start() {
+        queue.async {
+            guard !self.started else {
+                return
+            }
+            self.started = true
+            self.observeImageCapturedNotification()
+            self.scheduleNextCheck(after: 5)
+        }
+    }
+
+    deinit {
+        if let imageCaptureObserver {
+            NotificationCenter.default.removeObserver(imageCaptureObserver)
+        }
+    }
+
+    private func observeImageCapturedNotification() {
+        imageCaptureObserver = NotificationCenter.default.addObserver(
+            forName: .clipboardImageCaptured,
+            object: nil,
+            queue: nil
+        ) { [weak self] _ in
+            self?.queue.async {
+                self?.processNext(force: true)
+            }
+        }
+    }
+
+    private func processNext(force: Bool = false) {
+        if isProcessing {
+            if force {
+                scheduleNextCheck(after: 0.6)
+            }
+            return
+        }
+
+        guard let task = getNextTask() else {
+            scheduleNextCheck(after: 10)
+            return
+        }
+
+        isProcessing = true
+        guard markProcessing(id: task.id) else {
+            isProcessing = false
+            scheduleNextCheck(after: 2)
+            return
+        }
+
+        performOCR(imagePath: task.imagePath) { [weak self] result in
+            guard let self else {
+                return
+            }
+            self.queue.async {
+                switch result {
+                case let .success(text):
+                    _ = self.reportSuccess(id: task.id, text: text)
+                case .failure:
+                    _ = self.reportFailure(id: task.id)
+                }
+
+                self.isProcessing = false
+                self.processNext()
+            }
+        }
+    }
+
+    private func scheduleNextCheck(after seconds: TimeInterval) {
+        queue.asyncAfter(deadline: .now() + seconds) { [weak self] in
+            self?.processNext()
+        }
+    }
+
+    private func getNextTask() -> TaskPayload? {
+        var outJson: UnsafeMutablePointer<CChar>?
+        guard pasty_history_get_next_ocr_task(&outJson) else {
+            return nil
+        }
+        guard let outJson else {
+            return nil
+        }
+
+        defer {
+            pasty_free_string(outJson)
+        }
+
+        let jsonString = String(cString: outJson)
+        guard let data = jsonString.data(using: .utf8) else {
+            return nil
+        }
+
+        return try? JSONDecoder().decode(TaskPayload.self, from: data)
+    }
+
+    private func markProcessing(id: String) -> Bool {
+        id.withCString { pasty_history_ocr_mark_processing($0) }
+    }
+
+    private func reportSuccess(id: String, text: String) -> Bool {
+        id.withCString { idPtr in
+            text.withCString { textPtr in
+                pasty_history_ocr_success(idPtr, textPtr)
+            }
+        }
+    }
+
+    private func reportFailure(id: String) -> Bool {
+        id.withCString { pasty_history_ocr_failed($0) }
+    }
+
+    private func performOCR(imagePath: String, completion: @escaping (Result<String, Error>) -> Void) {
+        let absolutePath = appDataDirectory.appendingPathComponent(imagePath).path
+        guard let image = NSImage(contentsOfFile: absolutePath) else {
+            completion(.failure(NSError(domain: "OCRService", code: -10)))
+            return
+        }
+
+        var proposedRect = NSRect(origin: .zero, size: image.size)
+        guard let cgImage = image.cgImage(forProposedRect: &proposedRect, context: nil, hints: nil) else {
+            completion(.failure(NSError(domain: "OCRService", code: -11)))
+            return
+        }
+
+        let timeout = DispatchWorkItem {
+            completion(.failure(NSError(domain: "OCRService", code: -12)))
+        }
+
+        queue.asyncAfter(deadline: .now() + 30, execute: timeout)
+
+        let request = VNRecognizeTextRequest { request, error in
+            if timeout.isCancelled {
+                return
+            }
+            timeout.cancel()
+
+            if let error {
+                completion(.failure(error))
+                return
+            }
+
+            let observations = request.results as? [VNRecognizedTextObservation] ?? []
+            var confidenceSum: Float = 0
+            var confidenceCount: Float = 0
+            var lines: [String] = []
+
+            for observation in observations {
+                guard let candidate = observation.topCandidates(1).first else {
+                    continue
+                }
+                confidenceSum += candidate.confidence
+                confidenceCount += 1
+                lines.append(candidate.string)
+            }
+
+            let averageConfidence = confidenceCount == 0 ? 0 : confidenceSum / confidenceCount
+            if averageConfidence < 0.7 {
+                completion(.success(""))
+                return
+            }
+
+            let text = lines
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+                .joined(separator: "\n")
+            completion(.success(text))
+        }
+        request.recognitionLevel = .accurate
+        request.usesLanguageCorrection = true
+        request.recognitionLanguages = ["zh-Hans", "zh-Hant", "en", "ko", "ja", "ar", "la", "ru"]
+
+        if #available(macOS 13.0, *) {
+            request.revision = VNRecognizeTextRequestRevision3
+            request.automaticallyDetectsLanguage = true
+        }
+
+        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+        do {
+            try handler.perform([request])
+        } catch {
+            timeout.cancel()
+            completion(.failure(error))
+        }
+    }
+}

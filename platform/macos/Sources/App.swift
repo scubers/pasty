@@ -19,6 +19,7 @@ class App: NSObject, NSApplicationDelegate {
     // Core Components
     private var clipboardManager = pasty.ClipboardManager()
     private let clipboardWatcher = ClipboardWatcher()
+    private let ocrService = OCRService.shared
     
     // UI Components
     private var statusItem: NSStatusItem!
@@ -70,6 +71,8 @@ class App: NSObject, NSApplicationDelegate {
                 self?.viewModel.send(.clipboardContentChanged)
             }
         })
+
+        ocrService.start()
     }
     
     func applicationWillTerminate(_ notification: Notification) {
@@ -236,7 +239,8 @@ class App: NSObject, NSApplicationDelegate {
         let migrationFiles = [
             "0001-initial-schema.sql",
             "0002-add-search-index.sql",
-            "0003-add-metadata.sql"
+            "0003-add-metadata.sql",
+            "0004-add-ocr-support.sql"
         ]
 
         do {

@@ -20,7 +20,12 @@ final class MainPanelItemTableCellView: NSTableCellView {
     func configure(item: ClipboardItemRow, selected: Bool, hovered: Bool, focused: Bool) {
         iconView.image = NSImage(systemSymbolName: item.type == .image ? "photo" : "text.alignleft", accessibilityDescription: nil)
         if item.type == .image {
-            titleLabel.stringValue = "Image[\(item.imageWidth ?? 0) x \(item.imageHeight ?? 0)]"
+            let fallback = "Image[\(item.imageWidth ?? 0) x \(item.imageHeight ?? 0)]"
+            if let ocrText = item.ocrText?.trimmingCharacters(in: .whitespacesAndNewlines), !ocrText.isEmpty {
+                titleLabel.stringValue = "[OCR] \(String(ocrText.prefix(50)))"
+            } else {
+                titleLabel.stringValue = fallback
+            }
         } else {
             titleLabel.stringValue = item.content
                 .replacingOccurrences(of: "\r\n", with: " ")

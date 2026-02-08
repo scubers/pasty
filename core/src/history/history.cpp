@@ -183,6 +183,54 @@ std::vector<ClipboardHistoryItem> ClipboardHistory::search(const SearchOptions& 
     return m_store->search(options);
 }
 
+std::vector<OcrTask> ClipboardHistory::getPendingOcrImages(std::int32_t limit) const {
+    if (!m_initialized || !m_store) {
+        return {};
+    }
+
+    return m_store->getPendingOcrImages(limit, currentTimeMs());
+}
+
+std::optional<OcrTask> ClipboardHistory::getNextOcrTask() const {
+    if (!m_initialized || !m_store) {
+        return std::nullopt;
+    }
+
+    return m_store->getNextOcrTask(currentTimeMs());
+}
+
+bool ClipboardHistory::markOcrProcessing(const std::string& id) {
+    if (!m_initialized || !m_store) {
+        return false;
+    }
+
+    return m_store->markOcrProcessing(id);
+}
+
+bool ClipboardHistory::updateOcrSuccess(const std::string& id, const std::string& ocrText) {
+    if (!m_initialized || !m_store) {
+        return false;
+    }
+
+    return m_store->updateOcrSuccess(id, ocrText);
+}
+
+bool ClipboardHistory::updateOcrFailed(const std::string& id) {
+    if (!m_initialized || !m_store) {
+        return false;
+    }
+
+    return m_store->updateOcrFailed(id, currentTimeMs());
+}
+
+std::optional<OcrTaskStatus> ClipboardHistory::getOcrStatus(const std::string& id) const {
+    if (!m_initialized || !m_store) {
+        return std::nullopt;
+    }
+
+    return m_store->getOcrStatus(id);
+}
+
 std::optional<ClipboardHistoryItem> ClipboardHistory::getById(const std::string& id) {
     if (!m_initialized || !m_store) {
         return std::nullopt;

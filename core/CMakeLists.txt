@@ -61,6 +61,7 @@ install(FILES
     migrations/0001-initial-schema.sql
     migrations/0002-add-search-index.sql
     migrations/0003-add-metadata.sql
+    migrations/0004-add-ocr-support.sql
     DESTINATION share/pasty/migrations
 )
 

@@ -3,6 +3,10 @@
 import Cocoa
 import PastyCore
 
+extension Notification.Name {
+    static let clipboardImageCaptured = Notification.Name("clipboardImageCaptured")
+}
+
 final class ClipboardWatcher {
     private static let maxPayloadBytes = 10 * 1024 * 1024
 
@@ -93,6 +97,9 @@ final class ClipboardWatcher {
             let height = Int(bitmap.pixelsHigh)
             let stored = ingestImage(pngData, width, height, "png", sourceAppID)
             log(stored ? "capture_image_success" : "capture_image_failed")
+            if stored {
+                NotificationCenter.default.post(name: .clipboardImageCaptured, object: nil)
+            }
             return stored
         }
 

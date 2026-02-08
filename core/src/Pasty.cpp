@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <vector>
 
@@ -43,6 +44,16 @@ static std::string escapeJson(const std::string& value) {
     return escaped;
 }
 
+static const char* ocrStatusToString(pasty::OcrStatus status) {
+    switch (status) {
+        case pasty::OcrStatus::Pending: return "pending";
+        case pasty::OcrStatus::Processing: return "processing";
+        case pasty::OcrStatus::Completed: return "completed";
+        case pasty::OcrStatus::Failed: return "failed";
+    }
+    return "pending";
+}
+
 static std::string serializeItemsToJson(const std::vector<ClipboardHistoryItem>& items) {
     std::ostringstream stream;
     stream << "[";
@@ -64,10 +75,61 @@ static std::string serializeItemsToJson(const std::vector<ClipboardHistoryItem>&
         stream << "\"lastCopyTimeMs\":" << item.lastCopyTimeMs << ",";
         stream << "\"sourceAppId\":\"" << pasty::escapeJson(item.sourceAppId) << "\",";
         stream << "\"contentHash\":\"" << pasty::escapeJson(item.contentHash) << "\",";
-        stream << "\"metadata\":\"" << pasty::escapeJson(item.metadata) << "\"";
+        stream << "\"metadata\":\"" << pasty::escapeJson(item.metadata) << "\",";
+        stream << "\"ocrStatus\":";
+        if (item.type == pasty::ClipboardItemType::Image) {
+            stream << "\"" << ocrStatusToString(item.ocrStatus) << "\"";
+        } else {
+            stream << "null";
+        }
+        stream << ",";
+        stream << "\"ocrText\":";
+        if (item.type != pasty::ClipboardItemType::Image || item.ocrText.empty()) {
+            stream << "null";
+        } else {
+            stream << "\"" << pasty::escapeJson(item.ocrText) << "\"";
+        }
         stream << "}";
     }
     stream << "]";
+    return stream.str();
+}
+
+static std::string serializeOcrTask(const pasty::OcrTask& task) {
+    std::ostringstream stream;
+    stream << "{";
+    stream << "\"id\":\"" << pasty::escapeJson(task.id) << "\",";
+    stream << "\"imagePath\":\"" << pasty::escapeJson(task.imagePath) << "\",";
+    stream << "\"retryCount\":" << task.retryCount << ",";
+    stream << "\"lastCopyTimeMs\":" << task.lastCopyTimeMs;
+    stream << "}";
+    return stream.str();
+}
+
+static std::string serializeOcrTasks(const std::vector<pasty::OcrTask>& tasks) {
+    std::ostringstream stream;
+    stream << "[";
+    for (std::size_t index = 0; index < tasks.size(); ++index) {
+        if (index > 0) {
+            stream << ",";
+        }
+        stream << serializeOcrTask(tasks[index]);
+    }
+    stream << "]";
+    return stream.str();
+}
+
+static std::string serializeOcrStatus(const pasty::OcrTaskStatus& status) {
+    std::ostringstream stream;
+    stream << "{";
+    stream << "\"ocrStatus\":\"" << ocrStatusToString(status.status) << "\",";
+    stream << "\"ocrText\":";
+    if (status.text.empty()) {
+        stream << "null";
+    } else {
+        stream << "\"" << pasty::escapeJson(status.text) << "\"";
+    }
+    stream << "}";
     return stream.str();
 }
 
@@ -192,6 +254,70 @@ bool pasty_history_search(const char* query, int limit, int preview_length, char
     return true;
 }
 
+bool pasty_history_get_pending_ocr_images(int limit, char** out_json) {
+    if (!pasty::HISTORY_SUBSYSTEM || out_json == nullptr) {
+        return false;
+    }
+
+    const std::vector<pasty::OcrTask> tasks = pasty::HISTORY_SUBSYSTEM->getPendingOcrImages(limit);
+    *out_json = pasty::copyString(pasty::serializeOcrTasks(tasks));
+    return true;
+}
+
+bool pasty_history_get_next_ocr_task(char** out_json) {
+    if (!pasty::HISTORY_SUBSYSTEM || out_json == nullptr) {
+        return false;
+    }
+
+    const std::optional<pasty::OcrTask> task = pasty::HISTORY_SUBSYSTEM->getNextOcrTask();
+    if (!task) {
+        *out_json = nullptr;
+        return true;
+    }
+
+    *out_json = pasty::copyString(pasty::serializeOcrTask(*task));
+    return true;
+}
+
+bool pasty_history_ocr_mark_processing(const char* id) {
+    if (!pasty::HISTORY_SUBSYSTEM || id == nullptr) {
+        return false;
+    }
+
+    return pasty::HISTORY_SUBSYSTEM->markOcrProcessing(pasty::fromCString(id));
+}
+
+bool pasty_history_ocr_success(const char* id, const char* ocr_text) {
+    if (!pasty::HISTORY_SUBSYSTEM || id == nullptr) {
+        return false;
+    }
+
+    return pasty::HISTORY_SUBSYSTEM->updateOcrSuccess(pasty::fromCString(id), pasty::fromCString(ocr_text));
+}
+
+bool pasty_history_ocr_failed(const char* id) {
+    if (!pasty::HISTORY_SUBSYSTEM || id == nullptr) {
+        return false;
+    }
+
+    return pasty::HISTORY_SUBSYSTEM->updateOcrFailed(pasty::fromCString(id));
+}
+
+bool pasty_history_get_ocr_status(const char* id, char** out_json) {
+    if (!pasty::HISTORY_SUBSYSTEM || id == nullptr || out_json == nullptr) {
+        return false;
+    }
+
+    const std::optional<pasty::OcrTaskStatus> status = pasty::HISTORY_SUBSYSTEM->getOcrStatus(pasty::fromCString(id));
+    if (!status) {
+        *out_json = nullptr;
+        return true;
+    }
+
+    *out_json = pasty::copyString(pasty::serializeOcrStatus(*status));
+    return true;
+}
+
 char* pasty_history_get_json(const char* id) {
     if (!pasty::HISTORY_SUBSYSTEM || id == nullptr) {
         return nullptr;
@@ -216,7 +342,20 @@ char* pasty_history_get_json(const char* id) {
     stream << "\"lastCopyTimeMs\":" << item->lastCopyTimeMs << ",";
     stream << "\"sourceAppId\":\"" << pasty::escapeJson(item->sourceAppId) << "\",";
     stream << "\"contentHash\":\"" << pasty::escapeJson(item->contentHash) << "\",";
-    stream << "\"metadata\":\"" << pasty::escapeJson(item->metadata) << "\"";
+    stream << "\"metadata\":\"" << pasty::escapeJson(item->metadata) << "\",";
+    stream << "\"ocrStatus\":";
+    if (item->type == pasty::ClipboardItemType::Image) {
+        stream << "\"" << pasty::ocrStatusToString(item->ocrStatus) << "\"";
+    } else {
+        stream << "null";
+    }
+    stream << ",";
+    stream << "\"ocrText\":";
+    if (item->type != pasty::ClipboardItemType::Image || item->ocrText.empty()) {
+        stream << "null";
+    } else {
+        stream << "\"" << pasty::escapeJson(item->ocrText) << "\"";
+    }
     stream << "}";
 
     return pasty::copyString(stream.str());

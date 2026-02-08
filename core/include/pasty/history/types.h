@@ -17,6 +17,13 @@ enum class ClipboardItemType {
     Image,
 };
 
+enum class OcrStatus {
+    Pending = 0,
+    Processing = 1,
+    Completed = 2,
+    Failed = 3,
+};
+
 struct ClipboardImagePayload {
     std::vector<std::uint8_t> bytes;
     std::int32_t width = 0;
@@ -53,6 +60,22 @@ struct ClipboardHistoryItem {
     std::string sourceAppId;
     std::string contentHash;
     std::string metadata;
+    OcrStatus ocrStatus = OcrStatus::Pending;
+    std::string ocrText;
+    std::int32_t ocrRetryCount = 0;
+    HistoryTimestampMs ocrNextRetryAtMs = 0;
+};
+
+struct OcrTask {
+    HistoryItemId id;
+    std::string imagePath;
+    std::int32_t retryCount = 0;
+    HistoryTimestampMs lastCopyTimeMs = 0;
+};
+
+struct OcrTaskStatus {
+    OcrStatus status = OcrStatus::Pending;
+    std::string text;
 };
 
 struct SearchOptions {

@@ -3,12 +3,14 @@
 #include <pasty/history/store.h>
 
 #include <cstddef>
+#include <chrono>
 #include <cstdio>
 #include <cerrno>
 #include <filesystem>
 #include <fstream>
 #include <functional>
 #include <iostream>
+#include <algorithm>
 #include <sstream>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -63,6 +65,19 @@ std::string truncateUtf8(const std::string& value, std::size_t maxCodePoints) {
     }
 
     return value.substr(0, index);
+}
+
+OcrStatus ocrStatusFromInt(int value) {
+    switch (value) {
+        case 1: return OcrStatus::Processing;
+        case 2: return OcrStatus::Completed;
+        case 3: return OcrStatus::Failed;
+        default: return OcrStatus::Pending;
+    }
+}
+
+int ocrStatusToInt(OcrStatus status) {
+    return static_cast<int>(status);
 }
 
 class SQLiteClipboardHistoryStore final : public ClipboardHistoryStore {
@@ -130,8 +145,9 @@ public:
         const char* sql =
             "INSERT INTO items ("
             "id, type, content, image_path, image_width, image_height, image_format, "
-            "create_time_ms, update_time_ms, last_copy_time_ms, source_app_id, content_hash, metadata"
-            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "create_time_ms, update_time_ms, last_copy_time_ms, source_app_id, content_hash, metadata, "
+            "ocr_status, ocr_text, ocr_retry_count, ocr_next_retry_at"
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
             "ON CONFLICT(type, content_hash) DO UPDATE SET "
             "content=excluded.content, "
             "update_time_ms=excluded.update_time_ms, "
@@ -211,8 +227,9 @@ public:
         const char* sql =
             "INSERT INTO items ("
             "id, type, content, image_path, image_width, image_height, image_format, "
-            "create_time_ms, update_time_ms, last_copy_time_ms, source_app_id, content_hash, metadata"
-            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+            "create_time_ms, update_time_ms, last_copy_time_ms, source_app_id, content_hash, metadata, "
+            "ocr_status, ocr_text, ocr_retry_count, ocr_next_retry_at"
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
 
         if (sqlite3_prepare_v2(m_db, sql, -1, &statement, nullptr) != SQLITE_OK) {
             deleteAsset(relativePath);
@@ -244,7 +261,8 @@ public:
         sqlite3_stmt* statement = nullptr;
         const char* sql =
             "SELECT id, type, content, image_path, image_width, image_height, image_format, "
-            "create_time_ms, update_time_ms, last_copy_time_ms, source_app_id, content_hash, metadata "
+            "create_time_ms, update_time_ms, last_copy_time_ms, source_app_id, content_hash, metadata, "
+            "ocr_status, ocr_text, ocr_retry_count, ocr_next_retry_at "
             "FROM items "
             "WHERE id = ?1;";
 
@@ -270,6 +288,10 @@ public:
             item.sourceAppId = readTextColumn(statement, 10);
             item.contentHash = readTextColumn(statement, 11);
             item.metadata = readTextColumn(statement, 12);
+            item.ocrStatus = ocrStatusFromInt(sqlite3_column_int(statement, 13));
+            item.ocrText = readTextColumn(statement, 14);
+            item.ocrRetryCount = sqlite3_column_int(statement, 15);
+            item.ocrNextRetryAtMs = sqlite3_column_int64(statement, 16);
             result = item;
         }
 
@@ -290,7 +312,8 @@ public:
         sqlite3_stmt* statement = nullptr;
         const char* sql =
             "SELECT id, type, content, image_path, image_width, image_height, image_format, "
-            "create_time_ms, update_time_ms, last_copy_time_ms, source_app_id, content_hash, metadata "
+            "create_time_ms, update_time_ms, last_copy_time_ms, source_app_id, content_hash, metadata, "
+            "ocr_status, ocr_text, ocr_retry_count, ocr_next_retry_at "
             "FROM items "
             "WHERE (?1 = 0 OR last_copy_time_ms < ?1) "
             "ORDER BY last_copy_time_ms DESC "
@@ -318,6 +341,10 @@ public:
             item.sourceAppId = readTextColumn(statement, 10);
             item.contentHash = readTextColumn(statement, 11);
             item.metadata = readTextColumn(statement, 12);
+            item.ocrStatus = ocrStatusFromInt(sqlite3_column_int(statement, 13));
+            item.ocrText = readTextColumn(statement, 14);
+            item.ocrRetryCount = sqlite3_column_int(statement, 15);
+            item.ocrNextRetryAtMs = sqlite3_column_int64(statement, 16);
             result.items.push_back(item);
         }
 
@@ -340,9 +367,10 @@ public:
 
         std::string sql =
             "SELECT id, type, content, image_path, image_width, image_height, image_format, "
-            "create_time_ms, update_time_ms, last_copy_time_ms, source_app_id, content_hash, metadata "
+            "create_time_ms, update_time_ms, last_copy_time_ms, source_app_id, content_hash, metadata, "
+            "ocr_status, ocr_text, ocr_retry_count, ocr_next_retry_at "
             "FROM items "
-            "WHERE COALESCE(content, '') LIKE ?1 ";
+            "WHERE (COALESCE(content, '') LIKE ?1 OR COALESCE(ocr_text, '') LIKE ?1) ";
 
         if (!options.contentType.empty()) {
             sql += "AND type = ?3 ";
@@ -379,6 +407,10 @@ public:
             item.sourceAppId = readTextColumn(statement, 10);
             item.contentHash = readTextColumn(statement, 11);
             item.metadata = readTextColumn(statement, 12);
+            item.ocrStatus = ocrStatusFromInt(sqlite3_column_int(statement, 13));
+            item.ocrText = readTextColumn(statement, 14);
+            item.ocrRetryCount = sqlite3_column_int(statement, 15);
+            item.ocrNextRetryAtMs = sqlite3_column_int64(statement, 16);
             if (item.type == ClipboardItemType::Text && !item.content.empty()) {
                 item.content = truncateUtf8(item.content, previewLength);
             }
@@ -387,6 +419,197 @@ public:
 
         sqlite3_finalize(statement);
         return results;
+    }
+
+    std::vector<OcrTask> getPendingOcrImages(std::int32_t limit, HistoryTimestampMs nowMs) override {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        std::vector<OcrTask> results;
+        if (m_db == nullptr) {
+            return results;
+        }
+
+        const std::int32_t safeLimit = limit <= 0 ? 50 : (limit > 500 ? 500 : limit);
+        sqlite3_stmt* statement = nullptr;
+        const char* sql =
+            "SELECT id, image_path, ocr_retry_count, last_copy_time_ms "
+            "FROM items "
+            "WHERE type = 'image' AND ocr_status = 0 AND ocr_next_retry_at <= ?1 "
+            "ORDER BY last_copy_time_ms DESC LIMIT ?2;";
+
+        if (sqlite3_prepare_v2(m_db, sql, -1, &statement, nullptr) != SQLITE_OK) {
+            return results;
+        }
+
+        sqlite3_bind_int64(statement, 1, nowMs);
+        sqlite3_bind_int(statement, 2, safeLimit);
+
+        while (sqlite3_step(statement) == SQLITE_ROW) {
+            OcrTask task;
+            task.id = readTextColumn(statement, 0);
+            task.imagePath = readTextColumn(statement, 1);
+            task.retryCount = sqlite3_column_int(statement, 2);
+            task.lastCopyTimeMs = sqlite3_column_int64(statement, 3);
+            results.push_back(task);
+        }
+
+        sqlite3_finalize(statement);
+        return results;
+    }
+
+    std::optional<OcrTask> getNextOcrTask(HistoryTimestampMs nowMs) override {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (m_db == nullptr) {
+            return std::nullopt;
+        }
+
+        sqlite3_stmt* statement = nullptr;
+        const char* sql =
+            "SELECT id, image_path, ocr_retry_count, last_copy_time_ms "
+            "FROM items "
+            "WHERE type = 'image' AND ocr_status = 0 AND ocr_next_retry_at <= ?1 "
+            "ORDER BY last_copy_time_ms DESC LIMIT 1;";
+
+        if (sqlite3_prepare_v2(m_db, sql, -1, &statement, nullptr) != SQLITE_OK) {
+            return std::nullopt;
+        }
+
+        sqlite3_bind_int64(statement, 1, nowMs);
+
+        std::optional<OcrTask> result;
+        if (sqlite3_step(statement) == SQLITE_ROW) {
+            OcrTask task;
+            task.id = readTextColumn(statement, 0);
+            task.imagePath = readTextColumn(statement, 1);
+            task.retryCount = sqlite3_column_int(statement, 2);
+            task.lastCopyTimeMs = sqlite3_column_int64(statement, 3);
+            result = task;
+        }
+        sqlite3_finalize(statement);
+        return result;
+    }
+
+    bool markOcrProcessing(const std::string& id) override {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (m_db == nullptr || id.empty()) {
+            return false;
+        }
+
+        sqlite3_stmt* statement = nullptr;
+        const char* sql =
+            "UPDATE items SET ocr_status = 1 "
+            "WHERE id = ?1 AND type = 'image';";
+
+        if (sqlite3_prepare_v2(m_db, sql, -1, &statement, nullptr) != SQLITE_OK) {
+            return false;
+        }
+
+        sqlite3_bind_text(statement, 1, id.c_str(), -1, SQLITE_TRANSIENT);
+        const bool ok = sqlite3_step(statement) == SQLITE_DONE && sqlite3_changes(m_db) > 0;
+        sqlite3_finalize(statement);
+        return ok;
+    }
+
+    bool updateOcrSuccess(const std::string& id, const std::string& ocrText) override {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (m_db == nullptr || id.empty()) {
+            return false;
+        }
+
+        sqlite3_stmt* statement = nullptr;
+        const char* sql =
+            "UPDATE items "
+            "SET ocr_text = ?1, ocr_status = 2, ocr_retry_count = 0, ocr_next_retry_at = 0 "
+            "WHERE id = ?2 AND type = 'image';";
+
+        if (sqlite3_prepare_v2(m_db, sql, -1, &statement, nullptr) != SQLITE_OK) {
+            return false;
+        }
+
+        if (ocrText.empty()) {
+            sqlite3_bind_null(statement, 1);
+        } else {
+            sqlite3_bind_text(statement, 1, ocrText.c_str(), -1, SQLITE_TRANSIENT);
+        }
+        sqlite3_bind_text(statement, 2, id.c_str(), -1, SQLITE_TRANSIENT);
+        const bool ok = sqlite3_step(statement) == SQLITE_DONE && sqlite3_changes(m_db) > 0;
+        sqlite3_finalize(statement);
+        return ok;
+    }
+
+    bool updateOcrFailed(const std::string& id, HistoryTimestampMs nowMs) override {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (m_db == nullptr || id.empty()) {
+            return false;
+        }
+
+        sqlite3_stmt* lookup = nullptr;
+        const char* lookupSql =
+            "SELECT ocr_retry_count FROM items WHERE id = ?1 AND type = 'image' LIMIT 1;";
+        if (sqlite3_prepare_v2(m_db, lookupSql, -1, &lookup, nullptr) != SQLITE_OK) {
+            return false;
+        }
+
+        sqlite3_bind_text(lookup, 1, id.c_str(), -1, SQLITE_TRANSIENT);
+        if (sqlite3_step(lookup) != SQLITE_ROW) {
+            sqlite3_finalize(lookup);
+            return false;
+        }
+        const int retryCount = sqlite3_column_int(lookup, 0);
+        sqlite3_finalize(lookup);
+
+        const int nextRetryCount = retryCount + 1;
+        int nextStatus = 0;
+        HistoryTimestampMs nextRetryAt = nowMs;
+        if (nextRetryCount == 1) {
+            nextRetryAt = nowMs + 5000;
+        } else if (nextRetryCount == 2) {
+            nextRetryAt = nowMs + 30000;
+        } else {
+            nextStatus = 3;
+            nextRetryAt = 0;
+        }
+
+        sqlite3_stmt* update = nullptr;
+        const char* updateSql =
+            "UPDATE items "
+            "SET ocr_retry_count = ?1, ocr_status = ?2, ocr_next_retry_at = ?3 "
+            "WHERE id = ?4 AND type = 'image';";
+        if (sqlite3_prepare_v2(m_db, updateSql, -1, &update, nullptr) != SQLITE_OK) {
+            return false;
+        }
+
+        sqlite3_bind_int(update, 1, nextRetryCount);
+        sqlite3_bind_int(update, 2, nextStatus);
+        sqlite3_bind_int64(update, 3, nextRetryAt);
+        sqlite3_bind_text(update, 4, id.c_str(), -1, SQLITE_TRANSIENT);
+        const bool ok = sqlite3_step(update) == SQLITE_DONE && sqlite3_changes(m_db) > 0;
+        sqlite3_finalize(update);
+        return ok;
+    }
+
+    std::optional<OcrTaskStatus> getOcrStatus(const std::string& id) override {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (m_db == nullptr || id.empty()) {
+            return std::nullopt;
+        }
+
+        sqlite3_stmt* statement = nullptr;
+        const char* sql =
+            "SELECT ocr_status, ocr_text FROM items WHERE id = ?1 AND type = 'image' LIMIT 1;";
+        if (sqlite3_prepare_v2(m_db, sql, -1, &statement, nullptr) != SQLITE_OK) {
+            return std::nullopt;
+        }
+
+        sqlite3_bind_text(statement, 1, id.c_str(), -1, SQLITE_TRANSIENT);
+        std::optional<OcrTaskStatus> status;
+        if (sqlite3_step(statement) == SQLITE_ROW) {
+            OcrTaskStatus value;
+            value.status = ocrStatusFromInt(sqlite3_column_int(statement, 0));
+            value.text = readTextColumn(statement, 1);
+            status = value;
+        }
+        sqlite3_finalize(statement);
+        return status;
     }
 
     bool deleteItem(const std::string& id) override {
@@ -494,6 +717,7 @@ private:
             [&]() { return applyMigration(1, "0001-initial-schema.sql"); },
             [&]() { return applyMigration(2, "0002-add-search-index.sql"); },
             [&]() { return applyMigration(3, "0003-add-metadata.sql"); },
+            [&]() { return applyMigration(4, "0004-add-ocr-support.sql"); },
         };
 
         for (size_t i = currentVersion; i < migrations.size(); ++i) {
@@ -608,6 +832,14 @@ private:
         sqlite3_bind_text(statement, 11, item.sourceAppId.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(statement, 12, item.contentHash.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(statement, 13, item.metadata.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int(statement, 14, ocrStatusToInt(item.ocrStatus));
+        if (item.ocrText.empty()) {
+            sqlite3_bind_null(statement, 15);
+        } else {
+            sqlite3_bind_text(statement, 15, item.ocrText.c_str(), -1, SQLITE_TRANSIENT);
+        }
+        sqlite3_bind_int(statement, 16, item.ocrRetryCount);
+        sqlite3_bind_int64(statement, 17, item.ocrNextRetryAtMs);
     }
 
     static std::string readTextColumn(sqlite3_stmt* statement, int column) {

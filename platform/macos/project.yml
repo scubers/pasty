@@ -58,6 +58,8 @@ targets:
         buildPhase: resources
       - path: ../../core/migrations/0003-add-metadata.sql
         buildPhase: resources
+      - path: ../../core/migrations/0004-add-ocr-support.sql
+        buildPhase: resources
     settings:
       INFOPLIST_FILE: Info.plist
       PRODUCT_BUNDLE_IDENTIFIER: com.pasty2.app

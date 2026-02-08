@@ -24,6 +24,18 @@ const char* pasty_history_list_json(int limit);
 
 bool pasty_history_search(const char* query, int limit, int preview_length, char** out_json);
 
+bool pasty_history_get_pending_ocr_images(int limit, char** out_json);
+
+bool pasty_history_get_next_ocr_task(char** out_json);
+
+bool pasty_history_ocr_mark_processing(const char* id);
+
+bool pasty_history_ocr_success(const char* id, const char* ocr_text);
+
+bool pasty_history_ocr_failed(const char* id);
+
+bool pasty_history_get_ocr_status(const char* id, char** out_json);
+
 char* pasty_history_get_json(const char* id);
 
 void pasty_free_string(char* str);

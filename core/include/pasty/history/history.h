@@ -24,6 +24,12 @@ public:
     bool ingest(const ClipboardHistoryIngestEvent& event);
     ClipboardHistoryListResult list(std::int32_t limit, const std::string& cursor) const;
     std::vector<ClipboardHistoryItem> search(const SearchOptions& options);
+    std::vector<OcrTask> getPendingOcrImages(std::int32_t limit) const;
+    std::optional<OcrTask> getNextOcrTask() const;
+    bool markOcrProcessing(const std::string& id);
+    bool updateOcrSuccess(const std::string& id, const std::string& ocrText);
+    bool updateOcrFailed(const std::string& id);
+    std::optional<OcrTaskStatus> getOcrStatus(const std::string& id) const;
     std::optional<ClipboardHistoryItem> getById(const std::string& id);
     bool deleteById(const std::string& id);
 
