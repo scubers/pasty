@@ -5,8 +5,8 @@ final class MainPanelItemTableCellView: NSTableCellView {
     private let markerView = NSView()
     private let iconView = NSImageView()
     private let titleLabel = NSTextField(labelWithString: "")
+    private let appIconView = NSImageView()
     private let subtitleLabel = NSTextField(labelWithString: "")
-    private let stackView = NSStackView()
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -27,7 +27,13 @@ final class MainPanelItemTableCellView: NSTableCellView {
                 .replacingOccurrences(of: "\n", with: " ")
                 .replacingOccurrences(of: "\r", with: " ")
         }
-        subtitleLabel.stringValue = "\(item.sourceAppId) • \(item.timestamp.formatted(date: .omitted, time: .shortened))"
+
+        let appInfo = AppInfoProvider.shared.info(for: item.sourceAppId)
+        let timestamp = item.timestamp.formatted(date: .omitted, time: .shortened)
+
+        appIconView.image = appInfo.icon
+        appIconView.isHidden = (appInfo.icon == nil)
+        subtitleLabel.stringValue = "\(appInfo.name) • \(timestamp)"
 
         if selected {
             layer?.backgroundColor = NSColor(calibratedRed: 45.0 / 255.0, green: 212.0 / 255.0, blue: 191.0 / 255.0, alpha: 0.12).cgColor
@@ -79,16 +85,14 @@ final class MainPanelItemTableCellView: NSTableCellView {
         subtitleLabel.setContentHuggingPriority(.required, for: .vertical)
         subtitleLabel.setContentCompressionResistancePriority(.required, for: .vertical)
 
-        stackView.orientation = .vertical
-        stackView.spacing = 4
-        stackView.alignment = .leading
-        stackView.distribution = .fillEqually
-        stackView.addArrangedSubview(titleLabel)
-        stackView.addArrangedSubview(subtitleLabel)
+        appIconView.imageScaling = .scaleProportionallyUpOrDown
+        appIconView.isHidden = true
 
         addSubview(markerView)
         addSubview(iconView)
-        addSubview(stackView)
+        addSubview(titleLabel)
+        addSubview(appIconView)
+        addSubview(subtitleLabel)
 
         markerView.snp.makeConstraints { make in
             make.leading.top.bottom.equalToSuperview()
@@ -101,11 +105,24 @@ final class MainPanelItemTableCellView: NSTableCellView {
             make.width.height.equalTo(18)
         }
 
-        stackView.snp.makeConstraints { make in
+        titleLabel.snp.makeConstraints { make in
             make.leading.equalTo(iconView.snp.trailing).offset(8)
             make.trailing.equalToSuperview().inset(8)
-            make.top.equalToSuperview().offset(6)
-            make.bottom.equalToSuperview().inset(6)
+            make.height.equalTo(18)
+            make.bottom.equalTo(self.snp.centerY)
+        }
+
+        appIconView.snp.makeConstraints { make in
+            make.leading.equalTo(iconView.snp.trailing).offset(8)
+            make.centerY.equalTo(subtitleLabel.snp.centerY)
+            make.width.height.equalTo(12)
+        }
+
+        subtitleLabel.snp.makeConstraints { make in
+            make.leading.equalTo(appIconView.snp.trailing).offset(4)
+            make.trailing.equalToSuperview().inset(8)
+            make.top.equalTo(self.snp.centerY).offset(4)
+            make.height.equalTo(14)
         }
     }
 }

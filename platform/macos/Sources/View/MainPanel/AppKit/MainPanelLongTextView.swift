@@ -53,6 +53,21 @@ final class MainPanelLongTextView: NSView {
         }
     }
 
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if event.type == .keyDown && event.modifierFlags.contains(.command) {
+            if event.charactersIgnoringModifiers == "c" {
+                if textView.selectedRange.length > 0 {
+                    textView.copy(nil)
+                } else {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(currentText, forType: .string)
+                }
+                return true
+            }
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+
     private func makeHighlightedText(_ text: String) -> NSAttributedString {
         let baseColor = NSColor(calibratedWhite: 0.92, alpha: 1)
         let attributed = NSMutableAttributedString(

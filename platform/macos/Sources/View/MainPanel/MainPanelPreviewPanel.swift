@@ -12,7 +12,6 @@ struct MainPanelPreviewPanel: View {
                 VStack(alignment: .leading, spacing: MainPanelTokens.Layout.paddingCompact) {
                     header
                     content(for: item)
-                    metadata(for: item)
                 }
                 .padding(MainPanelTokens.Layout.padding)
             } else {
@@ -40,15 +39,6 @@ struct MainPanelPreviewPanel: View {
 //            actionButton("Copy", icon: "doc.on.doc", primary: true)
 //            actionButton("Edit", icon: "pencil")
 //            actionButton("Delete", icon: "trash")
-        }
-    }
-
-    private func metadata(for item: ClipboardItemRow) -> some View {
-        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-            metadataCell(title: "Type", value: item.type == .image ? "Image" : "Text")
-            metadataCell(title: "Source", value: item.sourceAppId)
-            metadataCell(title: "Time", value: item.timestamp.formatted(date: .abbreviated, time: .shortened))
-            metadataCell(title: "Size", value: imageOrLength(item))
         }
     }
 
@@ -119,26 +109,23 @@ struct MainPanelPreviewPanel: View {
         )
     }
 
-    private func metadataCell(title: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(MainPanelTokens.Typography.small)
-                .foregroundStyle(MainPanelTokens.Colors.textMuted)
-            Text(value)
-                .font(MainPanelTokens.Typography.smallBold)
-                .foregroundStyle(MainPanelTokens.Colors.textPrimary)
-                .lineLimit(1)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(8)
-        .background(Color.white.opacity(0.03))
-        .clipShape(RoundedRectangle(cornerRadius: MainPanelTokens.Layout.cornerRadiusSmall))
-    }
-
     private func imageOrLength(_ item: ClipboardItemRow) -> String {
         if let width = item.imageWidth, let height = item.imageHeight {
             return "\(width)x\(height)"
         }
         return "\(item.content.count) chars"
+    }
+
+    private func metadataLabel(title: String, value: String) -> some View {
+        HStack(spacing: 4) {
+            Text(title)
+            Text(value)
+                .foregroundStyle(MainPanelTokens.Colors.textSecondary)
+        }
+    }
+
+    private func metadataDivider() -> some View {
+        Text("•")
+            .foregroundStyle(MainPanelTokens.Colors.textMuted)
     }
 }
