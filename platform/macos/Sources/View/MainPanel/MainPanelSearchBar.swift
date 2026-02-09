@@ -27,29 +27,23 @@ struct MainPanelSearchBar: View {
 
             // Filter buttons
             HStack(spacing: 8) {
-                Button(action: { filterType = nil }) {
-                    Text("All")
-                }
-                .buttonStyle(.plain)
-                .fontWeight(filterType == nil ? .bold : .regular)
-                .font(MainPanelTokens.Typography.body)
-                .foregroundStyle(MainPanelTokens.Colors.textPrimary)
+                FilterPillButton(
+                    title: "All",
+                    isSelected: filterType == nil,
+                    action: { filterType = nil }
+                )
 
-                Button(action: { filterType = .text }) {
-                    Text("Text")
-                }
-                .buttonStyle(.plain)
-                .fontWeight(filterType == .text ? .bold : .regular)
-                .font(MainPanelTokens.Typography.body)
-                .foregroundStyle(MainPanelTokens.Colors.textPrimary)
+                FilterPillButton(
+                    title: "Text",
+                    isSelected: filterType == .text,
+                    action: { filterType = .text }
+                )
 
-                Button(action: { filterType = .image }) {
-                    Text("Image")
-                }
-                .buttonStyle(.plain)
-                .fontWeight(filterType == .image ? .bold : .regular)
-                .font(MainPanelTokens.Typography.body)
-                .foregroundStyle(MainPanelTokens.Colors.textPrimary)
+                FilterPillButton(
+                    title: "Image",
+                    isSelected: filterType == .image,
+                    action: { filterType = .image }
+                )
             }
         }
         .padding(.horizontal, MainPanelTokens.Layout.padding)
@@ -72,6 +66,39 @@ struct MainPanelSearchBar: View {
         }
         .onAppear {
             focused = true
+        }
+    }
+}
+
+private struct FilterPillButton: View {
+    let title: String
+    let isSelected: Bool
+    let action: () -> Void
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(MainPanelTokens.Typography.body)
+                .foregroundStyle(isSelected ? Color.white : (isHovering ? MainPanelTokens.Colors.textPrimary : MainPanelTokens.Colors.textSecondary))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background {
+                    Capsule()
+                        .fill(isSelected ? MainPanelTokens.Colors.accentPrimary : (isHovering ? Color.white.opacity(0.1) : Color.clear))
+                }
+                .overlay {
+                    if !isSelected {
+                        Capsule()
+                            .strokeBorder(MainPanelTokens.Colors.border, lineWidth: 1)
+                    }
+                }
+        }
+        .buttonStyle(.plain)
+        .onHover { hover in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovering = hover
+            }
         }
     }
 }

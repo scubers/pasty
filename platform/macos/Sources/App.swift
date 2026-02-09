@@ -190,7 +190,14 @@ class App: NSObject, NSApplicationDelegate {
 
     @MainActor
     private func setupKeyboardMonitor() {
-        localEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+        localEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            // Handle Cmd+, to open settings
+            if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
+               event.charactersIgnoringModifiers == "," {
+                self?.openSettings()
+                return nil
+            }
+
             if InAppHotkeyPermissionManager.shared.handle(event: event) {
                 return nil
             }

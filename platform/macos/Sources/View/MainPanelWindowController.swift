@@ -147,38 +147,26 @@ final class MainPanelWindowController: NSWindowController, NSWindowDelegate, InA
     }
 
     func handleInAppHotkey(_ event: NSEvent) -> Bool {
-        if event.keyCode == 53 {
-            self.hide()
-            return true
-        }
-
         let isCommandPressed = event.modifierFlags.contains(.command)
 
         switch (event.keyCode, isCommandPressed) {
-        case (126, _):
-            DispatchQueue.main.async { [weak self] in
-                self?.viewModel.send(.moveSelectionUp)
-            }
+        case (53, _): // esc
+            viewModel.send(.togglePanel)
             return true
-        case (125, _):
-            DispatchQueue.main.async { [weak self] in
-                self?.viewModel.send(.moveSelectionDown)
-            }
+        case (126, _): // up
+            viewModel.send(.moveSelectionUp)
             return true
-        case (36, true):
-            DispatchQueue.main.async { [weak self] in
-                self?.viewModel.send(.copySelected)
-            }
+        case (125, _): // down
+            viewModel.send(.moveSelectionDown)
             return true
-        case (36, false):
-            DispatchQueue.main.async { [weak self] in
-                self?.viewModel.send(.pasteSelectedAndClose)
-            }
+        case (36, true): // cmd+enter
+            viewModel.send(.copySelected)
             return true
-        case (2, true):
-            DispatchQueue.main.async { [weak self] in
-                self?.viewModel.send(.prepareDeleteSelected)
-            }
+        case (36, false): // enter
+            viewModel.send(.pasteSelectedAndClose)
+            return true
+        case (2, true): // cmd+d
+            viewModel.send(.prepareDeleteSelected)
             return true
         default:
             return false
