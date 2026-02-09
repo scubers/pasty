@@ -1,31 +1,37 @@
-## 1. 基础设施与设计系统 (Infrastructure & Design System)
+## 1. 设计系统基础 (Design System Core)
 
-- [ ] 1.1 创建 `DesignSystem` 模块，提取 `MainPanel` 和 `SettingsPanel` 共用的颜色、字体和材质 Token。
-- [ ] 1.2 创建 `GlassPanel` 基础容器组件，封装 `VisualEffectView` 并应用全局材质。
-- [ ] 1.3 实现 `PastyToggle` 自定义开关组件。
-- [ ] 1.4 实现 `PastyPicker` 自定义下拉选择组件。
-- [ ] 1.5 实现 `PastySlider` 自定义滑块组件。
-- [ ] 1.6 实现 `DangerButton` 和通用按钮样式。
+- [ ] 1.1 创建 DesignSystem 模块并定义颜色 Tokens (Color Tokens)
+- [ ] 1.2 实现排版与字体系统 (Typography System)
+- [ ] 1.3 实现玻璃拟态材质 (Glassmorphism Materials)
+- [ ] 1.4 创建基础视图修饰符 (View Modifiers)
 
-## 2. 窗口与布局框架 (Window & Layout Framework)
+## 2. 通用 UI 组件 (Common UI Components)
 
-- [ ] 2.1 修改 `SettingsWindowController.swift`，配置 `fullSizeContentView` 和无标题栏样式。
-- [ ] 2.2 实现 `SettingsSidebarView`，包含导航项列表和选中状态逻辑。
-- [ ] 2.3 实现 `SettingsContentContainer`，处理页面切换动画和背景。
-- [ ] 2.4 重构 `SettingsView.swift`，整合 Sidebar 和 Content 布局。
+- [ ] 2.1 实现自定义开关组件 (Custom Toggle)
+- [ ] 2.2 实现自定义下拉选择组件 (Custom Picker)
+- [ ] 2.3 实现自定义滑块组件 (Custom Slider)
+- [ ] 2.4 实现危险操作按钮 (Danger Button)
+- [ ] 2.5 实现主题选择组件 (Theme Picker)
 
-## 3. 页面功能实现 (Page Implementation)
+## 3. 设置面板架构 (Settings Architecture)
 
-- [ ] 3.1 实现 `GeneralSettingsView` (启动项、菜单栏图标)。
-- [ ] 3.2 实现 `ClipboardSettingsView` (历史记录、性能、清除数据)。
-- [ ] 3.3 实现 `AppearanceSettingsView` (主题选择卡片、模糊滑块)。
-- [ ] 3.4 实现 `OCRSettingsView` (语言列表、置信度、模型选择)。
-- [ ] 3.5 实现 `ShortcutsSettingsView` (快捷键录制、列表展示)。
-- [ ] 3.6 实现 `AboutSettingsView` (Logo、版本、链接)。
+- [ ] 3.1 创建无标题栏设置窗口控制器 (SettingsWindowController)
+- [ ] 3.2 实现侧边栏视图 (SettingsSidebarView)
+- [ ] 3.3 实现内容容器视图 (SettingsContentContainer)
+- [ ] 3.4 实现导航状态管理
 
-## 4. 集成与验证 (Integration & Verification)
+## 4. 页面功能迁移 (Page Migration)
 
-- [ ] 4.1 绑定所有页面 UI 控件到现有的 `SettingsManager` 或 UserDefaults。
-- [ ] 4.2 验证窗口拖拽、关闭、最小化行为是否正常。
-- [ ] 4.3 验证所有自定义控件的交互反馈（Hover, Click, Focus）。
-- [ ] 4.4 执行全流程测试，确保所有设置项修改后生效。
+- [ ] 4.1 实现常规设置页面 (General Settings)
+- [ ] 4.2 实现剪贴板设置页面 (Clipboard Settings)
+- [ ] 4.3 实现外观设置页面 (Appearance Settings)
+- [ ] 4.4 实现 OCR 设置页面 (OCR Settings)
+- [ ] 4.5 实现快捷键设置页面 (Shortcuts Settings)
+- [ ] 4.6 实现关于页面 (About Page)
+
+## 5. 集成与验证 (Integration & Verification)
+
+- [ ] 5.1 替换旧版 SettingsView 入口
+- [ ] 5.2 验证所有设置项的数据持久化
+- [ ] 5.3 验证主题切换与视觉效果
+- [ ] 5.4 修复 UI 细节与交互问题
