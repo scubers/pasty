@@ -18,6 +18,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         
         window.title = "Settings"
         window.center()
+        window.level = .floating // Keep above main panel
         window.isReleasedWhenClosed = false
         window.contentView = hostingController.view
 
