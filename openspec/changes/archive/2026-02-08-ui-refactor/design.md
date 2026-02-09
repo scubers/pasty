@@ -167,8 +167,6 @@ platform/macos/Sources/
 
 ### 4) 性能边界（硬指标 + 关键风险点 + 守卫策略）
 
-工程性能边界对齐项目宪法（`.specify/memory/constitution.md`）并落到主面板场景：
-
 - P2（响应性）：主面板交互类操作目标 < 100ms（典型：列表滚动、选中切换、复制按钮反馈）。
 - 搜索体验：现有 `MainPanelViewModel` 已设定 200ms debounce（`MainPanelViewModel.swift`），目标是“键入不掉帧 + 200ms 后触发查询 + 查询返回后 UI 更新不卡顿”。
 - 数据/线程：

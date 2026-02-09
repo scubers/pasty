@@ -151,10 +151,6 @@ public:
 } // namespace pasty
 ```
 
-## 开发规范
-
-参见 [constitution.md](.specify/memory/constitution.md) 了解完整的开发规范和约束。
-
 ### 关键原则
 
 1. **Core 可移植性**：Core 层禁止包含平台头文件
