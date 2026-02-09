@@ -4,7 +4,7 @@ import Foundation
 
 struct MainPanelPreviewPanel: View {
     let item: ClipboardItemRow?
-    @StateObject private var imageLoader = MainPanelImageLoader(baseDirectory: AppPaths.appDataDirectory())
+    @StateObject private var imageLoader = MainPanelImageLoader()
     @State private var isShowingOcrText = false
 
     var body: some View {

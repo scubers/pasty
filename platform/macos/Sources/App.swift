@@ -136,9 +136,10 @@ class App: NSObject, NSApplicationDelegate {
     @MainActor
     private func setupMenuBar() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        
+
         if let button = statusItem.button {
-            button.title = "📋"
+            button.image = NSImage(named: "StatusBarIcon")
+            button.image?.isTemplate = true
         }
         
         let menu = NSMenu()

@@ -4,14 +4,13 @@ struct AboutSettingsView: View {
     var body: some View {
         VStack(spacing: 20) {
             Spacer()
-            
-            // App Icon Placeholder
-            Image(systemName: "doc.on.clipboard.fill")
+
+            Image(nsImage: NSImage(named: "AppIcon") ?? NSImage())
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(width: 80, height: 80)
-                .foregroundColor(DesignSystem.Colors.accent)
-                .shadow(color: DesignSystem.Colors.accent.opacity(0.5), radius: 10)
+                .clipShape(RoundedRectangle(cornerRadius: 18))
+                .shadow(radius: 10)
             
             VStack(spacing: 8) {
                 Text("Pasty")
@@ -44,7 +43,7 @@ struct AboutSettingsView: View {
 struct LinkButton: View {
     let title: String
     let url: String
-    
+
     var body: some View {
         Button(action: {
             if let url = URL(string: url) {
@@ -53,7 +52,7 @@ struct LinkButton: View {
         }) {
             Text(title)
                 .font(DesignSystem.Typography.bodyBold)
-                .foregroundColor(DesignSystem.Colors.accent)
+                .foregroundColor(SettingsManager.shared.settings.appearance.themeColor.toColor())
         }
         .buttonStyle(.plain)
         .onHover { inside in

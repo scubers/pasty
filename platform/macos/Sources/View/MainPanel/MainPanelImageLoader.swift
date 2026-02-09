@@ -11,11 +11,6 @@ final class MainPanelImageLoader: ObservableObject {
     private let cache = NSCache<NSString, NSImage>()
     private var workItem: DispatchWorkItem?
     private var currentPath: String?
-    private let baseDirectory: URL
-
-    init(baseDirectory: URL) {
-        self.baseDirectory = baseDirectory
-    }
 
     func load(path: String?) {
         guard path != currentPath else {
@@ -44,7 +39,8 @@ final class MainPanelImageLoader: ObservableObject {
             guard let self else { return }
             guard !item.isCancelled else { return }
 
-            let absolutePath = self.baseDirectory.appendingPathComponent(path).path
+            let baseDir = SettingsManager.shared.settingsDirectory
+            let absolutePath = baseDir.appendingPathComponent(path).path
             let loaded = NSImage(contentsOfFile: absolutePath).flatMap { self.makeThumbnailIfNeeded($0) }
 
             DispatchQueue.main.async {
