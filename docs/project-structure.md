@@ -22,15 +22,32 @@ pasty2/
 │   │       ├── pasty.h           # 主入口头文件
 │   │       ├── api/              # C API（供 FFI / Swift 互操作）
 │   │       │   └── history_api.h
-│   │       └── history/          # 剪贴板历史模块
-│   │           ├── types.h
-│   │           ├── history.h
-│   │           └── store.h
-│   └── src/                       # 实现文件
-│       ├── pasty.cpp             # 主入口实现
-│       └── history/              # 历史模块实现
-│           ├── history.cpp
-│           └── store_sqlite.cpp
+│   │       ├── history/          # 剪贴板历史模块
+│   │       │   ├── types.h
+│   │       │   ├── history.h
+│   │       │   └── store.h
+│   │       └── settings/         # 设置模块
+│   │           └── settings_api.h
+│   ├── src/                       # 实现文件
+│   │   ├── Pasty.cpp             # 主入口实现
+│   │   ├── history/              # 历史模块实现
+│   │   │   ├── history.cpp
+│   │   │   └── store_sqlite.cpp
+│   │   └── settings/             # 设置模块实现
+│   │       └── settings_api.cpp
+│   ├── migrations/                # 数据库迁移脚本
+│   │   ├── 0001-initial-schema.sql
+│   │   ├── 0002-add-search-index.sql
+│   │   ├── 0003-add-metadata.sql
+│   │   └── 0004-add-ocr-support.sql
+│   └── tests/                     # 单元测试
+│       ├── CMakeLists.txt
+│       ├── history_test.cpp
+│       └── settings_api_test.cpp
+│
+├── openspec/                      # 开放规范（OpenSpec）
+│   ├── changes/                  # 变更记录（包含设计文档与 specs）
+│   └── config.yaml               # OpenSpec 配置
 │
 ├── platform/                      # 平台特定代码
 │   ├── macos/                     # macOS 平台
@@ -40,10 +57,12 @@ pasty2/
 │   │   ├── Pasty2.xcodeproj/     # 生成产物：Xcode 工程（不要手工编辑）
 │   │   └── Sources/              # macOS 层源码
 │   │       ├── App.swift
+│   │       ├── Settings/         # 设置窗口与视图
 │   │       ├── Utils/
 │   │       ├── Model/
 │   │       ├── ViewModel/
 │   │       └── View/
+│   │           └── MainPanel/    # 主面板 UI
 │   ├── windows/                   # Windows 平台（待实现）
 │   ├── ios/                       # iOS 平台（待实现）
 │   └── android/                   # Android 平台（待实现）

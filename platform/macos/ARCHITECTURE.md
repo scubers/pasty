@@ -142,16 +142,20 @@ platform/macos/
 ├── Pasty2.xcodeproj/           # 生成产物：Xcode 工程（不要手工编辑）
 ├── Sources/                    # macOS 层源码（新代码必须放这里）
 │   ├── App.swift               # 应用入口与依赖组装（Composition Root）
+│   ├── Settings/               # 设置窗口与视图 (SwiftUI hosting in WindowController)
 │   ├── Utils/                  # 通用工具/扩展/日志/Combine 辅助
 │   ├── Model/                  # Presentation Model + 映射（不得放业务规则）
 │   ├── ViewModel/              # ViewModel（Action -> Effect -> State）
 │   └── View/                   # View / ViewController（只渲染 + 发送 Action）
+│       └── MainPanel/          # 主面板 UI 组件
 └── ARCHITECTURE.md             # 本文件
 ```
 
-迁移约束：如果现有 Swift 文件仍位于 `platform/macos/` 根目录，允许逐步迁移进入 `platform/macos/Sources/`，但：
-- 新增文件必须直接放入 `platform/macos/Sources/` 对应分层。
-- 迁移时同步更新 `platform/macos/project.yml` 的 sources 配置（保持可编译）。
+## 窗口管理
+
+- **主面板 (Main Panel)**: 设置为 `.floating` 层级，确保在大多数窗口之上。
+- **设置面板 (Settings Panel)**: 同样设置为 `.floating` 层级，以防止被主面板遮挡（因为主面板通常一直存在）。
+- **窗口层级原则**: 功能性浮动面板 > 普通窗口。如果多个面板需要共存，需注意层级冲突。
 
 ## 分层职责（必须遵守）
 
