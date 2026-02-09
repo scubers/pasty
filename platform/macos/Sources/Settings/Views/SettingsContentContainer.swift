@@ -9,15 +9,11 @@ struct SettingsContentContainer: View {
             case .general:
                 GeneralSettingsView()
             case .clipboard:
-                Text("Clipboard Settings")
-                    .font(DesignSystem.Typography.title)
-                    .foregroundColor(DesignSystem.Colors.textPrimary)
+                ClipboardSettingsView()
             case .appearance:
                 AppearanceSettingsView()
             case .ocr:
-                Text("OCR Settings")
-                    .font(DesignSystem.Typography.title)
-                    .foregroundColor(DesignSystem.Colors.textPrimary)
+                OCRSettingsView()
             case .shortcuts:
                 ShortcutsSettingsView()
             case .about:

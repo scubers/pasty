@@ -7,13 +7,19 @@ struct ThemePicker: View {
         HStack(spacing: 16) {
             ThemeCard(title: "System", icon: "circle.lefthalf.filled", isSelected: selection == "system")
                 .onTapGesture { selection = "system" }
-            
-            ThemeCard(title: "Dark", icon: "moon.fill", isSelected: selection == "dark")
-                .onTapGesture { selection = "dark" }
-            
+                .frame(maxWidth: .infinity)
+
             ThemeCard(title: "Light", icon: "sun.max.fill", isSelected: selection == "light")
                 .onTapGesture { selection = "light" }
+                .frame(maxWidth: .infinity)
+
+            ThemeCard(title: "Dark", icon: "moon.fill", isSelected: selection == "dark")
+                .onTapGesture { selection = "dark" }
+                .frame(maxWidth: .infinity)
+
         }
+        .frame(maxWidth: .infinity)
+        .frame(maxHeight: .infinity)
     }
 }
 

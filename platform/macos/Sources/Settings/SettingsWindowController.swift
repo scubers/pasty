@@ -23,7 +23,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.backgroundColor = .clear
-        window.isMovableByWindowBackground = true
+        window.isMovableByWindowBackground = false
         window.contentView = hostingController.view
 
         super.init(window: window)

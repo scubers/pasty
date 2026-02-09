@@ -1,8 +1,9 @@
 import SwiftUI
+import Cocoa
 
 struct SettingsSidebarView: View {
     @Binding var selection: SettingsTab
-    
+
     var body: some View {
         VStack(spacing: 0) {
             Text("Settings")
@@ -12,6 +13,7 @@ struct SettingsSidebarView: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 40)
                 .padding(.bottom, 20)
+                .modifier(WindowDraggableArea())
             
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: 4) {
@@ -27,7 +29,6 @@ struct SettingsSidebarView: View {
             
             Spacer()
         }
-        .frame(width: 200)
         .background(DesignSystem.Materials.sidebarBackground)
         .overlay(
             HStack {
@@ -64,5 +65,20 @@ struct SidebarItem: View {
                 .fill(isSelected ? DesignSystem.Colors.controlBackground : Color.clear)
         )
         .contentShape(Rectangle())
+    }
+}
+
+struct WindowDraggableArea: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in
+                        guard let window = NSApp.keyWindow else { return }
+                        if let event = NSApp.currentEvent {
+                            window.performDrag(with: event)
+                        }
+                    }
+            )
     }
 }

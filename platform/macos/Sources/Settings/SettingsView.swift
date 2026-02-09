@@ -2,8 +2,9 @@ import SwiftUI
 
 struct SettingsView: View {
     @State private var selectedTab: SettingsTab = .general
+    @State private var sidebarWidth: CGFloat = 200
     @ObservedObject var settingsManager = SettingsManager.shared
-    
+
     var colorScheme: ColorScheme? {
         switch settingsManager.settings.appearance.themeMode {
         case "light": return .light
@@ -11,11 +12,24 @@ struct SettingsView: View {
         default: return nil
         }
     }
-    
+
     var body: some View {
         HStack(spacing: 0) {
             SettingsSidebarView(selection: $selectedTab)
-            
+                .frame(width: sidebarWidth)
+
+            Rectangle()
+                .fill(DesignSystem.Colors.border)
+                .frame(width: 1)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { gesture in
+                            let newWidth = sidebarWidth + gesture.translation.width
+                            sidebarWidth = max(150, min(newWidth, 400))
+                        }
+                )
+
             SettingsContentContainer(selection: selectedTab)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
