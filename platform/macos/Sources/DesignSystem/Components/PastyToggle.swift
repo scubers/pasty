@@ -3,7 +3,7 @@ import SwiftUI
 struct PastyToggle: View {
     @Binding var isOn: Bool
     var title: String? = nil
-    
+
     var body: some View {
         HStack {
             if let title = title {
@@ -12,10 +12,10 @@ struct PastyToggle: View {
                     .foregroundColor(DesignSystem.Colors.textPrimary)
                 Spacer()
             }
-            
+
             ZStack {
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(isOn ? DesignSystem.Colors.accent : DesignSystem.Colors.controlBackground)
+                    .fill(isOn ? SettingsManager.shared.settings.appearance.themeColor.toColor() : DesignSystem.Colors.controlBackground)
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
                             .stroke(DesignSystem.Colors.border, lineWidth: 0.5)

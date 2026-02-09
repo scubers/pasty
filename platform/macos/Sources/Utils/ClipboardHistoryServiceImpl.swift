@@ -111,6 +111,21 @@ final class ClipboardHistoryServiceImpl: ClipboardHistoryService {
         .eraseToAnyPublisher()
     }
 
+    func clearAll() -> AnyPublisher<Void, Error> {
+        return Future { promise in
+            self.workQueue.async {
+                let cleared = pasty_history_enforce_retention(0)
+                if cleared {
+                    self.invalidateSearchCache()
+                    promise(.success(()))
+                } else {
+                    promise(.failure(NSError(domain: "ClipboardHistoryError", code: -5, userInfo: [NSLocalizedDescriptionKey: "Clear all history failed"])))
+                }
+            }
+        }
+        .eraseToAnyPublisher()
+    }
+
     func invalidateSearchCache() {
         cacheLock.lock()
         searchCache.removeAll(keepingCapacity: false)

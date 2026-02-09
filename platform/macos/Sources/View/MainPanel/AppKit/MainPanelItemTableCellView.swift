@@ -1,5 +1,6 @@
 import AppKit
 import SnapKit
+import Combine
 
 final class MainPanelItemTableCellView: NSTableCellView {
     private let markerView = NSView()
@@ -7,10 +8,12 @@ final class MainPanelItemTableCellView: NSTableCellView {
     private let titleLabel = NSTextField(labelWithString: "")
     private let appIconView = NSImageView()
     private let subtitleLabel = NSTextField(labelWithString: "")
+    private var cancellables = Set<AnyCancellable>()
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         setupViews()
+        subscribeToSettingsChanges()
     }
 
     required init?(coder: NSCoder) {
@@ -18,6 +21,9 @@ final class MainPanelItemTableCellView: NSTableCellView {
     }
 
     func configure(item: ClipboardItemRow, selected: Bool, hovered: Bool, focused: Bool) {
+        let themeColor = SettingsManager.shared.settings.appearance.themeColor.toColor()
+        let nsColor = NSColor(themeColor)
+
         iconView.image = NSImage(systemSymbolName: item.type == .image ? "photo" : "text.alignleft", accessibilityDescription: nil)
         if item.type == .image {
             let fallback = "Image[\(item.imageWidth ?? 0) x \(item.imageHeight ?? 0)]"
@@ -41,7 +47,7 @@ final class MainPanelItemTableCellView: NSTableCellView {
         subtitleLabel.stringValue = "\(appInfo.name) • \(timestamp)"
 
         if selected {
-            layer?.backgroundColor = NSColor(calibratedRed: 45.0 / 255.0, green: 212.0 / 255.0, blue: 191.0 / 255.0, alpha: 0.12).cgColor
+            layer?.backgroundColor = nsColor.withAlphaComponent(0.12).cgColor
             markerView.isHidden = false
         } else if hovered {
             layer?.backgroundColor = NSColor.white.withAlphaComponent(0.06).cgColor
@@ -53,7 +59,7 @@ final class MainPanelItemTableCellView: NSTableCellView {
 
         if focused && selected {
             layer?.borderWidth = 1
-            layer?.borderColor = NSColor(calibratedRed: 45.0 / 255.0, green: 212.0 / 255.0, blue: 191.0 / 255.0, alpha: 0.8).cgColor
+            layer?.borderColor = nsColor.withAlphaComponent(0.8).cgColor
         } else {
             layer?.borderWidth = 0
             layer?.borderColor = nil
@@ -64,8 +70,11 @@ final class MainPanelItemTableCellView: NSTableCellView {
         wantsLayer = true
         layer?.cornerRadius = 8
 
+        let themeColor = SettingsManager.shared.settings.appearance.themeColor.toColor()
+        let nsColor = NSColor(themeColor)
+
         markerView.wantsLayer = true
-        markerView.layer?.backgroundColor = NSColor(calibratedRed: 45.0 / 255.0, green: 212.0 / 255.0, blue: 191.0 / 255.0, alpha: 1).cgColor
+        markerView.layer?.backgroundColor = nsColor.cgColor
         markerView.isHidden = true
 
         iconView.contentTintColor = NSColor(calibratedWhite: 0.70, alpha: 1)
@@ -128,6 +137,25 @@ final class MainPanelItemTableCellView: NSTableCellView {
             make.trailing.equalToSuperview().inset(8)
             make.top.equalTo(self.snp.centerY).offset(4)
             make.height.equalTo(14)
+        }
+    }
+
+    private func subscribeToSettingsChanges() {
+        SettingsManager.shared.$settings
+            .map { $0.appearance.themeColor }
+            .removeDuplicates()
+            .sink { [weak self] newThemeColor in
+                guard let self = self else { return }
+                let nsColor = NSColor(newThemeColor.toColor())
+                self.markerView.layer?.backgroundColor = nsColor.cgColor
+                self.needsDisplay = true
+            }
+            .store(in: &cancellables)
+    }
+
+    private func refreshAllCells() {
+        DispatchQueue.main.async {
+            self.needsDisplay = true
         }
     }
 }

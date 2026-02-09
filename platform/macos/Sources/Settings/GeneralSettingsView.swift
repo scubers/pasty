@@ -1,8 +1,10 @@
 import SwiftUI
 import ServiceManagement
+import KeyboardShortcuts
 
 struct GeneralSettingsView: View {
     @ObservedObject var settingsManager = SettingsManager.shared
+    @State private var showingRestoreConfirm = false
     
     var body: some View {
         ScrollView {
@@ -18,14 +20,34 @@ struct GeneralSettingsView: View {
                         ))
                     }
                 }
-                
+
+                SettingsSection(title: "Storage") {
+                    StorageLocationSettingsView()
+                        .environmentObject(settingsManager)
+                }
+
+                SettingsSection(title: "Shortcuts") {
+                    SettingsRow(title: "Toggle Pasty Panel", icon: "command") {
+                        KeyboardShortcuts.Recorder(for: .togglePanel)
+                            .padding(.vertical, 4)
+                    }
+                }
+
                 SettingsSection(title: "Reset") {
                     SettingsRow(title: "Restore Default Settings", icon: "arrow.counterclockwise") {
                         DangerButton(title: "Restore") {
-                            settingsManager.settings = .default
-                            settingsManager.saveSettings()
+                            showingRestoreConfirm = true
                         }
                     }
+                }
+                .alert("Confirm Restore Default Settings", isPresented: $showingRestoreConfirm) {
+                    Button("Cancel", role: .cancel) {}
+                    Button("Restore", role: .destructive) {
+                        settingsManager.settings = .default
+                        settingsManager.saveSettings()
+                    }
+                } message: {
+                    Text("This will reset all settings to default values and cannot be undone.")
                 }
                 
                 Spacer()

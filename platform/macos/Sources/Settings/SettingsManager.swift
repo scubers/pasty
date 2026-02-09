@@ -83,8 +83,7 @@ struct AppearanceSettings: Codable, Equatable {
     var blurIntensity: Double = 0.9
     var panelWidth: Double = 800
     var panelHeight: Double = 500
-    var themeMode: String = "system"
-    
+
     static let `default` = AppearanceSettings()
 
     init() {}
@@ -95,7 +94,6 @@ struct AppearanceSettings: Codable, Equatable {
         blurIntensity = try container.decodeIfPresent(Double.self, forKey: .blurIntensity) ?? 0.9
         panelWidth = try container.decodeIfPresent(Double.self, forKey: .panelWidth) ?? 800
         panelHeight = try container.decodeIfPresent(Double.self, forKey: .panelHeight) ?? 500
-        themeMode = try container.decodeIfPresent(String.self, forKey: .themeMode) ?? "system"
     }
 }
 

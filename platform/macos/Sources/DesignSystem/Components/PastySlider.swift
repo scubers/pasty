@@ -4,7 +4,7 @@ struct PastySlider: View {
     @Binding var value: Double
     var range: ClosedRange<Double> = 0...1
     var title: String? = nil
-    
+
     var body: some View {
         HStack {
             if let title = title {
@@ -13,7 +13,7 @@ struct PastySlider: View {
                     .foregroundColor(DesignSystem.Colors.textPrimary)
                 Spacer()
             }
-            
+
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     // Track Background
@@ -24,10 +24,12 @@ struct PastySlider: View {
                             Capsule()
                                 .stroke(DesignSystem.Colors.border, lineWidth: 0.5)
                         )
-                    
+
                     // Active Track
+                    let accentColor = SettingsManager.shared.settings.appearance.themeColor.toColor()
+
                     Capsule()
-                        .fill(DesignSystem.Colors.accent)
+                        .fill(accentColor)
                         .frame(width: max(0, CGFloat(normalizedValue) * geometry.size.width), height: 4)
                     
                     // Thumb

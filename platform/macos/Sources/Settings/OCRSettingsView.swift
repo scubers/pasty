@@ -42,10 +42,14 @@ struct OCRSettingsView: View {
                 if settingsManager.settings.ocr.enabled {
                     SettingsSection(title: "Configuration") {
                         SettingsRow(title: "Recognition Level", icon: "speedometer") {
-                             PastyPicker(selection: Binding(
+                            Picker("", selection: Binding(
                                 get: { settingsManager.settings.ocr.recognitionLevel },
                                 set: { settingsManager.settings.ocr.recognitionLevel = $0 }
-                             ), options: ["accurate", "fast"])
+                            )) {
+                                Text("Accurate").tag("accurate")
+                                Text("Fast").tag("fast")
+                            }
+                            .pickerStyle(.menu)
                         }
                         
                          SettingsRow(title: "Confidence Threshold", icon: "chart.bar") {

@@ -7,6 +7,7 @@ enum DesignSystem {
         static let backgroundEnd = Color(hex: "16213e")   // Slightly lighter/purple-ish
 
         // Accent
+        static let defaultAccent = Color(hex: "2DD4BF") // Teal
         static let accent = Color(hex: "2DD4BF") // Teal
         
         // Backgrounds

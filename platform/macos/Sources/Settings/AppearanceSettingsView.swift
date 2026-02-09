@@ -17,15 +17,6 @@ struct AppearanceSettingsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                SettingsSection(title: "Theme") {
-                    SettingsRow(title: "Mode", icon: "circle.lefthalf.filled") {
-                        ThemePicker(selection: Binding(
-                            get: { settingsManager.settings.appearance.themeMode },
-                            set: { settingsManager.settings.appearance.themeMode = $0 }
-                        ))
-                    }
-                }
-                
                 SettingsSection(title: "Style") {
                     SettingsRow(title: "Accent Color", icon: "paintpalette") {
                         HStack(spacing: 8) {

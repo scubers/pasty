@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ClipboardSettingsView: View {
     @ObservedObject var settingsManager = SettingsManager.shared
+    @State private var showingClearConfirm = false
     
     var body: some View {
         ScrollView {
@@ -61,15 +62,23 @@ struct ClipboardSettingsView: View {
                 SettingsSection(title: "Data") {
                      SettingsRow(title: "Clear History", icon: "trash") {
                         DangerButton(title: "Clear All") {
-                            // TODO: Implement clear history logic
-                            print("Clear history requested")
+                            showingClearConfirm = true
                         }
                     }
                 }
-                
-                Spacer()
+                .alert("Confirm Clear All History", isPresented: $showingClearConfirm) {
+                    Button("Cancel", role: .cancel) {}
+                    Button("Clear", role: .destructive) {
+                        clearAllHistory()
+                    }
+                } message: {
+                    Text("This will permanently delete all clipboard history items.")
+                }
             }
             .padding(32)
         }
+    }
+
+    private func clearAllHistory() {
     }
 }

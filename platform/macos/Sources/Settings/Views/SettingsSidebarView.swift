@@ -44,7 +44,7 @@ struct SettingsSidebarView: View {
 struct SidebarItem: View {
     let tab: SettingsTab
     let isSelected: Bool
-    
+
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: tab.icon)
@@ -62,7 +62,7 @@ struct SidebarItem: View {
         .padding(.vertical, 8)
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(isSelected ? DesignSystem.Colors.controlBackground : Color.clear)
+                .fill(isSelected ? SettingsManager.shared.settings.appearance.themeColor.toColor().opacity(0.1) : Color.clear)
         )
         .contentShape(Rectangle())
     }
