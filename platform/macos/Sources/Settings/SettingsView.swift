@@ -30,5 +30,13 @@ struct SettingsView: View {
         )
         .ignoresSafeArea()
         .preferredColorScheme(colorScheme)
+        // Handle Cmd+W to close window
+        .background(
+            Button("") {
+                NSApp.keyWindow?.close()
+            }
+            .keyboardShortcut("w", modifiers: .command)
+            .hidden()
+        )
     }
 }
