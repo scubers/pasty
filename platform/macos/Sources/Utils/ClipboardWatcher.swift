@@ -3,12 +3,16 @@
 import Cocoa
 import PastyCore
 
+import Combine
+
 extension Notification.Name {
     static let clipboardImageCaptured = Notification.Name("clipboardImageCaptured")
 }
 
 final class ClipboardWatcher {
-    private static let maxPayloadBytes = 10 * 1024 * 1024
+    private var maxPayloadBytes: Int {
+        SettingsManager.shared.settings.clipboard.maxContentSizeBytes
+    }
 
     typealias TextIngest = (_ text: String, _ sourceAppID: String) -> Bool
     typealias ImageIngest = (_ bytes: Data, _ width: Int, _ height: Int, _ formatHint: String, _ sourceAppID: String) -> Bool
@@ -19,6 +23,7 @@ final class ClipboardWatcher {
     private let ingestText: TextIngest
     private let ingestImage: ImageIngest
     private var onChange: (() -> Void)?
+    private var cancellables = Set<AnyCancellable>()
 
     init(
         pasteboard: NSPasteboard = .general,
@@ -29,15 +34,29 @@ final class ClipboardWatcher {
         self.ingestText = ingestText
         self.ingestImage = ingestImage
         self.lastChangeCount = pasteboard.changeCount
+        
+        SettingsManager.shared.$settings
+            .map(\.clipboard.pollingIntervalMs)
+            .removeDuplicates()
+            .sink { [weak self] intervalMs in
+                guard let self = self, self.timer != nil else { return }
+                self.startTimer(interval: TimeInterval(intervalMs) / 1000.0)
+            }
+            .store(in: &cancellables)
     }
 
     /// Starts polling clipboard changes.
     /// - Parameters:
-    ///   - interval: Poll interval in seconds.
     ///   - onChange: Optional callback triggered after a clipboard change is successfully persisted.
-    func start(interval: TimeInterval = 0.4, onChange: (() -> Void)? = nil) {
+    func start(onChange: (() -> Void)? = nil) {
         stop()
         self.onChange = onChange
+        let intervalMs = SettingsManager.shared.settings.clipboard.pollingIntervalMs
+        startTimer(interval: TimeInterval(intervalMs) / 1000.0)
+    }
+    
+    private func startTimer(interval: TimeInterval) {
+        timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             self?.pollForChanges()
         }
@@ -74,7 +93,7 @@ final class ClipboardWatcher {
 
         if let text = readTextPayload() {
             let utf8Count = text.utf8.count
-            if utf8Count > Self.maxPayloadBytes {
+            if utf8Count > maxPayloadBytes {
                 log("skip_large_text bytes=\(utf8Count)")
                 return false
             }
@@ -88,7 +107,7 @@ final class ClipboardWatcher {
            let tiffData = image.tiffRepresentation,
            let bitmap = NSBitmapImageRep(data: tiffData),
            let pngData = bitmap.representation(using: .png, properties: [:]) {
-            if pngData.count > Self.maxPayloadBytes {
+            if pngData.count > maxPayloadBytes {
                 log("skip_large_image bytes=\(pngData.count)")
                 return false
             }

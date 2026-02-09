@@ -32,6 +32,7 @@ public:
     std::optional<OcrTaskStatus> getOcrStatus(const std::string& id) const;
     std::optional<ClipboardHistoryItem> getById(const std::string& id);
     bool deleteById(const std::string& id);
+    bool enforceRetention(std::int32_t maxCount);
 
 private:
     std::unique_ptr<ClipboardHistoryStore> m_store;

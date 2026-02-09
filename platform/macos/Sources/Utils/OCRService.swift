@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 import PastyCore
 import Vision
+import Combine
 
 final class OCRService {
     static let shared = OCRService()
@@ -16,14 +17,29 @@ final class OCRService {
     private var started = false
     private var imageCaptureObserver: NSObjectProtocol?
     private let appDataDirectory: URL
+    private var cancellables = Set<AnyCancellable>()
 
     private init(appDataDirectory: URL = AppPaths.appDataDirectory()) {
         self.appDataDirectory = appDataDirectory
+        
+        SettingsManager.shared.$settings
+            .map(\.ocr.enabled)
+            .removeDuplicates()
+            .sink { [weak self] enabled in
+                if enabled {
+                    self?.start()
+                }
+            }
+            .store(in: &cancellables)
     }
 
     func start() {
         queue.async {
             guard !self.started else {
+                return
+            }
+            // Check if enabled
+            if !SettingsManager.shared.settings.ocr.enabled {
                 return
             }
             self.started = true
@@ -51,6 +67,11 @@ final class OCRService {
     }
 
     private func processNext(force: Bool = false) {
+        if !SettingsManager.shared.settings.ocr.enabled {
+            scheduleNextCheck(after: 10)
+            return
+        }
+
         if isProcessing {
             if force {
                 scheduleNextCheck(after: 0.6)
@@ -176,7 +197,8 @@ final class OCRService {
             }
 
             let averageConfidence = confidenceCount == 0 ? 0 : confidenceSum / confidenceCount
-            if averageConfidence < 0.7 {
+            let threshold = SettingsManager.shared.settings.ocr.confidenceThreshold
+            if averageConfidence < threshold {
                 completion(.success(""))
                 return
             }
@@ -187,9 +209,11 @@ final class OCRService {
                 .joined(separator: "\n")
             completion(.success(text))
         }
-        request.recognitionLevel = .accurate
+        
+        let settings = SettingsManager.shared.settings.ocr
+        request.recognitionLevel = settings.recognitionLevel == "fast" ? .fast : .accurate
         request.usesLanguageCorrection = true
-        request.recognitionLanguages = ["zh-Hans", "zh-Hant", "en", "ko", "ja", "ar", "la", "ru"]
+        request.recognitionLanguages = settings.languages
 
         if #available(macOS 13.0, *) {
             request.revision = VNRecognizeTextRequestRevision3

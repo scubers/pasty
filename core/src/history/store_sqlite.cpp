@@ -370,7 +370,13 @@ public:
             "create_time_ms, update_time_ms, last_copy_time_ms, source_app_id, content_hash, metadata, "
             "ocr_status, ocr_text, ocr_retry_count, ocr_next_retry_at "
             "FROM items "
-            "WHERE (COALESCE(content, '') LIKE ?1 OR COALESCE(ocr_text, '') LIKE ?1) ";
+            "WHERE (COALESCE(content, '') LIKE ?1 ";
+        
+        if (options.includeOcr) {
+            sql += "OR COALESCE(ocr_text, '') LIKE ?1";
+        }
+        
+        sql += ") ";
 
         if (!options.contentType.empty()) {
             sql += "AND type = ?3 ";

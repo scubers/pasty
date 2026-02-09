@@ -29,7 +29,8 @@ final class ClipboardHistoryServiceImpl: ClipboardHistoryService {
             self.workQueue.async {
                 var outJson: UnsafeMutablePointer<CChar>? = nil
                 let contentType = filterType?.rawValue ?? ""
-                let success = pasty_history_search(query, Int32(limit), Int32(self.previewLength), contentType, &outJson)
+                let includeOcr = SettingsManager.shared.settings.ocr.includeInSearch
+                let success = pasty_history_search(query, Int32(limit), Int32(self.previewLength), contentType, includeOcr, &outJson)
 
                 if !success {
                     promise(.failure(NSError(domain: "ClipboardHistoryError", code: -1, userInfo: nil)))

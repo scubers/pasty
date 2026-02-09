@@ -83,6 +83,7 @@ struct SearchOptions {
     std::size_t limit = 100;
     std::size_t previewLength = 200;
     std::string contentType;
+    bool includeOcr = true;
 };
 
 struct ClipboardHistoryListResult {

@@ -32,6 +32,9 @@ targets:
       - path: ../../core/src/history
         compilerFlags:
           - -Wall
+      - path: ../../core/src/settings
+        compilerFlags:
+          - -Wall
       - path: ../../core/include/pasty
         buildPhase: headers
         headerVisibility: public

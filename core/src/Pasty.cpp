@@ -237,7 +237,7 @@ const char* pasty_history_list_json(int limit) {
     return payload.c_str();
 }
 
-bool pasty_history_search(const char* query, int limit, int preview_length, const char* content_type, char** out_json) {
+bool pasty_history_search(const char* query, int limit, int preview_length, const char* content_type, bool include_ocr, char** out_json) {
     if (!pasty::HISTORY_SUBSYSTEM || out_json == nullptr) {
         return false;
     }
@@ -249,6 +249,7 @@ bool pasty_history_search(const char* query, int limit, int preview_length, cons
     const std::string requestedContentType = pasty::fromCString(content_type);
     const std::string sanitizedContentType = (requestedContentType == "text" || requestedContentType == "image") ? requestedContentType : std::string();
     options.contentType = sanitizedContentType;
+    options.includeOcr = include_ocr;
 
     std::vector<pasty::ClipboardHistoryItem> items = pasty::HISTORY_SUBSYSTEM->search(options);
     std::string json = pasty::serializeItemsToJson(items);
@@ -380,4 +381,11 @@ void pasty_history_set_storage_directory(const char* path) {
         return;
     }
     pasty::HISTORY_STORAGE_DIRECTORY = std::string(path);
+}
+
+bool pasty_history_enforce_retention(int maxCount) {
+    if (!pasty::HISTORY_SUBSYSTEM) {
+        return false;
+    }
+    return pasty::HISTORY_SUBSYSTEM->enforceRetention(maxCount);
 }

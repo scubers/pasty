@@ -17,6 +17,7 @@ set(PASTY_CORE_SOURCES
     src/Pasty.cpp
     src/history/history.cpp
     src/history/store_sqlite.cpp
+    src/settings/settings_api.cpp
 )
 
 # 头文件目录

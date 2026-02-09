@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MainPanelView: View {
     @ObservedObject var viewModel: MainPanelViewModel
+    @ObservedObject var settingsManager = SettingsManager.shared
 
     var body: some View {
         VStack(spacing: 0) {
@@ -38,7 +39,7 @@ struct MainPanelView: View {
                 material: MainPanelTokens.Effects.materialHudWindow,
                 blendingMode: .behindWindow
             )
-            .opacity(0.9)
+            .opacity(settingsManager.settings.appearance.blurIntensity)
             MainPanelTokens.Colors.surface
         }
         .clipShape(RoundedRectangle(cornerRadius: MainPanelTokens.Layout.cornerRadius))

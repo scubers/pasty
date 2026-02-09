@@ -21,13 +21,28 @@ enum MainPanelTokens {
         /// Muted text color for low-emphasis hints and footer labels.
         static let textMuted = Color(hex: 0x6B7280)
         /// Accent color for focus ring, selected markers, and emphasis.
-        static let accentPrimary = Color(hex: 0x2DD4BF)
-        /// Primary button gradient used for main action buttons.
-        static let accentGradient = LinearGradient(
-            colors: [Color(hex: 0x0D9488), Color(hex: 0x14B8A6)],
-            startPoint: .leading,
-            endPoint: .trailing
-        )
+        static var accentPrimary: Color {
+            let theme = SettingsManager.shared.settings.appearance.themeColor
+            switch theme {
+            case "blue": return Color(hex: 0x3B82F6)
+            case "purple": return Color(hex: 0xA855F7)
+            case "pink": return Color(hex: 0xEC4899)
+            case "red": return Color(hex: 0xEF4444)
+            case "orange": return Color(hex: 0xF97316)
+            case "yellow": return Color(hex: 0xEAB308)
+            case "green": return Color(hex: 0x22C55E)
+            default: return Color(hex: 0x2DD4BF)
+            }
+        }
+        static var accentGradient: LinearGradient {
+            let start = accentPrimary
+            let end = accentPrimary.opacity(0.8)
+            return LinearGradient(
+                colors: [start, end],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+        }
         static let keyword = Color(hex: 0xC084FC)
         static let string = Color(hex: 0x4ADE80)
         static let function = Color(hex: 0xFDE047)

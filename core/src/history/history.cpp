@@ -1,6 +1,7 @@
 // Pasty2 - Copyright (c) 2026. MIT License.
 
 #include <pasty/history/history.h>
+#include <pasty/settings/settings_api.h>
 
 #include <chrono>
 #include <cstdint>
@@ -150,7 +151,7 @@ bool ClipboardHistory::ingest(const ClipboardHistoryIngestEvent& event) {
         const std::string id = m_store->upsertImageItem(item, event.image.bytes);
         const bool ok = !id.empty();
         if (ok) {
-            m_store->enforceRetention(1000);
+            m_store->enforceRetention(pasty_settings_get_max_history_count());
         }
         logHistoryMessage(ok ? "stored image item" : "failed to store image item");
         return ok;
@@ -161,7 +162,7 @@ bool ClipboardHistory::ingest(const ClipboardHistoryIngestEvent& event) {
     const std::string id = m_store->upsertTextItem(item);
     const bool ok = !id.empty();
     if (ok) {
-        m_store->enforceRetention(1000);
+        m_store->enforceRetention(pasty_settings_get_max_history_count());
     }
     logHistoryMessage(ok ? "stored text item" : "failed to store text item");
     return ok;
@@ -245,6 +246,13 @@ bool ClipboardHistory::deleteById(const std::string& id) {
     }
 
     return m_store->deleteItem(id);
+}
+
+bool ClipboardHistory::enforceRetention(std::int32_t maxCount) {
+    if (!m_initialized || !m_store) {
+        return false;
+    }
+    return m_store->enforceRetention(maxCount);
 }
 
 }

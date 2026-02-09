@@ -1,6 +1,7 @@
 import Cocoa
 import SwiftUI
 import SnapKit
+import Combine
 
 private final class MainPanelWindow: NSPanel {
     override var canBecomeKey: Bool { true }
@@ -15,14 +16,16 @@ final class MainPanelWindowController: NSWindowController, NSWindowDelegate, InA
     private var lastShownScreenID: String?
     private var lastFrameOrigin: NSPoint?
     private var hotkeyPermissionToken: InAppHotkeyPermissionToken?
+    private var cancellables = Set<AnyCancellable>()
 
     init(viewModel: MainPanelViewModel) {
         self.viewModel = viewModel
         let view = MainPanelView(viewModel: viewModel)
         self.hostingController = NSHostingController(rootView: view)
 
+        let settings = SettingsManager.shared.settings.appearance
         let panel = MainPanelWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 800, height: 500),
+            contentRect: NSRect(x: 0, y: 0, width: settings.panelWidth, height: settings.panelHeight),
             styleMask: [.borderless, .fullSizeContentView, .resizable],
             backing: .buffered,
             defer: false
@@ -40,6 +43,14 @@ final class MainPanelWindowController: NSWindowController, NSWindowDelegate, InA
         super.init(window: panel)
         panel.delegate = self
         setupLayout()
+        
+        SettingsManager.shared.$settings
+            .map(\.appearance)
+            .removeDuplicates()
+            .sink { [weak self] appearance in
+                self?.updatePanelSize(width: appearance.panelWidth, height: appearance.panelHeight)
+            }
+            .store(in: &cancellables)
     }
 
     required init?(coder: NSCoder) {
@@ -64,6 +75,17 @@ final class MainPanelWindowController: NSWindowController, NSWindowDelegate, InA
         contentView.addSubview(hostingController.view)
         hostingController.view.snp.makeConstraints { make in
             make.edges.equalToSuperview()
+        }
+    }
+    
+    private func updatePanelSize(width: Double, height: Double) {
+        guard let panel = window else { return }
+        var frame = panel.frame
+        if frame.size.width != width || frame.size.height != height {
+            let oldHeight = frame.size.height
+            frame.size = NSSize(width: width, height: height)
+            frame.origin.y += (oldHeight - height) // Keep top fixed
+            panel.setFrame(frame, display: true, animate: true)
         }
     }
 

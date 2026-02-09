@@ -36,10 +36,11 @@ class App: NSObject, NSApplicationDelegate {
         let version = pasty.ClipboardManager.getVersion()
         print("Pasty2 Core v\(String(version))")
         
-        let appDataPath = AppPaths.appDataDirectory().path
+        let settingsManager = SettingsManager.shared
+        let appDataPath = settingsManager.settingsDirectory.path
         
         // Copy migrations
-        copyMigrations(to: AppPaths.appDataDirectory())
+        copyMigrations(to: settingsManager.settingsDirectory)
         
         appDataPath.withCString { pointer in
             pasty_history_set_storage_directory(pointer)
@@ -66,7 +67,7 @@ class App: NSObject, NSApplicationDelegate {
         }
 
         // Start Clipboard Watcher
-        clipboardWatcher.start(interval: 0.4, onChange: { [weak self] in
+        clipboardWatcher.start(onChange: { [weak self] in
             Task { @MainActor in
                 self?.viewModel.send(.clipboardContentChanged)
             }
@@ -113,6 +114,12 @@ class App: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         let openItem = NSMenuItem(title: "Open Panel", action: #selector(openPanel), keyEquivalent: "")
         menu.addItem(openItem)
+        
+        menu.addItem(NSMenuItem.separator())
+        
+        let settingsItem = NSMenuItem(title: "Settings...", action: #selector(openSettings), keyEquivalent: ",")
+        menu.addItem(settingsItem)
+        
         menu.addItem(NSMenuItem.separator())
         let quitItem = NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         menu.addItem(quitItem)
@@ -164,6 +171,11 @@ class App: NSObject, NSApplicationDelegate {
     @MainActor
     @objc private func openPanel() {
         viewModel.send(.showPanel)
+    }
+    
+    @MainActor
+    @objc private func openSettings() {
+        SettingsWindowController.show()
     }
     
     @MainActor
