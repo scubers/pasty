@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pasty2 - Settings Panel (Dark Mode)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%);
+        }
+
+        .panel-container {
+            backdrop-filter: blur(40px) saturate(180%);
+            -webkit-backdrop-filter: blur(40px) saturate(180%);
+            background: rgba(30, 30, 46, 0.85);
+            box-shadow:
+                0 0 0 1px rgba(255, 255, 255, 0.1),
+                0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        /* Sidebar Navigation */
+        .nav-item {
+            transition: all 0.15s ease;
+            border-radius: 6px;
+            margin: 2px 8px;
+            color: #9ca3af;
+        }
+
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.06);
+            color: #e5e7eb;
+        }
+
+        .nav-item.active {
+            background: rgba(45, 212, 191, 0.15);
+            color: #2DD4BF;
+        }
+
+        /* Form Elements */
+        .settings-group {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .settings-input {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #e5e7eb;
+            transition: all 0.2s ease;
+        }
+
+        .settings-input:focus {
+            background: rgba(0, 0, 0, 0.4);
+            border-color: #2DD4BF;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.15);
+        }
+
+        /* Toggle Switch */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #2DD4BF;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #2DD4BF;
+        }
+        
+        /* Select */
+        .settings-select {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #e5e7eb;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+            background-position: right 0.5rem center;
+            background-repeat: no-repeat;
+            background-size: 1.5em 1.5em;
+        }
+
+        .settings-select:focus {
+            border-color: #2DD4BF;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.15);
+        }
+
+        /* Range Slider */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #ffffff;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: rgba(255,255,255,0.2);
+            border-radius: 2px;
+        }
+        input[type=range]:focus::-webkit-slider-runnable-track {
+            background: #2DD4BF;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Content Visibility */
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-8">
+
+    <!-- Settings Window -->
+    <div class="panel-container w-[800px] h-[550px] rounded-xl overflow-hidden flex">
+
+        <!-- Sidebar -->
+        <div class="w-[200px] flex flex-col border-r border-white/10 bg-black/10 pt-4 pb-4">
+            <div class="px-6 mb-6">
+                <h1 class="text-sm font-bold text-gray-200 tracking-wide">Settings</h1>
+            </div>
+            
+            <nav class="flex-1 space-y-1">
+                <a href="#" data-target="general" class="nav-item active flex items-center px-4 py-2 text-sm font-medium group">
+                    <svg class="w-4 h-4 mr-3 opacity-75" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                    General
+                </a>
+                <a href="#" data-target="clipboard" class="nav-item flex items-center px-4 py-2 text-sm font-medium group">
+                    <svg class="w-4 h-4 mr-3 opacity-75" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                    </svg>
+                    Clipboard
+                </a>
+                <a href="#" data-target="appearance" class="nav-item flex items-center px-4 py-2 text-sm font-medium group">
+                    <svg class="w-4 h-4 mr-3 opacity-75" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path>
+                    </svg>
+                    Appearance
+                </a>
+                <a href="#" data-target="ocr" class="nav-item flex items-center px-4 py-2 text-sm font-medium group">
+                    <svg class="w-4 h-4 mr-3 opacity-75" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                    OCR
+                </a>
+                <a href="#" data-target="shortcuts" class="nav-item flex items-center px-4 py-2 text-sm font-medium group">
+                    <svg class="w-4 h-4 mr-3 opacity-75" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                    Shortcuts
+                </a>
+                <a href="#" data-target="about" class="nav-item flex items-center px-4 py-2 text-sm font-medium group">
+                    <svg class="w-4 h-4 mr-3 opacity-75" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    About
+                </a>
+            </nav>
+
+            <div class="px-4 mt-auto">
+                <div class="text-xs text-gray-500 text-center py-2">
+                    v2.0.0 (Build 1024)
+                </div>
+            </div>
+        </div>
+
+        <!-- Content Area -->
+        <div class="flex-1 overflow-y-auto bg-transparent relative">
+            
+            <!-- GENERAL TAB -->
+            <div id="general" class="tab-content active h-full">
+                <!-- Header -->
+                <div class="px-8 py-6 border-b border-white/5">
+                    <h2 class="text-xl font-bold text-gray-100">General Settings</h2>
+                    <p class="text-sm text-gray-400 mt-1">Manage application behavior and startup options.</p>
+                </div>
+
+                <!-- Content -->
+                <div class="p-8">
+                    <!-- Startup Section -->
+                    <div class="settings-group">
+                        <h3 class="text-sm font-semibold text-gray-200 mb-4">Startup Behavior</h3>
+                        
+                        <div class="flex items-center justify-between mb-4">
+                            <div>
+                                <div class="text-sm text-gray-300">Launch at login</div>
+                                <div class="text-xs text-gray-500">Automatically start Pasty2 when you log in</div>
+                            </div>
+                            
+                            <div class="relative inline-block w-10 h-5 align-middle select-none transition duration-200 ease-in">
+                                <input type="checkbox" name="toggle" id="toggle_launch" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer" style="top: 0; left: 0; transition: all 0.2s;" checked/>
+                                <label for="toggle_launch" class="toggle-label block overflow-hidden h-5 rounded-full bg-gray-700 cursor-pointer transition-colors duration-200"></label>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <div class="text-sm text-gray-300">Show in menu bar</div>
+                                <div class="text-xs text-gray-500">Display the Pasty2 icon in the system menu bar</div>
+                            </div>
+                            
+                            <div class="relative inline-block w-10 h-5 align-middle select-none transition duration-200 ease-in">
+                                <input type="checkbox" name="toggle" id="toggle_menubar" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer" style="top: 0; left: 0; transition: all 0.2s;" checked/>
+                                <label for="toggle_menubar" class="toggle-label block overflow-hidden h-5 rounded-full bg-gray-700 cursor-pointer transition-colors duration-200"></label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CLIPBOARD TAB -->
+            <div id="clipboard" class="tab-content h-full">
+                <!-- Header -->
+                <div class="px-8 py-6 border-b border-white/5">
+                    <h2 class="text-xl font-bold text-gray-100">Clipboard Settings</h2>
+                    <p class="text-sm text-gray-400 mt-1">Configure history retention and performance limits.</p>
+                </div>
+
+                <!-- Content -->
+                <div class="p-8">
+                    <!-- History Section -->
+                    <div class="settings-group">
+                        <h3 class="text-sm font-semibold text-gray-200 mb-4">History Management</h3>
+                        
+                        <div class="grid grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1.5">History Size</label>
+                                <select class="settings-select w-full px-3 py-2 rounded-lg text-sm">
+                                    <option>50 items</option>
+                                    <option>100 items</option>
+                                    <option selected>500 items</option>
+                                    <option>1000 items</option>
+                                    <option>Unlimited</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1.5">Retention Period</label>
+                                <select class="settings-select w-full px-3 py-2 rounded-lg text-sm">
+                                    <option>1 day</option>
+                                    <option>1 week</option>
+                                    <option selected>1 month</option>
+                                    <option>Forever</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between pt-2">
+                            <div>
+                                <div class="text-sm text-gray-300">Clear history on exit</div>
+                                <div class="text-xs text-gray-500">Remove all clipboard history when quitting the app</div>
+                            </div>
+                            
+                            <div class="relative inline-block w-10 h-5 align-middle select-none transition duration-200 ease-in">
+                                <input type="checkbox" name="toggle" id="toggle_clear" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer" style="top: 0; left: 0; transition: all 0.2s;"/>
+                                <label for="toggle_clear" class="toggle-label block overflow-hidden h-5 rounded-full bg-gray-700 cursor-pointer transition-colors duration-200"></label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Performance Section -->
+                    <div class="settings-group">
+                        <h3 class="text-sm font-semibold text-gray-200 mb-4">Performance</h3>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1.5">Polling Interval</label>
+                                <select class="settings-select w-full px-3 py-2 rounded-lg text-sm">
+                                    <option>Fast (0.1s)</option>
+                                    <option selected>Normal (0.4s)</option>
+                                    <option>Slow (1.0s)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1.5">Max Content Size</label>
+                                <select class="settings-select w-full px-3 py-2 rounded-lg text-sm">
+                                    <option>1 MB</option>
+                                    <option selected>10 MB</option>
+                                    <option>50 MB</option>
+                                    <option>100 MB</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Danger Zone -->
+                    <div class="settings-group border-red-500/20 bg-red-500/5">
+                        <h3 class="text-sm font-semibold text-red-400 mb-4">Danger Zone</h3>
+                        
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <div class="text-sm text-gray-300">Clear All Data</div>
+                                <div class="text-xs text-gray-500">Permanently remove all history and reset settings</div>
+                            </div>
+                            
+                            <button class="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg text-xs font-medium transition-colors duration-200">
+                                Clear Data...
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- APPEARANCE TAB -->
+            <div id="appearance" class="tab-content h-full">
+                <!-- Header -->
+                <div class="px-8 py-6 border-b border-white/5">
+                    <h2 class="text-xl font-bold text-gray-100">Appearance</h2>
+                    <p class="text-sm text-gray-400 mt-1">Customize the look and feel of Pasty2.</p>
+                </div>
+
+                <!-- Content -->
+                <div class="p-8">
+                    <div class="settings-group">
+                        <h3 class="text-sm font-semibold text-gray-200 mb-4">Theme</h3>
+                        
+                        <div class="grid grid-cols-3 gap-4 mb-6">
+                            <label class="cursor-pointer group">
+                                <div class="aspect-video rounded-lg border-2 border-teal-500 bg-gray-800 mb-2 relative overflow-hidden">
+                                    <div class="absolute inset-0 flex items-center justify-center text-gray-400">
+                                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                                    </div>
+                                </div>
+                                <div class="flex items-center justify-center space-x-2">
+                                    <input type="radio" name="theme" class="text-teal-500 focus:ring-teal-500" checked>
+                                    <span class="text-sm text-gray-300 group-hover:text-white transition-colors">System</span>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer group">
+                                <div class="aspect-video rounded-lg border border-gray-700 bg-gray-900 mb-2 relative overflow-hidden group-hover:border-gray-500 transition-colors">
+                                    <div class="absolute inset-0 flex items-center justify-center text-gray-600">
+                                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+                                    </div>
+                                </div>
+                                <div class="flex items-center justify-center space-x-2">
+                                    <input type="radio" name="theme" class="text-teal-500 focus:ring-teal-500">
+                                    <span class="text-sm text-gray-300 group-hover:text-white transition-colors">Dark</span>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer group">
+                                <div class="aspect-video rounded-lg border border-gray-700 bg-gray-200 mb-2 relative overflow-hidden group-hover:border-gray-500 transition-colors">
+                                    <div class="absolute inset-0 flex items-center justify-center text-gray-400">
+                                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                                    </div>
+                                </div>
+                                <div class="flex items-center justify-center space-x-2">
+                                    <input type="radio" name="theme" class="text-teal-500 focus:ring-teal-500">
+                                    <span class="text-sm text-gray-300 group-hover:text-white transition-colors">Light</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="settings-group">
+                        <h3 class="text-sm font-semibold text-gray-200 mb-4">Effects</h3>
+                        
+                        <div class="mb-2">
+                            <div class="flex justify-between mb-2">
+                                <label class="text-xs font-medium text-gray-400">Blur Intensity</label>
+                                <span class="text-xs text-gray-500">90%</span>
+                            </div>
+                            <input type="range" min="0" max="100" value="90" class="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- OCR TAB -->
+            <div id="ocr" class="tab-content h-full">
+                <!-- Header -->
+                <div class="px-8 py-6 border-b border-white/5">
+                    <h2 class="text-xl font-bold text-gray-100">OCR Settings</h2>
+                    <p class="text-sm text-gray-400 mt-1">Configure optical character recognition for images.</p>
+                </div>
+
+                <!-- Content -->
+                <div class="p-8">
+                    <div class="settings-group">
+                        <div class="flex items-center justify-between mb-6">
+                            <div>
+                                <h3 class="text-sm font-semibold text-gray-200">Enable OCR</h3>
+                                <div class="text-xs text-gray-500 mt-1">Automatically detect text in copied images</div>
+                            </div>
+                            
+                            <div class="relative inline-block w-10 h-5 align-middle select-none transition duration-200 ease-in">
+                                <input type="checkbox" name="toggle" id="toggle_ocr" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer" style="top: 0; left: 0; transition: all 0.2s;" checked/>
+                                <label for="toggle_ocr" class="toggle-label block overflow-hidden h-5 rounded-full bg-gray-700 cursor-pointer transition-colors duration-200"></label>
+                            </div>
+                        </div>
+
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-2">Recognition Languages</label>
+                                
+                                <!-- Search Box -->
+                                <div class="relative mb-2">
+                                    <input type="text" placeholder="Search languages..." class="w-full bg-black/20 border border-white/10 rounded-md py-1.5 pl-8 pr-3 text-sm text-gray-300 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500/50 transition-all placeholder-gray-600">
+                                    <svg class="w-4 h-4 text-gray-500 absolute left-2.5 top-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                                </div>
+
+                                <!-- Scrollable List -->
+                                <div class="h-40 overflow-y-auto border border-white/10 rounded-lg bg-black/20 p-1 space-y-0.5 custom-scrollbar">
+                                    <label class="flex items-center space-x-3 p-2 rounded hover:bg-white/5 cursor-pointer group">
+                                        <input type="checkbox" checked class="rounded border-gray-600 text-teal-500 focus:ring-teal-500 bg-transparent">
+                                        <span class="text-sm text-gray-300 group-hover:text-white transition-colors">English</span>
+                                    </label>
+                                    <label class="flex items-center space-x-3 p-2 rounded hover:bg-white/5 cursor-pointer group">
+                                        <input type="checkbox" checked class="rounded border-gray-600 text-teal-500 focus:ring-teal-500 bg-transparent">
+                                        <span class="text-sm text-gray-300 group-hover:text-white transition-colors">Chinese (Simplified)</span>
+                                    </label>
+                                    <label class="flex items-center space-x-3 p-2 rounded hover:bg-white/5 cursor-pointer group">
+                                        <input type="checkbox" class="rounded border-gray-600 text-teal-500 focus:ring-teal-500 bg-transparent">
+                                        <span class="text-sm text-gray-300 group-hover:text-white transition-colors">Chinese (Traditional)</span>
+                                    </label>
+                                    <label class="flex items-center space-x-3 p-2 rounded hover:bg-white/5 cursor-pointer group">
+                                        <input type="checkbox" class="rounded border-gray-600 text-teal-500 focus:ring-teal-500 bg-transparent">
+                                        <span class="text-sm text-gray-300 group-hover:text-white transition-colors">Japanese</span>
+                                    </label>
+                                    <label class="flex items-center space-x-3 p-2 rounded hover:bg-white/5 cursor-pointer group">
+                                        <input type="checkbox" class="rounded border-gray-600 text-teal-500 focus:ring-teal-500 bg-transparent">
+                                        <span class="text-sm text-gray-300 group-hover:text-white transition-colors">Korean</span>
+                                    </label>
+                                    <label class="flex items-center space-x-3 p-2 rounded hover:bg-white/5 cursor-pointer group">
+                                        <input type="checkbox" class="rounded border-gray-600 text-teal-500 focus:ring-teal-500 bg-transparent">
+                                        <span class="text-sm text-gray-300 group-hover:text-white transition-colors">French</span>
+                                    </label>
+                                    <label class="flex items-center space-x-3 p-2 rounded hover:bg-white/5 cursor-pointer group">
+                                        <input type="checkbox" class="rounded border-gray-600 text-teal-500 focus:ring-teal-500 bg-transparent">
+                                        <span class="text-sm text-gray-300 group-hover:text-white transition-colors">German</span>
+                                    </label>
+                                    <label class="flex items-center space-x-3 p-2 rounded hover:bg-white/5 cursor-pointer group">
+                                        <input type="checkbox" class="rounded border-gray-600 text-teal-500 focus:ring-teal-500 bg-transparent">
+                                        <span class="text-sm text-gray-300 group-hover:text-white transition-colors">Spanish</span>
+                                    </label>
+                                    <label class="flex items-center space-x-3 p-2 rounded hover:bg-white/5 cursor-pointer group">
+                                        <input type="checkbox" class="rounded border-gray-600 text-teal-500 focus:ring-teal-500 bg-transparent">
+                                        <span class="text-sm text-gray-300 group-hover:text-white transition-colors">Russian</span>
+                                    </label>
+                                    <label class="flex items-center space-x-3 p-2 rounded hover:bg-white/5 cursor-pointer group">
+                                        <input type="checkbox" class="rounded border-gray-600 text-teal-500 focus:ring-teal-500 bg-transparent">
+                                        <span class="text-sm text-gray-300 group-hover:text-white transition-colors">Portuguese</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="pt-2">
+                                <div class="flex justify-between mb-2">
+                                    <label class="text-xs font-medium text-gray-400">Confidence Threshold</label>
+                                    <span class="text-xs text-gray-500">0.7</span>
+                                </div>
+                                <input type="range" min="0" max="1" step="0.1" value="0.7" class="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                            </div>
+                            
+                            <div class="pt-2">
+                                <label class="block text-xs font-medium text-gray-400 mb-1.5">Recognition Model</label>
+                                <select class="settings-select w-full px-3 py-2 rounded-lg text-sm">
+                                    <option>Fast (V1)</option>
+                                    <option selected>Accurate (V2)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-group">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <div class="text-sm text-gray-300">Include in Search</div>
+                                <div class="text-xs text-gray-500">Allow searching through recognized text</div>
+                            </div>
+                            
+                            <div class="relative inline-block w-10 h-5 align-middle select-none transition duration-200 ease-in">
+                                <input type="checkbox" name="toggle" id="toggle_ocr_search" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer" style="top: 0; left: 0; transition: all 0.2s;" checked/>
+                                <label for="toggle_ocr_search" class="toggle-label block overflow-hidden h-5 rounded-full bg-gray-700 cursor-pointer transition-colors duration-200"></label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SHORTCUTS TAB -->
+            <div id="shortcuts" class="tab-content h-full">
+                <!-- Header -->
+                <div class="px-8 py-6 border-b border-white/5">
+                    <h2 class="text-xl font-bold text-gray-100">Shortcuts</h2>
+                    <p class="text-sm text-gray-400 mt-1">Manage global keyboard shortcuts.</p>
+                </div>
+
+                <!-- Content -->
+                <div class="p-8">
+                    <div class="settings-group">
+                        <h3 class="text-sm font-semibold text-gray-200 mb-4">Global Hotkey</h3>
+                        
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <div class="text-sm text-gray-300">Toggle Pasty2</div>
+                                <div class="text-xs text-gray-500">Show or hide the clipboard history panel</div>
+                            </div>
+                            
+                            <button class="px-4 py-2 bg-black/40 border border-white/10 rounded-md text-sm text-white font-mono min-w-[120px] text-center hover:bg-black/60 hover:border-teal-500/50 transition-all focus:ring-2 focus:ring-teal-500/50 outline-none">
+                                ⌘ ⇧ V
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="settings-group">
+                         <h3 class="text-sm font-semibold text-gray-200 mb-4">In-App Shortcuts</h3>
+                         <div class="space-y-3">
+                             <div class="flex items-center justify-between">
+                                 <span class="text-sm text-gray-400">Previous Item</span>
+                                 <span class="text-xs text-gray-500 font-mono bg-white/5 px-2 py-1 rounded">↑</span>
+                             </div>
+                             <div class="flex items-center justify-between">
+                                 <span class="text-sm text-gray-400">Next Item</span>
+                                 <span class="text-xs text-gray-500 font-mono bg-white/5 px-2 py-1 rounded">↓</span>
+                             </div>
+                             <div class="flex items-center justify-between">
+                                 <span class="text-sm text-gray-400">Paste Selected</span>
+                                 <span class="text-xs text-gray-500 font-mono bg-white/5 px-2 py-1 rounded">↵</span>
+                             </div>
+                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ABOUT TAB -->
+            <div id="about" class="tab-content h-full">
+                <!-- Header -->
+                <div class="px-8 py-6 border-b border-white/5">
+                    <h2 class="text-xl font-bold text-gray-100">About</h2>
+                    <p class="text-sm text-gray-400 mt-1">Information about Pasty2.</p>
+                </div>
+
+                <!-- Content -->
+                <div class="p-8 flex flex-col items-center text-center">
+                    <div class="w-24 h-24 bg-gradient-to-br from-teal-400 to-blue-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-teal-500/20">
+                        <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                        </svg>
+                    </div>
+                    
+                    <h3 class="text-2xl font-bold text-white mb-2">Pasty2</h3>
+                    <p class="text-gray-400 mb-6">Version 2.0.0 (Build 1024)</p>
+                    
+                    <div class="flex space-x-4 mb-8">
+                        <a href="#" class="text-sm text-teal-400 hover:text-teal-300 transition-colors">Website</a>
+                        <span class="text-gray-600">•</span>
+                        <a href="#" class="text-sm text-teal-400 hover:text-teal-300 transition-colors">Support</a>
+                        <span class="text-gray-600">•</span>
+                        <a href="#" class="text-sm text-teal-400 hover:text-teal-300 transition-colors">License</a>
+                    </div>
+                    
+                    <div class="text-xs text-gray-600 max-w-sm">
+                        Copyright © 2026 Pasty Team. All rights reserved.<br>
+                        Designed with love for macOS.
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+        // Tab switching logic
+        const navItems = document.querySelectorAll('.nav-item');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        navItems.forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                
+                // Remove active class from all nav items
+                navItems.forEach(nav => nav.classList.remove('active'));
+                
+                // Add active class to clicked item
+                item.classList.add('active');
+                
+                // Hide all tab contents
+                tabContents.forEach(tab => tab.classList.remove('active'));
+                
+                // Show target tab content
+                const targetId = item.getAttribute('data-target');
+                const targetTab = document.getElementById(targetId);
+                if (targetTab) {
+                    targetTab.classList.add('active');
+                }
+            });
+        });
+
+        // Toggle logic (visual only)
+        document.querySelectorAll('.toggle-checkbox').forEach(toggle => {
+            toggle.addEventListener('change', function() {
+                const label = this.nextElementSibling;
+                if(this.checked) {
+                    label.classList.remove('bg-gray-700');
+                    label.classList.add('bg-teal-500');
+                } else {
+                    label.classList.add('bg-gray-700');
+                    label.classList.remove('bg-teal-500');
+                }
+            });
+            // Init state
+            toggle.dispatchEvent(new Event('change'));
+        });
+    </script>
+</body>
+</html>
