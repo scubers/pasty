@@ -3,84 +3,77 @@ import SwiftUI
 struct AppearanceSettingsView: View {
     @ObservedObject var settingsManager = SettingsManager.shared
     
+    let accentColors: [(Color, String)] = [
+        (Color(hex: "2DD4BF"), "system"), // Default/Teal
+        (.blue, "blue"),
+        (.purple, "purple"),
+        (.pink, "pink"),
+        (.red, "red"),
+        (.orange, "orange"),
+        (.yellow, "yellow"),
+        (.green, "green")
+    ]
+    
     var body: some View {
-        Form {
-            Section(header: Text("Theme")) {
-                VStack(alignment: .leading) {
-                    Text("Accent Color")
-                    HStack {
-                        ColorButton(color: .teal, name: "system")
-                        ColorButton(color: .blue, name: "blue")
-                        ColorButton(color: .purple, name: "purple")
-                        ColorButton(color: .pink, name: "pink")
-                        ColorButton(color: .red, name: "red")
-                        ColorButton(color: .orange, name: "orange")
-                        ColorButton(color: .yellow, name: "yellow")
-                        ColorButton(color: .green, name: "green")
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                SettingsSection(title: "Theme") {
+                    SettingsRow(title: "Mode", icon: "circle.lefthalf.filled") {
+                        ThemePicker(selection: Binding(
+                            get: { settingsManager.settings.appearance.themeMode },
+                            set: { settingsManager.settings.appearance.themeMode = $0 }
+                        ))
                     }
                 }
                 
-                VStack(alignment: .leading) {
-                    Text("Background Blur: \(Int(settingsManager.settings.appearance.blurIntensity * 100))%")
-                    Slider(
-                        value: Binding(
-                            get: { settingsManager.settings.appearance.blurIntensity },
-                            set: { settingsManager.settings.appearance.blurIntensity = $0 }
-                        ),
-                        in: 0.0...1.0,
-                        step: 0.1
-                    ) {
-                        Text("Blur")
-                    } minimumValueLabel: {
-                        Text("Off")
-                    } maximumValueLabel: {
-                        Text("Max")
+                SettingsSection(title: "Style") {
+                    SettingsRow(title: "Accent Color", icon: "paintpalette") {
+                        HStack(spacing: 8) {
+                            ForEach(accentColors, id: \.1) { color, name in
+                                ColorOption(color: color, isSelected: settingsManager.settings.appearance.themeColor == name)
+                                    .onTapGesture {
+                                        settingsManager.settings.appearance.themeColor = name
+                                    }
+                            }
+                        }
+                    }
+                    
+                    SettingsRow(title: "Window Blur", icon: "drop.triangle") {
+                         VStack(alignment: .trailing) {
+                            Text("\(Int(settingsManager.settings.appearance.blurIntensity * 100))%")
+                                .font(DesignSystem.Typography.caption)
+                                .foregroundColor(DesignSystem.Colors.textSecondary)
+                            
+                            PastySlider(
+                                value: Binding(
+                                    get: { settingsManager.settings.appearance.blurIntensity },
+                                    set: { settingsManager.settings.appearance.blurIntensity = $0 }
+                                ),
+                                range: 0.0...1.0
+                            )
+                        }
                     }
                 }
+                
+                Spacer()
             }
-            
-            Section(header: Text("Panel Size")) {
-                HStack {
-                    TextField("Width", value: Binding(
-                        get: { settingsManager.settings.appearance.panelWidth },
-                        set: { settingsManager.settings.appearance.panelWidth = $0 }
-                    ), format: .number)
-                    .frame(width: 80)
-                    
-                    Text("×")
-                    
-                    TextField("Height", value: Binding(
-                        get: { settingsManager.settings.appearance.panelHeight },
-                        set: { settingsManager.settings.appearance.panelHeight = $0 }
-                    ), format: .number)
-                    .frame(width: 80)
-                }
-                Text("Default: 800 × 500")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
+            .padding(32)
         }
-        .padding()
     }
+}
+
+struct ColorOption: View {
+    let color: Color
+    let isSelected: Bool
     
-    private struct ColorButton: View {
-        let color: Color
-        let name: String
-        @ObservedObject var settingsManager = SettingsManager.shared
-        
-        var body: some View {
-            Button {
-                settingsManager.settings.appearance.themeColor = name
-            } label: {
+    var body: some View {
+        Circle()
+            .fill(color)
+            .frame(width: 20, height: 20)
+            .overlay(
                 Circle()
-                    .fill(color)
-                    .frame(width: 20, height: 20)
-                    .overlay(
-                        Circle()
-                            .strokeBorder(Color.primary, lineWidth: settingsManager.settings.appearance.themeColor == name ? 2 : 0)
-                    )
-            }
-            .buttonStyle(.plain)
-        }
+                    .stroke(Color.white, lineWidth: isSelected ? 2 : 0)
+            )
+            .shadow(radius: 2)
     }
 }

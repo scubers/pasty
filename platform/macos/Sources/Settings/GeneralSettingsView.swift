@@ -1,38 +1,37 @@
 import SwiftUI
-import KeyboardShortcuts
 import ServiceManagement
 
 struct GeneralSettingsView: View {
     @ObservedObject var settingsManager = SettingsManager.shared
     
     var body: some View {
-        Form {
-            Section {
-                Toggle("Launch at Login", isOn: Binding(
-                    get: { settingsManager.settings.general.launchAtLogin },
-                    set: { newValue in
-                        settingsManager.settings.general.launchAtLogin = newValue
-                        setLaunchAtLogin(newValue)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                SettingsSection(title: "Startup") {
+                    SettingsRow(title: "Launch at Login", icon: "power") {
+                        PastyToggle(isOn: Binding(
+                            get: { settingsManager.settings.general.launchAtLogin },
+                            set: { newValue in
+                                settingsManager.settings.general.launchAtLogin = newValue
+                                setLaunchAtLogin(newValue)
+                            }
+                        ))
                     }
-                ))
-            }
-            
-            Section(header: Text("Keyboard Shortcuts")) {
-                HStack {
-                    Text("Toggle Panel")
-                    Spacer()
-                    KeyboardShortcuts.Recorder(for: .togglePanel)
                 }
-            }
-            
-            Section {
-                Button("Restore Default Settings") {
-                    settingsManager.settings = .default
-                    settingsManager.saveSettings()
+                
+                SettingsSection(title: "Reset") {
+                    SettingsRow(title: "Restore Default Settings", icon: "arrow.counterclockwise") {
+                        DangerButton(title: "Restore") {
+                            settingsManager.settings = .default
+                            settingsManager.saveSettings()
+                        }
+                    }
                 }
+                
+                Spacer()
             }
+            .padding(32)
         }
-        .padding()
     }
     
     private func setLaunchAtLogin(_ enabled: Bool) {

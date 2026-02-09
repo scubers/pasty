@@ -4,92 +4,72 @@ struct ClipboardSettingsView: View {
     @ObservedObject var settingsManager = SettingsManager.shared
     
     var body: some View {
-        Form {
-            MonitoringSection(settingsManager: settingsManager)
-            StorageConstraintsSection(settingsManager: settingsManager)
-        }
-        .padding()
-    }
-}
-
-struct MonitoringSection: View {
-    @ObservedObject var settingsManager: SettingsManager
-    
-    private var pollingIntervalBinding: Binding<Double> {
-        Binding(
-            get: { Double(settingsManager.settings.clipboard.pollingIntervalMs) },
-            set: { settingsManager.settings.clipboard.pollingIntervalMs = Int($0) }
-        )
-    }
-
-    var body: some View {
-        Section(header: Text("Monitoring")) {
-            VStack(alignment: .leading) {
-                Text("Polling Interval: \(settingsManager.settings.clipboard.pollingIntervalMs) ms")
-                Slider(
-                    value: pollingIntervalBinding,
-                    in: 100...2000,
-                    step: 100
-                ) {
-                    Text("Interval")
-                } minimumValueLabel: {
-                    Text("100ms")
-                } maximumValueLabel: {
-                    Text("2s")
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                SettingsSection(title: "History") {
+                    SettingsRow(title: "Max History Items", icon: "list.bullet") {
+                        VStack(alignment: .trailing) {
+                            Text("\(settingsManager.settings.history.maxCount) items")
+                                .font(DesignSystem.Typography.caption)
+                                .foregroundColor(DesignSystem.Colors.textSecondary)
+                            
+                            PastySlider(
+                                value: Binding(
+                                    get: { Double(settingsManager.settings.history.maxCount) },
+                                    set: { settingsManager.settings.history.maxCount = Int($0) }
+                                ),
+                                range: 50...5000
+                            )
+                        }
+                    }
                 }
-            }
-        }
-    }
-}
-
-struct StorageConstraintsSection: View {
-    @ObservedObject var settingsManager: SettingsManager
-    
-    private var maxHistoryCountBinding: Binding<Double> {
-        Binding(
-            get: { Double(settingsManager.settings.history.maxCount) },
-            set: { settingsManager.settings.history.maxCount = Int($0) }
-        )
-    }
-    
-    private var maxContentSizeBinding: Binding<Double> {
-        Binding(
-            get: { Double(settingsManager.settings.clipboard.maxContentSizeBytes) },
-            set: { settingsManager.settings.clipboard.maxContentSizeBytes = Int($0) }
-        )
-    }
-
-    var body: some View {
-        Section(header: Text("Storage Constraints")) {
-            VStack(alignment: .leading) {
-                Text("Max History Items: \(settingsManager.settings.history.maxCount)")
-                Slider(
-                    value: maxHistoryCountBinding,
-                    in: 50...5000,
-                    step: 50
-                ) {
-                    Text("Count")
-                } minimumValueLabel: {
-                    Text("50")
-                } maximumValueLabel: {
-                    Text("5000")
+                
+                SettingsSection(title: "Performance") {
+                     SettingsRow(title: "Polling Interval", icon: "timer") {
+                        VStack(alignment: .trailing) {
+                            Text("\(settingsManager.settings.clipboard.pollingIntervalMs) ms")
+                                .font(DesignSystem.Typography.caption)
+                                .foregroundColor(DesignSystem.Colors.textSecondary)
+                            
+                            PastySlider(
+                                value: Binding(
+                                    get: { Double(settingsManager.settings.clipboard.pollingIntervalMs) },
+                                    set: { settingsManager.settings.clipboard.pollingIntervalMs = Int($0) }
+                                ),
+                                range: 100...2000
+                            )
+                        }
+                    }
+                    
+                    SettingsRow(title: "Max Content Size", icon: "arrow.up.arrow.down.square") {
+                        VStack(alignment: .trailing) {
+                            Text("\(settingsManager.settings.clipboard.maxContentSizeBytes / 1024 / 1024) MB")
+                                .font(DesignSystem.Typography.caption)
+                                .foregroundColor(DesignSystem.Colors.textSecondary)
+                            
+                            PastySlider(
+                                value: Binding(
+                                    get: { Double(settingsManager.settings.clipboard.maxContentSizeBytes) },
+                                    set: { settingsManager.settings.clipboard.maxContentSizeBytes = Int($0) }
+                                ),
+                                range: 1024*1024...100*1024*1024
+                            )
+                        }
+                    }
                 }
-            }
-            
-            VStack(alignment: .leading) {
-                Text("Max Content Size: \(settingsManager.settings.clipboard.maxContentSizeBytes / 1024 / 1024) MB")
-                Slider(
-                    value: maxContentSizeBinding,
-                    in: 1024*1024...100*1024*1024,
-                    step: 1024*1024
-                ) {
-                    Text("Size")
-                } minimumValueLabel: {
-                    Text("1MB")
-                } maximumValueLabel: {
-                    Text("100MB")
+                
+                SettingsSection(title: "Data") {
+                     SettingsRow(title: "Clear History", icon: "trash") {
+                        DangerButton(title: "Clear All") {
+                            // TODO: Implement clear history logic
+                            print("Clear history requested")
+                        }
+                    }
                 }
+                
+                Spacer()
             }
+            .padding(32)
         }
     }
 }

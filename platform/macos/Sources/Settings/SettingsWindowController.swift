@@ -10,8 +10,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         self.hostingController = NSHostingController(rootView: view)
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 500, height: 400),
-            styleMask: [.titled, .closable, .miniaturizable],
+            contentRect: NSRect(x: 0, y: 0, width: 800, height: 550),
+            styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
@@ -20,6 +20,10 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         window.center()
         window.level = .floating // Keep above main panel
         window.isReleasedWhenClosed = false
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        window.backgroundColor = .clear
+        window.isMovableByWindowBackground = true
         window.contentView = hostingController.view
 
         super.init(window: window)
