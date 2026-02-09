@@ -11,6 +11,7 @@ out/
 *.app
 *.ipa
 *.apk
+dist/
 
 # Xcode generated files
 *.xcodeproj/
