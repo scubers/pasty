@@ -17,13 +17,13 @@
 
 ## 3. Platform 层设置管理器
 
-- [ ] 3.1 创建 `platform/macos/Sources/Settings/SettingsManager.swift`
-- [ ] 3.2 实现设置目录路径管理（UserDefaults 存路径）
-- [ ] 3.3 实现 settings.json 读取/写入
-- [ ] 3.4 实现版本检测和迁移逻辑
-- [ ] 3.5 实现文件系统监视（外部变更检测）
-- [ ] 3.6 实现原子写入（临时文件+重命名）
-- [ ] 3.7 添加错误处理（损坏文件恢复）
+- [x] 3.1 创建 `platform/macos/Sources/Settings/SettingsManager.swift`
+- [x] 3.2 实现设置目录路径管理（UserDefaults 存路径）
+- [x] 3.3 实现 settings.json 读取/写入
+- [x] 3.4 实现版本检测和迁移逻辑
+- [x] 3.5 实现文件系统监视（外部变更检测）
+- [x] 3.6 实现原子写入（临时文件+重命名）
+- [x] 3.7 添加错误处理（损坏文件恢复）
 
 ## 4. 设置目录功能
 

@@ -75,6 +75,7 @@ final class MainPanelViewModel: ObservableObject {
             send(.panelHidden)
         case .panelShown:
             requestSearchFocus()
+            historyService.invalidateSearchCache()
             refreshList(selectFirst: true)
         case .panelHidden:
             state.searchQuery = ""
@@ -83,6 +84,7 @@ final class MainPanelViewModel: ObservableObject {
             state.selectionIndex = nil
             state.selectedItem = nil
             requestSearchFocus()
+            historyService.invalidateSearchCache()
             refreshList(selectFirst: true)
         case let .searchChanged(query):
             search(query: query)
@@ -114,6 +116,7 @@ final class MainPanelViewModel: ObservableObject {
             requestSearchFocus()
             performSearch(query: state.searchQuery, filterType: newFilter)
         case .clipboardContentChanged:
+            historyService.invalidateSearchCache()
             refreshList(selectFirst: true)
         }
     }

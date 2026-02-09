@@ -30,6 +30,7 @@ class App: NSObject, NSApplicationDelegate {
     private var localEventMonitor: Any?
     private var mouseDownMonitor: AnyCancellable?
     private var benchmarkCancellable: AnyCancellable?
+    private var lastSettingsWarningShown: String?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Initialize Core
@@ -38,6 +39,20 @@ class App: NSObject, NSApplicationDelegate {
         
         let settingsManager = SettingsManager.shared
         let appDataPath = settingsManager.settingsDirectory.path
+
+        if let message = settingsManager.lastWarningMessage {
+            showSettingsWarningIfNeeded(message)
+        }
+
+        NotificationCenter.default
+            .publisher(for: .pastySettingsWarning)
+            .compactMap { $0.userInfo?["message"] as? String }
+            .sink { [weak self] message in
+                Task { @MainActor in
+                    self?.showSettingsWarningIfNeeded(message)
+                }
+            }
+            .store(in: &cancellables)
         
         // Copy migrations
         copyMigrations(to: settingsManager.settingsDirectory)
@@ -74,6 +89,21 @@ class App: NSObject, NSApplicationDelegate {
         })
 
         ocrService.start()
+    }
+
+    @MainActor
+    private func showSettingsWarningIfNeeded(_ message: String) {
+        guard lastSettingsWarningShown != message else {
+            return
+        }
+        lastSettingsWarningShown = message
+
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Settings Warning"
+        alert.informativeText = message
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
     
     func applicationWillTerminate(_ notification: Notification) {
