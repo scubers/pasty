@@ -10,10 +10,16 @@ struct StorageLocationSettingsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             SettingsRow(title: "Data Location", icon: "folder") {
-                Text(settingsManager.clipboardData.path)
-                    .font(DesignSystem.Typography.caption)
-                    .foregroundColor(DesignSystem.Colors.textSecondary)
-                    .textSelection(.enabled)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Clipboard Data: " + settingsManager.clipboardData.path)
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundColor(DesignSystem.Colors.textSecondary)
+                        .textSelection(.enabled)
+                    Text("App Data: " + settingsManager.appData.path)
+                        .font(.system(size: 10, weight: .regular))
+                        .foregroundColor(DesignSystem.Colors.textTertiary)
+                        .textSelection(.enabled)
+                }
             }
 
             SettingsRow(title: "", icon: "") {

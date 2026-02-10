@@ -54,7 +54,7 @@ class App: NSObject, NSApplicationDelegate {
             }
             .store(in: &cancellables)
         
-        if let bundleMigrationsPath = Bundle.main.resourceURL {
+        if let bundleMigrationsPath = Bundle.main.resourceURL?.appendingPathComponent("migrations") {
             bundleMigrationsPath.path.withCString { pointer in
                 pasty_history_set_migration_directory(pointer)
             }

@@ -83,8 +83,8 @@
 ## 12. App.swift Core 层调用更新
 
 - [x] 12.1 确保 `pasty_history_set_storage_directory()` 使用 `clipboardDataPath`
-- [ ] 12.2 验证 Core 初始化在新路径下正常工作
-- [ ] 12.3 测试数据库文件创建在正确的 clipboardData 目录
+- [x] 12.2 验证 Core 初始化在新路径下正常工作
+- [x] 12.3 测试数据库文件创建在正确的 clipboardData 目录
 
 ## 13. StorageLocationHelper 简化
 
@@ -104,7 +104,7 @@
 
 - [x] 15.1 修改第 13 行：将 `settingsManager.settingsDirectory.path` 改为 `settingsManager.clipboardData.path`
 - [x] 15.2 修改第 22 行：将 `settingsManager.settingsDirectory.path` 改为 `settingsManager.clipboardData.path`
-- [ ] 15.3 更新 "Data Location" 标签为显示两个路径（可选）
+- [x] 15.3 更新 "Data Location" 标签为显示两个路径（可选）
 
 ## 16. StorageLocationSettingsView 恢复默认路径按钮
 
@@ -143,7 +143,7 @@
 
 ## 21. 文档更新
 
-- [ ] 21.1 更新 AGENTS.md 添加路径管理说明（如需要）
-- [ ] 21.2 更新 project-structure.md 反映新的目录结构
+- [x] 21.1 更新 AGENTS.md 添加路径管理说明（如需要）
+- [x] 21.2 更新 project-structure.md 反映新的目录结构
 - [x] 21.3 确保 project.yml 配置正确（如修改了资源配置）
 - [x] 21.4 添加代码注释说明双目录架构的用途

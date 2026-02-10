@@ -58,6 +58,7 @@ targets:
       - path: Resources/Assets.xcassets
       - path: ../../core/migrations
         buildPhase: resources
+        type: folder
     settings:
       INFOPLIST_FILE: Info.plist
       PRODUCT_BUNDLE_IDENTIFIER: com.pasty2.app

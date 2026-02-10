@@ -318,7 +318,7 @@ final class MainPanelViewModel: ObservableObject {
             guard let imagePath = item.imagePath else {
                 return false
             }
-            let absolutePath = AppPaths.appDataDirectory().appendingPathComponent(imagePath).path
+            let absolutePath = SettingsManager.shared.clipboardData.appendingPathComponent(imagePath).path
             guard let image = NSImage(contentsOfFile: absolutePath) else {
                 return false
             }

@@ -58,6 +58,7 @@ pasty2/
 │   │   └── Sources/              # macOS 层源码
 │   │       ├── App.swift
 │   │       ├── Settings/         # 设置窗口与视图
+│   │       │   ├── SettingsManager.swift  # 双目录路径管理（appData + clipboardData）
 │   │       ├── Utils/
 │   │       ├── Model/
 │   │       ├── ViewModel/
@@ -93,6 +94,21 @@ pasty2/
 ```
 
 ## 架构设计
+
+### 双目录架构
+
+应用维护两个独立目录：
+
+1. **appData**: 固定为 `~/Application Support/Pasty2`
+   - 用于应用级操作
+   - 不存放持久化用户数据
+   - 通过 `AppPaths.appDataDirectory()` 获取
+
+2. **clipboardData**: 用户可配置，默认为 `${appData}/ClipboardData`
+   - 存放用户数据（settings.json、history.sqlite3、images/）
+   - 支持用户在设置界面自定义位置
+   - 路径通过 UserDefaults 持久化（key: "PastyClipboardDataDirectory"）
+   - 由 SettingsManager 管理
 
 ### 层次结构
 

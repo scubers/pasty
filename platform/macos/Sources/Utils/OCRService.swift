@@ -16,12 +16,9 @@ final class OCRService {
     private var isProcessing = false
     private var started = false
     private var imageCaptureObserver: NSObjectProtocol?
-    private let appDataDirectory: URL
     private var cancellables = Set<AnyCancellable>()
 
-    private init(appDataDirectory: URL = AppPaths.appDataDirectory()) {
-        self.appDataDirectory = appDataDirectory
-        
+    private init() {
         SettingsManager.shared.$settings
             .map(\.ocr.enabled)
             .removeDuplicates()
@@ -153,7 +150,7 @@ final class OCRService {
     }
 
     private func performOCR(imagePath: String, completion: @escaping (Result<String, Error>) -> Void) {
-        let absolutePath = appDataDirectory.appendingPathComponent(imagePath).path
+        let absolutePath = SettingsManager.shared.clipboardData.appendingPathComponent(imagePath).path
         guard let image = NSImage(contentsOfFile: absolutePath) else {
             completion(.failure(NSError(domain: "OCRService", code: -10)))
             return
