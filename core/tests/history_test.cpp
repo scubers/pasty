@@ -1,15 +1,42 @@
 #include <pasty/history/history.h>
 #include <pasty/history/store.h>
+#include <pasty/api/history_api.h>
 #include <pasty/settings/settings_api.h>
 #include <cassert>
 #include <iostream>
 #include <vector>
 #include <filesystem>
 
+namespace {
+
+void configureMigrationDirectoryForTests() {
+    const std::filesystem::path current = std::filesystem::current_path();
+    const std::vector<std::filesystem::path> candidates = {
+        current / "../migrations",
+        current / "core/migrations",
+        current / "../core/migrations",
+        current / "../../core/migrations",
+        current / "../../../core/migrations",
+    };
+
+    for (const auto& candidate : candidates) {
+        if (std::filesystem::exists(candidate / "0001-initial-schema.sql")) {
+            const std::string absolutePath = std::filesystem::absolute(candidate).string();
+            pasty_history_set_migration_directory(absolutePath.c_str());
+            return;
+        }
+    }
+
+    assert(false && "Could not locate migration directory for tests");
+}
+
+}
+
 void testSearch() {
     std::cout << "Running testSearch..." << std::endl;
     auto store = pasty::createClipboardHistoryStore();
     pasty::ClipboardHistory history(std::move(store));
+    configureMigrationDirectoryForTests();
     
     std::filesystem::remove_all("test_history");
     assert(history.initialize("test_history"));
@@ -46,6 +73,7 @@ void testSearchReturnsImagesWhenQueryIsEmpty() {
     std::cout << "Running testSearchReturnsImagesWhenQueryIsEmpty..." << std::endl;
     auto store = pasty::createClipboardHistoryStore();
     pasty::ClipboardHistory history(std::move(store));
+    configureMigrationDirectoryForTests();
 
     std::filesystem::remove_all("test_history_images");
     assert(history.initialize("test_history_images"));
@@ -77,6 +105,7 @@ void testRetentionRespectsSettings() {
     std::cout << "Running testRetentionRespectsSettings..." << std::endl;
     auto store = pasty::createClipboardHistoryStore();
     pasty::ClipboardHistory history(std::move(store));
+    configureMigrationDirectoryForTests();
 
     std::filesystem::remove_all("test_history_retention");
     assert(history.initialize("test_history_retention"));
@@ -95,9 +124,33 @@ void testRetentionRespectsSettings() {
     std::cout << "testRetentionRespectsSettings PASSED" << std::endl;
 }
 
+void testMigrationDirectoryControlsLookup() {
+    std::cout << "Running testMigrationDirectoryControlsLookup..." << std::endl;
+
+    pasty_history_set_migration_directory("/tmp/pasty2-missing-migrations");
+    {
+        auto invalidStore = pasty::createClipboardHistoryStore();
+        pasty::ClipboardHistory invalidHistory(std::move(invalidStore));
+        std::filesystem::remove_all("test_history_missing_migration");
+        assert(!invalidHistory.initialize("test_history_missing_migration"));
+    }
+
+    configureMigrationDirectoryForTests();
+    {
+        auto validStore = pasty::createClipboardHistoryStore();
+        pasty::ClipboardHistory validHistory(std::move(validStore));
+        std::filesystem::remove_all("test_history_migration_ok");
+        assert(validHistory.initialize("test_history_migration_ok"));
+        assert(std::filesystem::exists("test_history_migration_ok/history.sqlite3"));
+    }
+
+    std::cout << "testMigrationDirectoryControlsLookup PASSED" << std::endl;
+}
+
 int main() {
     testSearch();
     testSearchReturnsImagesWhenQueryIsEmpty();
     testRetentionRespectsSettings();
+    testMigrationDirectoryControlsLookup();
     return 0;
 }

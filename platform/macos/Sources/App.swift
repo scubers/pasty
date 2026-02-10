@@ -38,7 +38,7 @@ class App: NSObject, NSApplicationDelegate {
         print("Pasty2 Core v\(String(version))")
         
         let settingsManager = SettingsManager.shared
-        let appDataPath = settingsManager.settingsDirectory.path
+        let clipboardDataPath = settingsManager.clipboardData.path
 
         if let message = settingsManager.lastWarningMessage {
             showSettingsWarningIfNeeded(message)
@@ -54,10 +54,13 @@ class App: NSObject, NSApplicationDelegate {
             }
             .store(in: &cancellables)
         
-        // Copy migrations
-        copyMigrations(to: settingsManager.settingsDirectory)
+        if let bundleMigrationsPath = Bundle.main.resourceURL {
+            bundleMigrationsPath.path.withCString { pointer in
+                pasty_history_set_migration_directory(pointer)
+            }
+        }
         
-        appDataPath.withCString { pointer in
+        clipboardDataPath.withCString { pointer in
             pasty_history_set_storage_directory(pointer)
         }
 
@@ -283,47 +286,6 @@ class App: NSObject, NSApplicationDelegate {
         }
     }
     
-    private func copyMigrations(to destination: URL) {
-        let destMigrationsPath = destination.appendingPathComponent("migrations")
-        let fileManager = FileManager.default
-        let migrationFiles = [
-            "0001-initial-schema.sql",
-            "0002-add-search-index.sql",
-            "0003-add-metadata.sql",
-            "0004-add-ocr-support.sql"
-        ]
-
-        do {
-            if fileManager.fileExists(atPath: destMigrationsPath.path) {
-                try fileManager.removeItem(at: destMigrationsPath)
-            }
-            try fileManager.createDirectory(at: destMigrationsPath, withIntermediateDirectories: true)
-
-            var copiedCount = 0
-            for migrationFile in migrationFiles {
-                let name = (migrationFile as NSString).deletingPathExtension
-                let ext = (migrationFile as NSString).pathExtension
-
-                let sourceURL =
-                    Bundle.main.url(forResource: name, withExtension: ext, subdirectory: "migrations")
-                    ?? Bundle.main.url(forResource: name, withExtension: ext)
-
-                guard let sourceURL else {
-                    print("Migration file missing in bundle: \(migrationFile)")
-                    continue
-                }
-
-                let destinationURL = destMigrationsPath.appendingPathComponent(migrationFile)
-                try fileManager.copyItem(at: sourceURL, to: destinationURL)
-                copiedCount += 1
-            }
-
-            print("Copied \(copiedCount)/\(migrationFiles.count) migrations to \(destMigrationsPath.path)")
-        } catch {
-            print("Failed to copy migrations: \(error)")
-        }
-    }
-
     @MainActor
     private func runUIBenchmark() async {
         print("PASTY_UI_BENCH_START")

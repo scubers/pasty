@@ -23,6 +23,8 @@ namespace pasty {
 
 namespace {
 
+std::string g_migration_directory;
+
 bool ensureDirectoryExists(const std::string& path) {
     if (path.empty()) {
         return false;
@@ -737,30 +739,19 @@ private:
     }
 
     bool applyMigration(int /*targetVersion*/, const std::string& migrationFile) {
-        std::vector<std::string> searchPaths = {
-            m_baseDirectory + "/migrations/" + migrationFile,
-            m_baseDirectory + "/../migrations/" + migrationFile,
-            "migrations/" + migrationFile,
-            "core/migrations/" + migrationFile,
-            "../../core/migrations/" + migrationFile
-        };
-
-        std::string sql;
-        bool found = false;
-
-        for (const auto& path : searchPaths) {
-            std::ifstream file(path);
-            if (file.is_open()) {
-                sql = std::string((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-                found = true;
-                break;
-            }
+        if (g_migration_directory.empty()) {
+            logStoreMessage("migration directory is not configured");
+            return false;
         }
 
-        if (!found) {
-             logStoreMessage("migration file not found: " + migrationFile);
-             return false;
+        const std::string migrationPath = g_migration_directory + "/" + migrationFile;
+        std::ifstream file(migrationPath);
+        if (!file.is_open()) {
+            logStoreMessage("migration file not found: " + migrationPath);
+            return false;
         }
+
+        const std::string sql((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
 
         char* error = nullptr;
         if (sqlite3_exec(m_db, "BEGIN TRANSACTION;", nullptr, nullptr, &error) != SQLITE_OK) {
@@ -917,6 +908,13 @@ private:
     std::mutex m_mutex;
 };
 
+}
+
+extern "C" void pasty_history_set_migration_directory(const char* path) {
+    if (path == nullptr) {
+        return;
+    }
+    g_migration_directory = std::string(path);
 }
 
 std::unique_ptr<ClipboardHistoryStore> createClipboardHistoryStore() {

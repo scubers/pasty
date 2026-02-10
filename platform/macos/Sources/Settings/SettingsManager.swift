@@ -117,12 +117,15 @@ class SettingsManager: ObservableObject {
 
     @Published var settings: PastySettings = .default
 
-    @Published private(set) var settingsDirectory: URL
+    // appData is fixed app-level path; clipboardData is user-configurable data path.
+    private(set) var appData: URL
+
+    @Published private(set) var clipboardData: URL
 
     @Published private(set) var lastWarningMessage: String?
     
     private let userDefaults = UserDefaults.standard
-    private let settingsDirectoryKey = "PastySettingsDirectory"
+    private let clipboardDataKey = "PastyClipboardDataDirectory"
     private var fileMonitor: DispatchSourceFileSystemObject?
     private var pendingReloadWorkItem: DispatchWorkItem?
     private var cancellables = Set<AnyCancellable>()
@@ -131,11 +134,12 @@ class SettingsManager: ObservableObject {
     private var didInitializeCoreSettings = false
     
     var settingsFileURL: URL {
-        settingsDirectory.appendingPathComponent("settings.json")
+        clipboardData.appendingPathComponent("settings.json")
     }
 
     private init() {
-        self.settingsDirectory = SettingsManager.defaultSettingsDirectory()
+        self.appData = AppPaths.appDataDirectory()
+        self.clipboardData = SettingsManager.defaultClipboardDataDirectory(appData: self.appData)
         self.lastWarningMessage = nil
 
         resolveAndValidateSettingsDirectory()
@@ -180,7 +184,7 @@ class SettingsManager: ObservableObject {
                 }
             }
         } catch {
-            let backupURL = settingsDirectory.appendingPathComponent("settings.json.corrupted")
+            let backupURL = clipboardData.appendingPathComponent("settings.json.corrupted")
             let fileManager = FileManager.default
             try? fileManager.removeItem(at: backupURL)
             try? fileManager.moveItem(at: url, to: backupURL)
@@ -198,7 +202,7 @@ class SettingsManager: ObservableObject {
     func saveSettings() {
         let url = settingsFileURL
         do {
-            try FileManager.default.createDirectory(at: settingsDirectory, withIntermediateDirectories: true)
+            try FileManager.default.createDirectory(at: clipboardData, withIntermediateDirectories: true)
 
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -219,13 +223,19 @@ class SettingsManager: ObservableObject {
         saveSettings()
     }
     
-    func setSettingsDirectory(_ url: URL) {
-        userDefaults.set(url.path, forKey: settingsDirectoryKey)
+    func setClipboardDataDirectory(_ url: URL) {
+        userDefaults.set(url.path, forKey: clipboardDataKey)
 
-        settingsDirectory = url
+        clipboardData = url
         resolveAndValidateSettingsDirectory()
         loadSettings()
         setupFileMonitor()
+    }
+
+    func restoreDefaultClipboardDataDirectory() {
+        let defaultPath = SettingsManager.defaultClipboardDataDirectory(appData: appData)
+        setClipboardDataDirectory(defaultPath)
+        userDefaults.removeObject(forKey: clipboardDataKey)
     }
     
     private func setupFileMonitor() {
@@ -263,33 +273,29 @@ class SettingsManager: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: workItem)
     }
 
-    private static func defaultSettingsDirectory() -> URL {
-        FileManager.default
-            .urls(for: .applicationSupportDirectory, in: .userDomainMask)
-            .first!
-            .appendingPathComponent("Pasty2")
+    private static func defaultClipboardDataDirectory(appData: URL) -> URL {
+        appData.appendingPathComponent("ClipboardData")
     }
 
     private func resolveAndValidateSettingsDirectory() {
-        let defaultDir = SettingsManager.defaultSettingsDirectory()
-        if let path = userDefaults.string(forKey: settingsDirectoryKey) {
-            settingsDirectory = URL(fileURLWithPath: path)
+        let defaultDir = SettingsManager.defaultClipboardDataDirectory(appData: appData)
+        if let path = userDefaults.string(forKey: clipboardDataKey) {
+            clipboardData = URL(fileURLWithPath: path)
         } else {
-            settingsDirectory = defaultDir
-            userDefaults.set(defaultDir.path, forKey: settingsDirectoryKey)
+            clipboardData = defaultDir
         }
 
-        if validateDirectory(settingsDirectory) {
+        if validateDirectory(clipboardData) {
             return
         }
 
-        if settingsDirectory.path != defaultDir.path {
+        if clipboardData.path != defaultDir.path {
             let message = "设置目录不可访问，已回退到默认目录：\(defaultDir.path)"
             lastWarningMessage = message
             NotificationCenter.default.post(name: .pastySettingsWarning, object: self, userInfo: ["message": message])
 
-            settingsDirectory = defaultDir
-            userDefaults.set(defaultDir.path, forKey: settingsDirectoryKey)
+            clipboardData = defaultDir
+            userDefaults.removeObject(forKey: clipboardDataKey)
             _ = validateDirectory(defaultDir)
         }
     }

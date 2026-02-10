@@ -56,13 +56,7 @@ targets:
       - path: Info.plist
         buildPhase: none
       - path: Resources/Assets.xcassets
-      - path: ../../core/migrations/0001-initial-schema.sql
-        buildPhase: resources
-      - path: ../../core/migrations/0002-add-search-index.sql
-        buildPhase: resources
-      - path: ../../core/migrations/0003-add-metadata.sql
-        buildPhase: resources
-      - path: ../../core/migrations/0004-add-ocr-support.sql
+      - path: ../../core/migrations
         buildPhase: resources
     settings:
       INFOPLIST_FILE: Info.plist

@@ -11,18 +11,23 @@ struct SettingsDirectoryView: View {
     var body: some View {
         Form {
             Section(header: Text("Storage Location")) {
-                Text(settingsManager.settingsDirectory.path)
+                Text(settingsManager.clipboardData.path)
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .textSelection(.enabled)
                 
                 HStack {
                     Button("Show in Finder") {
-                        NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: settingsManager.settingsDirectory.path)
+                        NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: settingsManager.clipboardData.path)
                     }
                     
                     Button("Change Location...") {
                         selectNewDirectory()
+                    }
+
+                    Button("恢复默认路径") {
+                        settingsManager.restoreDefaultClipboardDataDirectory()
+                        showingRestartAlert = true
                     }
                 }
             }
@@ -57,43 +62,19 @@ struct SettingsDirectoryView: View {
         
         panel.begin { response in
             if response == .OK, let url = panel.url {
-                self.migrateAndSetDirectory(url)
+                self.validateAndSetDirectory(url)
             }
         }
     }
     
-    private func migrateAndSetDirectory(_ url: URL) {
-        if !FileManager.default.isWritableFile(atPath: url.path) {
-            errorMessage = "The selected directory is not writable."
+    private func validateAndSetDirectory(_ url: URL) {
+        StorageLocationHelper.validateAndSetDirectory(url, settingsManager: settingsManager, showError: { message in
+            errorMessage = message
             showingErrorAlert = true
-            return
-        }
-        
-        do {
-            let oldURL = settingsManager.settingsDirectory
-            let fileManager = FileManager.default
-            
-            let itemsToCopy = ["settings.json", "history.sqlite3", "images"]
-            
-            for item in itemsToCopy {
-                let source = oldURL.appendingPathComponent(item)
-                let dest = url.appendingPathComponent(item)
-                
-                if fileManager.fileExists(atPath: source.path) {
-                    if fileManager.fileExists(atPath: dest.path) {
-                        try fileManager.removeItem(at: dest)
-                    }
-                    try fileManager.copyItem(at: source, to: dest)
-                }
-            }
-            
-            settingsManager.setSettingsDirectory(url)
+        }, showRestart: {
             showingRestartAlert = true
             newDirectoryURL = url
-        } catch {
-            errorMessage = "Migration failed: \(error.localizedDescription)"
-            showingErrorAlert = true
-        }
+        })
     }
     
     private func restartApp() {

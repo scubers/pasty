@@ -10,7 +10,7 @@ struct StorageLocationSettingsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             SettingsRow(title: "Data Location", icon: "folder") {
-                Text(settingsManager.settingsDirectory.path)
+                Text(settingsManager.clipboardData.path)
                     .font(DesignSystem.Typography.caption)
                     .foregroundColor(DesignSystem.Colors.textSecondary)
                     .textSelection(.enabled)
@@ -19,11 +19,16 @@ struct StorageLocationSettingsView: View {
             SettingsRow(title: "", icon: "") {
                 HStack(spacing: 8) {
                     Button("Show in Finder") {
-                        NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: settingsManager.settingsDirectory.path)
+                        NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: settingsManager.clipboardData.path)
                     }
 
                     Button("Change...") {
                         selectNewDirectory()
+                    }
+
+                    Button("恢复默认路径") {
+                        settingsManager.restoreDefaultClipboardDataDirectory()
+                        showingRestartAlert = true
                     }
                 }
             }
@@ -46,13 +51,13 @@ struct StorageLocationSettingsView: View {
     private func selectNewDirectory() {
         StorageLocationHelper.selectNewDirectory(settingsManager: settingsManager) { url in
             if let url = url {
-                migrateAndSetDirectory(url)
+                validateAndSetDirectory(url)
             }
         }
     }
 
-    private func migrateAndSetDirectory(_ url: URL) {
-        StorageLocationHelper.migrateAndSetDirectory(url, settingsManager: settingsManager, showError: { message in
+    private func validateAndSetDirectory(_ url: URL) {
+        StorageLocationHelper.validateAndSetDirectory(url, settingsManager: settingsManager, showError: { message in
             errorMessage = message
             showingErrorAlert = true
         }, showRestart: {

@@ -20,35 +20,14 @@ struct StorageLocationHelper {
         }
     }
 
-    static func migrateAndSetDirectory(_ url: URL, settingsManager: SettingsManager, showError: @escaping (String) -> Void, showRestart: @escaping () -> Void) {
+    static func validateAndSetDirectory(_ url: URL, settingsManager: SettingsManager, showError: @escaping (String) -> Void, showRestart: @escaping () -> Void) {
         guard validateDirectory(url) else {
             showError("The selected directory is not writable.")
             return
         }
 
-        do {
-            let oldURL = settingsManager.settingsDirectory
-            let fileManager = FileManager.default
-
-            let itemsToCopy = ["settings.json", "history.sqlite3", "images"]
-
-            for item in itemsToCopy {
-                let source = oldURL.appendingPathComponent(item)
-                let dest = url.appendingPathComponent(item)
-
-                if fileManager.fileExists(atPath: source.path) {
-                    if fileManager.fileExists(atPath: dest.path) {
-                        try fileManager.removeItem(at: dest)
-                    }
-                    try fileManager.copyItem(at: source, to: dest)
-                }
-            }
-
-            settingsManager.setSettingsDirectory(url)
-            showRestart()
-        } catch {
-            showError("Migration failed: \(error.localizedDescription)")
-        }
+        settingsManager.setClipboardDataDirectory(url)
+        showRestart()
     }
 
     static func validateDirectory(_ url: URL) -> Bool {

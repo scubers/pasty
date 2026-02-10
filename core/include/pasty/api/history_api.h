@@ -44,6 +44,8 @@ bool pasty_history_delete(const char* id);
 
 void pasty_history_set_storage_directory(const char* path);
 
+void pasty_history_set_migration_directory(const char* path);
+
 bool pasty_history_enforce_retention(int maxCount);
 
 #ifdef __cplusplus

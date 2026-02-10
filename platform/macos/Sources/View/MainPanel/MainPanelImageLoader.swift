@@ -39,7 +39,7 @@ final class MainPanelImageLoader: ObservableObject {
             guard let self else { return }
             guard !item.isCancelled else { return }
 
-            let baseDir = SettingsManager.shared.settingsDirectory
+            let baseDir = SettingsManager.shared.clipboardData
             let absolutePath = baseDir.appendingPathComponent(path).path
             let loaded = NSImage(contentsOfFile: absolutePath).flatMap { self.makeThumbnailIfNeeded($0) }
 
