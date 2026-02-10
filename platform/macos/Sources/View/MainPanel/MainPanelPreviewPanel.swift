@@ -36,6 +36,11 @@ struct MainPanelPreviewPanel: View {
                 .font(MainPanelTokens.Typography.smallBold)
                 .foregroundStyle(MainPanelTokens.Colors.textSecondary)
                 .textCase(.uppercase)
+            
+            if let item {
+                ocrStatusPill(for: item)
+            }
+            
             Spacer()
 //            actionButton("Copy", icon: "doc.on.doc", primary: true)
 //            actionButton("Edit", icon: "pencil")
@@ -63,9 +68,6 @@ struct MainPanelPreviewPanel: View {
                             .foregroundStyle(MainPanelTokens.Colors.textSecondary)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
-
-                    ocrBadge(for: item)
-                        .padding(8)
                 }
 
                 if isShowingOcrText, let ocrText = item.ocrText, !ocrText.isEmpty {
@@ -106,38 +108,44 @@ struct MainPanelPreviewPanel: View {
     }
 
     @ViewBuilder
-    private func ocrBadge(for item: ClipboardItemRow) -> some View {
-        if item.type == .image {
-            let status = item.ocrStatus ?? .pending
+    private func ocrStatusPill(for item: ClipboardItemRow) -> some View {
+        if item.type == .image, let status = item.ocrStatus {
             switch status {
-            case .completed:
-                if let text = item.ocrText, !text.isEmpty {
-                    Button {
-                        isShowingOcrText.toggle()
-                    } label: {
-                        Image(systemName: "text.viewfinder")
-                            .foregroundStyle(MainPanelTokens.Colors.accentPrimary)
-                    }
-                    .buttonStyle(.plain)
-                    .help(String(text.prefix(100)))
-                } else {
-                    Image(systemName: "eye.slash")
-                        .foregroundStyle(MainPanelTokens.Colors.textMuted)
-                        .help("OCR completed, no text detected")
-                }
             case .processing:
-                Image(systemName: "eye")
-                    .foregroundStyle(MainPanelTokens.Colors.accentPrimary)
-                    .help("OCR in progress")
+                Text("SCAN...")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(MainPanelTokens.Colors.textSecondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.white.opacity(0.1))
+                    .clipShape(Capsule())
+            case .completed:
+                Button {
+                    if let text = item.ocrText, !text.isEmpty {
+                        isShowingOcrText.toggle()
+                    }
+                } label: {
+                    Text("OCR")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(MainPanelTokens.Colors.accentPrimary)
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .disabled(item.ocrText?.isEmpty ?? true)
             case .failed:
-                Image(systemName: "exclamationmark.triangle")
-                    .foregroundStyle(.orange)
-                    .help("OCR failed")
+                Text("OCR FAILED")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.red.opacity(0.8))
+                    .clipShape(Capsule())
             case .pending:
                 EmptyView()
             }
-        } else {
-            EmptyView()
         }
     }
 
