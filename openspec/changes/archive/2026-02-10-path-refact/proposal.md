@@ -5,7 +5,7 @@
 ## What Changes
 
 - 引入两个独立目录概念：
-  - **appData**: 固定为 `~/Application Support/Pasty2`，仅用于应用级操作（不存放持久化数据）
+  - **appData**: 固定为 `~/Application Support/Pasty`，仅用于应用级操作（不存放持久化数据）
   - **clipboardData**: 用户可配置，默认为 `${appData}/ClipboardData`，用于存放 settings.json、history.sqlite3 和 images/
 - 迁移文件直接从 bundle 读取，不复制到 appData
 - 修改 SettingsManager 以支持两个独立目录

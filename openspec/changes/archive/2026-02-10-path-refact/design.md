@@ -1,6 +1,6 @@
 ## Context
 
-当前 Pasty2 应用的所有持久化数据（settings.json、database、images）和迁移文件都混合存储在同一个目录 `~/Application Support/Pasty2` 下。这种结构存在以下问题：
+当前 Pasty 应用的所有持久化数据（settings.json、database、images）和迁移文件都混合存储在同一个目录 `~/Application Support/Pasty` 下。这种结构存在以下问题：
 - 数据管理不便，无法清晰区分应用配置和用户数据
 - 迁移文件被复制到 appData，造成重复存储
 - 用户无法自定义剪贴板数据的存储位置
@@ -14,7 +14,7 @@
 
 **Goals:**
 - 将应用数据和剪贴板数据分离到两个独立目录
-- appData 固定在 `~/Application Support/Pasty2`，不存放持久化数据
+- appData 固定在 `~/Application Support/Pasty`，不存放持久化数据
 - clipboardData 支持用户自定义配置，默认为 `${appData}/ClipboardData`
 - 迁移文件直接从 bundle 读取，不复制
 - 修改路径相关代码，确保 Core 层使用 clipboardData 作为存储目录
@@ -188,20 +188,20 @@ if let bundlePath = bundlePath {
 static func appDataDirectory(fileManager: FileManager = .default) -> URL {
     let base = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
         ?? URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
-    let directory = base.appendingPathComponent("Pasty2", isDirectory: true)
+    let directory = base.appendingPathComponent("Pasty", isDirectory: true)
 
     do {
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
     } catch {
         return URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
-            .appendingPathComponent("Pasty2", isDirectory: true)
+            .appendingPathComponent("Pasty", isDirectory: true)
     }
 
     return directory
 }
 ```
 
-**修改方案**: 保持不变，返回 `~/Application Support/Pasty2` 作为 appData
+**修改方案**: 保持不变，返回 `~/Application Support/Pasty` 作为 appData
 
 ---
 

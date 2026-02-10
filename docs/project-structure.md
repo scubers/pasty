@@ -1,18 +1,18 @@
-# Pasty2 项目结构
+# Pasty 项目结构
 
 ## Declare (MUST FOLLOW)
 如果读取了本文档，**必须** 在回复我的时候在 **最后** 说：“我已阅读fileName。”。其中 fileName 为当前文件名
 
 ## 概述
 
-Pasty2 是一个跨平台剪贴板管理应用，采用 **C++ Core + 平台 Shell** 架构：
+Pasty 是一个跨平台剪贴板管理应用，采用 **C++ Core + 平台 Shell** 架构：
 - **C++ Core**：跨平台业务逻辑层，纯 C++17 实现
 - **Platform Shell**：各平台原生 UI 和系统集成层
 
 ## 目录结构
 
 ```
-pasty2/
+pasty/
 ├── core/                          # C++ 跨平台核心层
 │   ├── CMakeLists.txt            # CMake 构建配置（支持独立构建）
 │   ├── ARCHITECTURE.md           # Core 层架构与开发规范（目录结构以此为准）
@@ -54,7 +54,7 @@ pasty2/
 │   │   ├── project.yml           # XcodeGen 配置
 │   │   ├── Info.plist            # 应用配置
 │   │   ├── ARCHITECTURE.md       # macOS 层架构与开发规范（目录结构以此为准）
-│   │   ├── Pasty2.xcodeproj/     # 生成产物：Xcode 工程（不要手工编辑）
+│   │   ├── Pasty.xcodeproj/     # 生成产物：Xcode 工程（不要手工编辑）
 │   │   └── Sources/              # macOS 层源码
 │   │       ├── App.swift
 │   │       ├── Settings/         # 设置窗口与视图
@@ -73,7 +73,7 @@ pasty2/
 │   │   └── lib/libPastyCore.a
 │   └── macos/                     # macOS 编译产物
 │       └── Build/Products/Debug/
-│           ├── Pasty2.app        # 应用包
+│           ├── Pasty.app        # 应用包
 │           └── libPastyCore.a    # Core 静态库
 │
 ├── scripts/                       # 构建和工具脚本
@@ -99,7 +99,7 @@ pasty2/
 
 应用维护两个独立目录：
 
-1. **appData**: 固定为 `~/Application Support/Pasty2`
+1. **appData**: 固定为 `~/Application Support/Pasty`
    - 用于应用级操作
    - 不存放持久化用户数据
    - 通过 `AppPaths.appDataDirectory()` 获取
@@ -160,7 +160,7 @@ pasty2/
 
 4. **运行**
    ```bash
-   open build/macos/Build/Products/Debug/Pasty2.app
+   open build/macos/Build/Products/Debug/Pasty.app
    ```
 
 ### 其他平台

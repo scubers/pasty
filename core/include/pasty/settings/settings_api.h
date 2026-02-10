@@ -1,4 +1,4 @@
-// Pasty2 - Copyright (c) 2026. MIT License.
+// Pasty - Copyright (c) 2026. MIT License.
 
 #ifndef PASTY_SETTINGS_SETTINGS_API_H
 #define PASTY_SETTINGS_SETTINGS_API_H

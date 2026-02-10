@@ -34,7 +34,7 @@
 - [x] 3.6 创建 `platform/macos/Sources/View/` 目录
 - [x] 3.7 创建 `platform/macos/Sources/Utils/` 目录
 - [x] 3.8 运行 `cd platform/macos && xcodegen generate` 生成 Xcode 工程
-- [x] 3.9 验证 `platform/macos/Pasty2.xcodeproj` 已正确生成
+- [x] 3.9 验证 `platform/macos/Pasty.xcodeproj` 已正确生成
 - [x] 3.10 在 `platform/macos/Info.plist` 中添加 `LSUIElement` 键并设置为 `true`
 
 ## 4. Model 层实现
@@ -172,7 +172,7 @@
 - [x] 12.3 运行 `./scripts/platform-build-macos.sh Debug` 编译 macOS 平台层
 - [x] 12.4 验证 Core 层编译成功（无错误）
 - [x] 12.5 验证 macOS 平台层编译成功（无错误）
-- [x] 12.6 验证 `Pasty2.app` 已生成到 `build/macos/Build/Products/Debug/`
+- [x] 12.6 验证 `Pasty.app` 已生成到 `build/macos/Build/Products/Debug/`
 - [x] 12.7 验证 SPM 依赖已正确下载和链接
 - [x] 12.8 运行应用验证基本启动（无崩溃）
 - [x] 12.9 验证菜单栏图标显示正常

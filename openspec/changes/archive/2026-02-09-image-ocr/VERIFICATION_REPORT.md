@@ -220,7 +220,7 @@ ctest --test-dir build/core-tests --output-on-failure
 ./scripts/platform-build-macos.sh Debug
 ```
 **Result**: ✅ Success
-**Output**: `/Users/j/Documents/git-repo/pasty2/build/macos/Build/Products/Debug/Pasty2.app`
+**Output**: `/Users/j/Documents/git-repo/pasty/build/macos/Build/Products/Debug/Pasty.app`
 
 ### Migration Files
 

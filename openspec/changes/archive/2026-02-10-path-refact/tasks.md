@@ -116,7 +116,7 @@
 ## 17. AppPaths 保持不变
 
 - [x] 17.1 验证 `AppPaths.appDataDirectory()` 方法保持不变
-- [x] 17.2 确认返回 `~/Application Support/Pasty2` 路径
+- [x] 17.2 确认返回 `~/Application Support/Pasty` 路径
 - [x] 17.3 验证方法正确处理目录创建失败情况
 
 ## 18. Core 层测试

@@ -1,6 +1,6 @@
 ## Context
 
-这是 Pasty2 剪贴板应用的首个核心功能实现。当前项目采用 **C++ Core + Platform Shell** 架构：
+这是 Pasty 剪贴板应用的首个核心功能实现。当前项目采用 **C++ Core + Platform Shell** 架构：
 
 - **Core 层** (`core/`)：跨平台业务逻辑层，纯 C++17 实现，是数据模型与规则的唯一真相来源
 - **macOS 平台层** (`platform/macos/`)：thin shell，只做 UI、系统集成、适配器

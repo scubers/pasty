@@ -1,4 +1,4 @@
-# pasty2 Development Guidelines
+# pasty Development Guidelines
 
 ## FIRST: MUST READ AGENTS.md
 

@@ -1,4 +1,4 @@
-# Pasty2 macOS Design Specification
+# Pasty macOS Design Specification
 
 **Status**: Draft
 **Source**: `design-system/main-panel/v2-dark-mode.html`

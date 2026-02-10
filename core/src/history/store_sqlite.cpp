@@ -1,4 +1,4 @@
-// Pasty2 - Copyright (c) 2026. MIT License.
+// Pasty - Copyright (c) 2026. MIT License.
 
 #include <pasty/history/store.h>
 #include <pasty/logger.h>

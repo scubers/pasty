@@ -39,7 +39,7 @@ class App: NSObject, NSApplicationDelegate {
 
         // Initialize Core
         let version = pasty.ClipboardManager.getVersion()
-        LoggerService.info("Pasty2 Core v\(String(version))")
+        LoggerService.info("Pasty Core v\(String(version))")
         
         let settingsManager = SettingsManager.shared
         let clipboardDataPath = settingsManager.clipboardData.path

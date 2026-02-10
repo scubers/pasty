@@ -1,7 +1,7 @@
 # 设置面板设计系统 (Settings Panel Design System)
 
 ## 概述
-本文档定义了 Pasty2 设置面板的视觉设计系统，基于 HTML 原型 (`design-system/settings/index.html`)。设计采用了专为 macOS 定制的现代、深色模式、玻璃拟态美学风格。
+本文档定义了 Pasty 设置面板的视觉设计系统，基于 HTML 原型 (`design-system/settings/index.html`)。设计采用了专为 macOS 定制的现代、深色模式、玻璃拟态美学风格。
 
 ## 配色方案 (Color Palette)
 

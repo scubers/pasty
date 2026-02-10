@@ -97,7 +97,7 @@
 #### Scenario: 初始化双目录
 
 - **WHEN** SettingsManager 初始化
-- **THEN** 系统 MUST 设置 `appData` 为固定路径 `~/Application Support/Pasty2`
+- **THEN** 系统 MUST 设置 `appData` 为固定路径 `~/Application Support/Pasty`
 - **AND** 系统 MUST 从 UserDefaults 读取 "PastyClipboardDataDirectory" key
 - **AND** 系统 MUST 设置 `clipboardData` 为读取值或默认值 `${appData}/ClipboardData`
 - **AND** 系统 MUST 确保 `appData` 不是 `@Published` 属性（固定不变）

@@ -1,4 +1,4 @@
-// Pasty2 - Copyright (c) 2026. MIT License.
+// Pasty - Copyright (c) 2026. MIT License.
 
 #include "pasty/settings/settings_api.h"
 #include "pasty/api/history_api.h"

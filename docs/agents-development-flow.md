@@ -5,7 +5,7 @@
 
 ## 概述
 
-本文档定义 AI Agent 在 Pasty2 项目中进行开发工作的标准流程。所有 AI Agent 必须严格遵循此流程，确保代码质量和项目一致性。
+本文档定义 AI Agent 在 Pasty 项目中进行开发工作的标准流程。所有 AI Agent 必须严格遵循此流程，确保代码质量和项目一致性。
 
 ---
 
@@ -169,7 +169,7 @@ docs/project-structure.md        # 项目结构
 ```
 build/
 ├── macos/Build/Products/Debug/
-│   ├── Pasty2.app          # macOS 应用
+│   ├── Pasty.app          # macOS 应用
 │   └── libPastyCore.a      # Core 静态库
 ├── windows/                 # Windows 产物
 ├── ios/                     # iOS 产物

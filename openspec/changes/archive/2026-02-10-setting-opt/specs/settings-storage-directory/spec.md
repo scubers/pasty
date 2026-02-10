@@ -59,6 +59,6 @@
 
 #### Scenario: 存储目录无效时回退
 - **WHEN** 系统检测到当前存储目录不可访问或不可写
-- **THEN** 系统自动切换到默认存储目录（~/Library/Application Support/Pasty2）
+- **THEN** 系统自动切换到默认存储目录（~/Library/Application Support/Pasty）
 - **AND** 系统显示警告消息，说明已回退到默认目录
 - **AND** 系统将默认目录路径保存到用户偏好设置中

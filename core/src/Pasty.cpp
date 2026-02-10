@@ -1,4 +1,4 @@
-// Pasty2 - Copyright (c) 2026. MIT License.
+// Pasty - Copyright (c) 2026. MIT License.
 
 #include <pasty/pasty.h>
 #include <pasty/history/history.h>
@@ -15,7 +15,7 @@
 namespace pasty {
 
 static const char* VERSION = "0.1.0";
-static const char* APP_NAME = "Pasty2";
+static const char* APP_NAME = "Pasty";
 static std::string HISTORY_STORAGE_DIRECTORY = "./build/history";
 static std::unique_ptr<ClipboardHistory> HISTORY_SUBSYSTEM;
 

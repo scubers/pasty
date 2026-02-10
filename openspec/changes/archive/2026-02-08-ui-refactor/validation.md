@@ -20,7 +20,7 @@ Panel transparency/glass baseline:
 
 ## Manual Regression Checklist (Task 1.3)
 
-Use this checklist for local interactive run (`open build/macos/Build/Products/Debug/Pasty2.app`):
+Use this checklist for local interactive run (`open build/macos/Build/Products/Debug/Pasty.app`):
 
 1. Toggle panel from hotkey and menu bar entry.
 2. Press Esc to close panel when active.

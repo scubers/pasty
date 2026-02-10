@@ -8,7 +8,7 @@ BUILD_DIR="$PROJECT_ROOT/build"
 PLATFORM=${1:-all}
 CONFIG=${2:-Debug}
 
-echo "=== Pasty2 Build Script ==="
+echo "=== Pasty Build Script ==="
 echo "Platform: $PLATFORM"
 echo "Configuration: $CONFIG"
 echo ""

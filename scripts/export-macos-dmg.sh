@@ -7,7 +7,7 @@ BUILD_DIR="$PROJECT_ROOT/build/macos"
 DMG_OUTPUT_DIR="$PROJECT_ROOT/dist"
 
 CONFIG=${1:-Release}
-APP_NAME="Pasty2"
+APP_NAME="Pasty"
 VOLUME_NAME="$APP_NAME"
 
 APP_PATH="$BUILD_DIR/Build/Products/$CONFIG/$APP_NAME.app"
@@ -16,11 +16,11 @@ DMG_PATH="$DMG_OUTPUT_DIR/${APP_NAME}-${CONFIG}.dmg"
 WORK_DIR=$(mktemp -d)
 trap "rm -rf $WORK_DIR" EXIT
 
-echo "=== Building Pasty2 macOS ==="
+echo "=== Building Pasty macOS ==="
 "$SCRIPT_DIR/platform-build-macos.sh" "$CONFIG"
 
 echo ""
-echo "=== Exporting Pasty2 macOS DMG ==="
+echo "=== Exporting Pasty macOS DMG ==="
 echo "Configuration: $CONFIG"
 echo "App path: $APP_PATH"
 echo "DMG output: $DMG_PATH"

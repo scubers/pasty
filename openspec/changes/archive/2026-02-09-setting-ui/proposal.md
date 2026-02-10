@@ -2,7 +2,7 @@
 
 ## Why
 
-目前设置面板使用标准的系统控件，视觉风格不够统一且缺乏品牌特色。为了提升用户体验，我们需要根据 `design-system/settings` 下的设计规范和 `index.html` 原型，将设置面板重构为现代、深色模式、玻璃拟态（Glassmorphism）风格，确保与 Pasty2 的整体视觉语言保持一致。
+目前设置面板使用标准的系统控件，视觉风格不够统一且缺乏品牌特色。为了提升用户体验，我们需要根据 `design-system/settings` 下的设计规范和 `index.html` 原型，将设置面板重构为现代、深色模式、玻璃拟态（Glassmorphism）风格，确保与 Pasty 的整体视觉语言保持一致。
 
 ## What Changes
 

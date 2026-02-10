@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "=== Pasty2 Requirements Installation ==="
+echo "=== Pasty Requirements Installation ==="
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
     echo "Detected macOS"

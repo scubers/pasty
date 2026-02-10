@@ -13,7 +13,7 @@
 #### Scenario: 应用启动初始化
 
 - **WHEN** 应用首次启动
-- **THEN** 系统 MUST 将 appData 设置为 `~/Application Support/Pasty2`
+- **THEN** 系统 MUST 将 appData 设置为 `~/Application Support/Pasty`
 - **AND** 系统 MUST 将 clipboardData 设置为默认值 `${appData}/ClipboardData`
 - **AND** 系统 MUST 创建必要的目录结构
 

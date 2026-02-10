@@ -1,4 +1,4 @@
-# C++ Core Architecture (Pasty2)
+# C++ Core Architecture (Pasty)
 
 本文件定义 `core/` 层的架构、目录约定、构建方式及开发规范。若其它文档与本文件冲突，以本文件为准。
 
@@ -173,7 +173,7 @@ CMake 配置要点：
 #define PASTY_HISTORY_TYPES_H
 
 // 版权声明
-// Pasty2 - Copyright (c) 2026. MIT License.
+// Pasty - Copyright (c) 2026. MIT License.
 
 // 内容...
 

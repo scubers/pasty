@@ -30,7 +30,7 @@ Pasty 目前依赖分散的 `std::cout` 和 `print` 进行调试，缺乏统一�
     *   **Console**: 使用 `DDOSLogger` 输出到系统控制台 (Console.app)，方便开发调试。
     *   **File**: 使用 `DDFileLogger` 输出到本地文件，用于持久化记录和用户反馈。
 *   **文件存储路径**:
-    *   路径: `~/Library/Application Support/Pasty2/Logs` (即 `AppPaths.appDataDirectory/Logs`)。
+    *   路径: `~/Library/Application Support/Pasty/Logs` (即 `AppPaths.appDataDirectory/Logs`)。
     *   策略: 每日滚动，保留最近 7 天日志，单个文件最大 10MB。
 *   **适配器**: 创建 `LoggerService` 单例。
     *   初始化 CocoaLumberjack (`DDLog`, `DDFileLogger`, `DDOSLogger`)。

@@ -22,7 +22,7 @@ TBD
 #### Scenario: 文件输出
 - **WHEN** 产生日志时
 - **THEN** 系统 **必须** 使用 `DDFileLogger` 将日志写入本地文件
-- **AND** 文件路径 **必须** 为 `~/Library/Application Support/Pasty2/Logs`
+- **AND** 文件路径 **必须** 为 `~/Library/Application Support/Pasty/Logs`
 
 ### Requirement: 文件轮转策略
 系统 **必须** 对日志文件实施轮转策略以管理磁盘空间。

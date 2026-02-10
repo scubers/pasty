@@ -2,7 +2,7 @@
 
 ## Context
 
-Pasty2 当前的设置面板基于标准的 macOS `TabView` 和系统控件，视觉风格平淡且与主应用现代化的设计语言不符。我们需要根据新的 Design System (`design-system/settings/index.html`) 对设置面板进行彻底的 UI 重构。
+Pasty 当前的设置面板基于标准的 macOS `TabView` 和系统控件，视觉风格平淡且与主应用现代化的设计语言不符。我们需要根据新的 Design System (`design-system/settings/index.html`) 对设置面板进行彻底的 UI 重构。
 
 ## Goals / Non-Goals
 

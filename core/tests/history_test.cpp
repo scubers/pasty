@@ -127,7 +127,7 @@ void testRetentionRespectsSettings() {
 void testMigrationDirectoryControlsLookup() {
     std::cout << "Running testMigrationDirectoryControlsLookup..." << std::endl;
 
-    pasty_history_set_migration_directory("/tmp/pasty2-missing-migrations");
+    pasty_history_set_migration_directory("/tmp/pasty-missing-migrations");
     {
         auto invalidStore = pasty::createClipboardHistoryStore();
         pasty::ClipboardHistory invalidHistory(std::move(invalidStore));

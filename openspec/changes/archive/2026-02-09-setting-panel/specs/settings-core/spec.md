@@ -5,7 +5,7 @@
 
 #### Scenario: 首次启动使用默认目录
 - **WHEN** 应用首次启动
-- **THEN** 设置目录 SHALL 默认为 `~/Library/Application Support/Pasty2/`
+- **THEN** 设置目录 SHALL 默认为 `~/Library/Application Support/Pasty/`
 - **AND** 目录路径 SHALL 存入 UserDefaults
 
 #### Scenario: 更改设置目录

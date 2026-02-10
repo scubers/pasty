@@ -1,6 +1,6 @@
 ## Context
 
-Pasty2 是一个跨平台剪贴板管理应用，采用 **C++ Core + 平台 Shell** 架构：
+Pasty 是一个跨平台剪贴板管理应用，采用 **C++ Core + 平台 Shell** 架构：
 
 - **C++ Core**：位于 `core/` 目录，包含可移植的业务逻辑和数据存储
   - 数据存储使用 SQLite，通过迁移文件管理 schema 变更

@@ -1,4 +1,4 @@
-# macOS Shell Architecture (Pasty2)
+# macOS Shell Architecture (Pasty)
 
 本文件定义 `platform/macos/` 下 macOS 工程的架构、目录约定、以及开发规范。若其它文档与本文件冲突，以本文件为准。
 
@@ -17,7 +17,7 @@
 - 生成工程：在 `platform/macos/` 目录执行 `xcodegen generate`。
 - 工程内包含两个关键 target：
   - `PastyCore`：静态库，直接编译 `core/src`，并公开 `core/include` 头文件
-  - `Pasty2`：macOS App，依赖 `PastyCore`
+  - `Pasty`：macOS App，依赖 `PastyCore`
 - Swift 调用 Core 的方式：
   - `import PastyCore`
   - Core Swift 模块由 `core/include/module.modulemap` 定义
@@ -139,7 +139,7 @@ Combine 约定：
 platform/macos/
 ├── project.yml                 # XcodeGen 配置（生成 Xcode 工程）
 ├── Info.plist                  # 应用配置
-├── Pasty2.xcodeproj/           # 生成产物：Xcode 工程（不要手工编辑）
+├── Pasty.xcodeproj/           # 生成产物：Xcode 工程（不要手工编辑）
 ├── Sources/                    # macOS 层源码（新代码必须放这里）
 │   ├── App.swift               # 应用入口与依赖组装（Composition Root）
 │   ├── Settings/               # 设置窗口与视图 (SwiftUI hosting in WindowController)
@@ -222,7 +222,7 @@ platform/macos/
 
 ## 额外规范
 
-- 生成工程产物（如 `platform/macos/Pasty2.xcodeproj/`）视为生成文件：原则上不手工编辑。
+- 生成工程产物（如 `platform/macos/Pasty.xcodeproj/`）视为生成文件：原则上不手工编辑。
 - 不引入新第三方依赖，除非得到明确批准。
 - 修改 `platform/macos/` 后应运行 `scripts/platform-build-macos.sh` 验证可编译（见 `docs/agents-development-flow.md`）。
 - 禁止滥用全局通知（`NotificationCenter`），业务交互使用 Coordinator 模式实现。
@@ -239,6 +239,6 @@ macOS 层集成 `CocoaLumberjack` 进行日志记录，但必须通过 `LoggerSe
 - **禁止**使用 `print` / `NSLog`。
 - 日志输出目标：
   - 控制台 (Console.app)
-  - 文件 (`~/Library/Application Support/Pasty2/Logs`)
+  - 文件 (`~/Library/Application Support/Pasty/Logs`)
 - 日志服务 (`LoggerService`) 负责初始化和桥接 Core 日志。
 

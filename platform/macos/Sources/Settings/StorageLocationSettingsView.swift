@@ -45,7 +45,7 @@ struct StorageLocationSettingsView: View {
             }
             Button("Later", role: .cancel) {}
         } message: {
-            Text("Pasty2 needs to restart to use the new storage location.")
+            Text("Pasty needs to restart to use the new storage location.")
         }
         .alert("Error", isPresented: $showingErrorAlert) {
             Button("OK", role: .cancel) {}

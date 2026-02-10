@@ -32,6 +32,6 @@
 ## 5. 验证
 
 - [x] 5.1 运行 macOS 应用，验证控制台是否有格式化日志。
-- [x] 5.2 检查 `~/Library/Application Support/Pasty2/Logs` 是否生成日志文件。
+- [x] 5.2 检查 `~/Library/Application Support/Pasty/Logs` 是否生成日志文件。
 - [x] 5.3 触发 OCR 和数据库操作，验证关键日志是否按预期记录。
 - [x] 5.4 验证 Release 模式下 DEBUG 日志是否被过滤。

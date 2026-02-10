@@ -7,7 +7,7 @@ final class MainPanelImageLoader: ObservableObject {
     @Published private(set) var image: NSImage?
     @Published private(set) var isLoading = false
 
-    private let queue = DispatchQueue(label: "com.pasty2.main-panel.image-loader", qos: .userInitiated)
+    private let queue = DispatchQueue(label: "com.pasty.main-panel.image-loader", qos: .userInitiated)
     private let cache = NSCache<NSString, NSImage>()
     private var workItem: DispatchWorkItem?
     private var currentPath: String?

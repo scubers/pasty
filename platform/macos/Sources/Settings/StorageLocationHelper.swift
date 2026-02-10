@@ -9,7 +9,7 @@ struct StorageLocationHelper {
         panel.canChooseDirectories = true
         panel.canCreateDirectories = true
         panel.prompt = "Select"
-        panel.message = "Select a new location for Pasty2 settings and data"
+        panel.message = "Select a new location for Pasty settings and data"
 
         panel.begin { response in
             if response == .OK, let url = panel.url {
