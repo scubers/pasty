@@ -7,10 +7,16 @@ BUILD_DIR="$PROJECT_ROOT/build/macos"
 DMG_OUTPUT_DIR="$PROJECT_ROOT/dist"
 
 CONFIG=${1:-Release}
-APP_NAME="Pasty"
+
+if [ "$CONFIG" = "Debug" ]; then
+    APP_NAME="PastyDebug"
+else
+    APP_NAME="Pasty"
+fi
+
 VOLUME_NAME="$APP_NAME"
 
-APP_PATH="$BUILD_DIR/Build/Products/$CONFIG/$APP_NAME.app"
+APP_PATH="$BUILD_DIR/Build/Products/$CONFIG/${APP_NAME}.app"
 DMG_PATH="$DMG_OUTPUT_DIR/${APP_NAME}-${CONFIG}.dmg"
 
 WORK_DIR=$(mktemp -d)

@@ -8,8 +8,15 @@ BUILD_DIR="$PROJECT_ROOT/build/macos"
 
 CONFIG=${1:-Debug}
 
+if [ "$CONFIG" = "Debug" ]; then
+    APP_NAME="PastyDebug"
+else
+    APP_NAME="Pasty"
+fi
+
 echo "=== Building Pasty macOS ==="
 echo "Configuration: $CONFIG"
+echo "App name: $APP_NAME"
 
 cd "$MACOS_DIR"
 
@@ -25,7 +32,7 @@ xcodebuild -project Pasty.xcodeproj \
     -derivedDataPath "$BUILD_DIR" \
     build
 
-APP_PATH="$BUILD_DIR/Build/Products/$CONFIG/Pasty.app"
+APP_PATH="$BUILD_DIR/Build/Products/$CONFIG/${APP_NAME}.app"
 if [ -d "$APP_PATH" ]; then
     echo ""
     echo "=== Build successful ==="
