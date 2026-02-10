@@ -226,3 +226,19 @@ platform/macos/
 - 不引入新第三方依赖，除非得到明确批准。
 - 修改 `platform/macos/` 后应运行 `scripts/platform-build-macos.sh` 验证可编译（见 `docs/agents-development-flow.md`）。
 - 禁止滥用全局通知（`NotificationCenter`），业务交互使用 Coordinator 模式实现。
+
+## 日志规范
+
+macOS 层集成 `CocoaLumberjack` 进行日志记录，但必须通过 `LoggerService` 封装调用。
+
+- **必须**通过 `LoggerService` 记录日志：
+  - `LoggerService.info("Application started")`
+  - `LoggerService.error("Failed to load settings: \(error)")`
+  - `LoggerService.debug("Debug info")`
+- **禁止**直接使用 `DDLog*` 宏或 `import CocoaLumberjack`（除 `LoggerService` 内部外）。
+- **禁止**使用 `print` / `NSLog`。
+- 日志输出目标：
+  - 控制台 (Console.app)
+  - 文件 (`~/Library/Application Support/Pasty2/Logs`)
+- 日志服务 (`LoggerService`) 负责初始化和桥接 Core 日志。
+

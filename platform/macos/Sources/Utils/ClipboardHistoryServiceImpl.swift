@@ -33,6 +33,7 @@ final class ClipboardHistoryServiceImpl: ClipboardHistoryService {
                 let success = pasty_history_search(query, Int32(limit), Int32(self.previewLength), contentType, includeOcr, &outJson)
 
                 if !success {
+                    LoggerService.error("History search failed (core returned false)")
                     promise(.failure(NSError(domain: "ClipboardHistoryError", code: -1, userInfo: nil)))
                     return
                 }
@@ -49,6 +50,7 @@ final class ClipboardHistoryServiceImpl: ClipboardHistoryService {
 
                 let jsonString = String(cString: jsonStr)
                 guard let data = jsonString.data(using: .utf8) else {
+                    LoggerService.error("History search result invalid UTF8")
                     promise(.failure(NSError(domain: "ClipboardHistoryError", code: -2, userInfo: [NSLocalizedDescriptionKey: "Invalid UTF8"])))
                     return
                 }
@@ -58,6 +60,7 @@ final class ClipboardHistoryServiceImpl: ClipboardHistoryService {
                     self.setCachedValue(items, for: cacheKey)
                     promise(.success(items))
                 } catch {
+                    LoggerService.error("History search decode failed: \(error)")
                     promise(.failure(error))
                 }
             }
@@ -101,9 +104,11 @@ final class ClipboardHistoryServiceImpl: ClipboardHistoryService {
                     pasty_history_delete(pointer)
                 }
                 if deleted {
+                    LoggerService.info("Deleted history item: \(id)")
                     self.invalidateSearchCache()
                     promise(.success(()))
                 } else {
+                    LoggerService.error("Failed to delete history item: \(id)")
                     promise(.failure(NSError(domain: "ClipboardHistoryError", code: -4, userInfo: [NSLocalizedDescriptionKey: "Delete failed"])))
                 }
             }

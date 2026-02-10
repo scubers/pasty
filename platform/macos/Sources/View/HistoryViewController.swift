@@ -106,7 +106,7 @@ final class HistoryViewController: NSViewController, NSTableViewDataSource, NSTa
         do {
             items = try JSONDecoder().decode([HistoryItemViewModel].self, from: data)
         } catch {
-            print("[history-ui] failed to decode list: \(error)")
+            LoggerService.error("[history-ui] failed to decode list: \(error)")
             items = []
         }
 

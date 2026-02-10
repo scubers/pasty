@@ -33,9 +33,13 @@ class App: NSObject, NSApplicationDelegate {
     private var lastSettingsWarningShown: String?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Initialize Logger
+        LoggerService.shared.setup()
+        LoggerService.info("Application started")
+
         // Initialize Core
         let version = pasty.ClipboardManager.getVersion()
-        print("Pasty2 Core v\(String(version))")
+        LoggerService.info("Pasty2 Core v\(String(version))")
         
         let settingsManager = SettingsManager.shared
         let clipboardDataPath = settingsManager.clipboardData.path
@@ -63,9 +67,9 @@ class App: NSObject, NSApplicationDelegate {
         clipboardDataPath.withCString { pointer in
             pasty_history_set_storage_directory(pointer)
         }
-
+        
         if clipboardManager.initialize() {
-            print("Core initialized successfully")
+            LoggerService.info("Core initialized successfully")
         }
         
         // UI Setup
@@ -110,6 +114,7 @@ class App: NSObject, NSApplicationDelegate {
     }
     
     func applicationWillTerminate(_ notification: Notification) {
+        LoggerService.info("Application terminating")
         clipboardWatcher.stop()
         if let localEventMonitor {
             NSEvent.removeMonitor(localEventMonitor)

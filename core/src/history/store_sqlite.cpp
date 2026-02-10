@@ -1,6 +1,7 @@
 // Pasty2 - Copyright (c) 2026. MIT License.
 
 #include <pasty/history/store.h>
+#include <pasty/logger.h>
 
 #include <cstddef>
 #include <chrono>
@@ -9,7 +10,6 @@
 #include <filesystem>
 #include <fstream>
 #include <functional>
-#include <iostream>
 #include <algorithm>
 #include <sstream>
 #include <sys/stat.h>
@@ -32,10 +32,6 @@ bool ensureDirectoryExists(const std::string& path) {
     std::error_code ec;
     std::filesystem::create_directories(path, ec);
     return !ec;
-}
-
-void logStoreMessage(const std::string& message) {
-    std::cerr << "[core.store] " << message << std::endl;
 }
 
 std::string truncateUtf8(const std::string& value, std::size_t maxCodePoints) {
@@ -104,11 +100,11 @@ public:
         m_dbPath = m_baseDirectory + "/history.sqlite3";
 
         if (!ensureDirectoryExists(m_baseDirectory)) {
-            logStoreMessage("failed to ensure base directory");
+            PASTY_LOG_ERROR("Core.Store", "Failed to ensure base directory: %s", m_baseDirectory.c_str());
             return false;
         }
         if (!ensureDirectoryExists(m_assetsDirectory)) {
-            logStoreMessage("failed to ensure assets directory");
+            PASTY_LOG_ERROR("Core.Store", "Failed to ensure assets directory: %s", m_assetsDirectory.c_str());
             return false;
         }
 
@@ -124,7 +120,7 @@ public:
         }
 
         if (migrateSchema()) {
-            logStoreMessage("open + migrate succeeded");
+            PASTY_LOG_INFO("Core.Store", "Database opened and migrated successfully: %s", m_dbPath.c_str());
             return true;
         }
 
@@ -167,12 +163,12 @@ public:
         sqlite3_finalize(statement);
 
         if (!ok) {
-            logStoreMessage("upsert text failed");
+            PASTY_LOG_ERROR("Core.Store", "Upsert text failed");
             return std::string();
         }
 
         enforceRetentionUnlocked(m_itemsLimit);
-        logStoreMessage("upsert text succeeded");
+        PASTY_LOG_DEBUG("Core.Store", "Upsert text succeeded. ID: %s", item.id.c_str());
         return item.id;
     }
 
@@ -197,7 +193,7 @@ public:
                         "SET update_time_ms = ?1, last_copy_time_ms = ?2, source_app_id = ?3, metadata = ?5 "
                         "WHERE id = ?4;";
                     if (sqlite3_prepare_v2(m_db, updateSql, -1, &update, nullptr) != SQLITE_OK) {
-                        logStoreMessage("upsert image dedupe update prepare failed");
+                        PASTY_LOG_ERROR("Core.Store", "Upsert image dedupe update prepare failed");
                         return std::string();
                     }
                     sqlite3_bind_int64(update, 1, item.updateTimeMs);
@@ -208,11 +204,11 @@ public:
                     const bool updated = sqlite3_step(update) == SQLITE_DONE;
                     sqlite3_finalize(update);
                     if (!updated) {
-                        logStoreMessage("upsert image dedupe update failed");
+                        PASTY_LOG_ERROR("Core.Store", "Upsert image dedupe update failed. ID: %s", existingId.c_str());
                         return std::string();
                     }
                     enforceRetentionUnlocked(m_itemsLimit);
-                    logStoreMessage("upsert image dedupe hit");
+                    PASTY_LOG_DEBUG("Core.Store", "Upsert image dedupe hit. ID: %s", existingId.c_str());
                     return existingId;
                 }
                 sqlite3_finalize(existing);
@@ -245,12 +241,12 @@ public:
 
         if (!ok) {
             deleteAsset(relativePath);
-            logStoreMessage("upsert image insert failed");
+            PASTY_LOG_ERROR("Core.Store", "Upsert image insert failed");
             return std::string();
         }
 
         enforceRetentionUnlocked(m_itemsLimit);
-        logStoreMessage("upsert image inserted");
+        PASTY_LOG_DEBUG("Core.Store", "Upsert image inserted. ID: %s", item.id.c_str());
         return item.id;
     }
 
@@ -668,7 +664,7 @@ private:
         sqlite3_finalize(statement);
 
         if (!ok) {
-            logStoreMessage("delete item failed");
+            PASTY_LOG_ERROR("Core.Store", "Delete item failed. ID: %s", id.c_str());
             return false;
         }
 
@@ -730,7 +726,7 @@ private:
 
         for (size_t i = currentVersion; i < migrations.size(); ++i) {
             if (!migrations[i]()) {
-                logStoreMessage("migration failed at version " + std::to_string(i + 1));
+                PASTY_LOG_ERROR("Core.Store", "Migration failed at version %zu", i + 1);
                 return false;
             }
         }
@@ -740,27 +736,29 @@ private:
 
     bool applyMigration(int /*targetVersion*/, const std::string& migrationFile) {
         if (g_migration_directory.empty()) {
-            logStoreMessage("migration directory is not configured");
+            PASTY_LOG_ERROR("Core.Store", "Migration directory is not configured");
             return false;
         }
 
         const std::string migrationPath = g_migration_directory + "/" + migrationFile;
         std::ifstream file(migrationPath);
         if (!file.is_open()) {
-            logStoreMessage("migration file not found: " + migrationPath);
+            PASTY_LOG_ERROR("Core.Store", "Migration file not found: %s", migrationPath.c_str());
             return false;
         }
 
         const std::string sql((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
 
         char* error = nullptr;
+        PASTY_LOG_INFO("Core.Store", "Applying migration: %s", migrationFile.c_str());
+        
         if (sqlite3_exec(m_db, "BEGIN TRANSACTION;", nullptr, nullptr, &error) != SQLITE_OK) {
              sqlite3_free(error);
              return false;
         }
 
         if (sqlite3_exec(m_db, sql.c_str(), nullptr, nullptr, &error) != SQLITE_OK) {
-            logStoreMessage("migration SQL error: " + std::string(error ? error : "unknown"));
+            PASTY_LOG_ERROR("Core.Store", "Migration SQL error in %s: %s", migrationFile.c_str(), error ? error : "unknown");
             sqlite3_free(error);
             sqlite3_exec(m_db, "ROLLBACK;", nullptr, nullptr, nullptr);
             return false;
@@ -775,7 +773,7 @@ private:
     }
 
     bool recreateFromCorruption() {
-        logStoreMessage("attempting sqlite recreation after open/migrate failure");
+        PASTY_LOG_WARN("Core.Store", "Attempting sqlite recreation after open/migrate failure");
 
         const std::string brokenPath = m_dbPath + ".broken";
         std::remove(brokenPath.c_str());
@@ -789,12 +787,16 @@ private:
         );
         if (openResult != SQLITE_OK || m_db == nullptr) {
             closeUnlocked();
-            logStoreMessage("sqlite recreation failed");
+            PASTY_LOG_ERROR("Core.Store", "SQLite recreation failed");
             return false;
         }
 
         const bool migrated = migrateSchema();
-        logStoreMessage(migrated ? "sqlite recreation succeeded" : "sqlite recreation migrate failed");
+        if (migrated) {
+            PASTY_LOG_INFO("Core.Store", "SQLite recreation succeeded");
+        } else {
+            PASTY_LOG_ERROR("Core.Store", "SQLite recreation migrate failed");
+        }
         return migrated;
     }
 

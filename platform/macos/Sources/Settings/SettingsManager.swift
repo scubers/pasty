@@ -212,7 +212,7 @@ class SettingsManager: ObservableObject {
             
             syncToCore()
         } catch {
-            print("Failed to save settings: \(error)")
+            LoggerService.error("Failed to save settings: \(error)")
         }
     }
     

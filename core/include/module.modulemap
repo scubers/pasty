@@ -7,6 +7,7 @@ module PastyCore {
     header "pasty/history/history.h"
     header "pasty/api/history_api.h"
     header "pasty/settings/settings_api.h"
+    header "pasty/logger.h"
     requires cplusplus
     export *
 }

@@ -97,10 +97,13 @@ final class MainPanelViewModel: ObservableObject {
         case .selectFirstIfNeeded:
             selectFirstIfNeeded()
         case .deleteSelectedConfirmed:
+            LoggerService.info("Action: deleteSelectedConfirmed")
             deleteSelectedConfirmed()
         case .copySelected:
+            LoggerService.info("Action: copySelected")
             copySelected()
         case .pasteSelectedAndClose:
+            LoggerService.info("Action: pasteSelectedAndClose")
             pasteSelectedAndClose()
         case .prepareDeleteSelected:
             state.pendingDeleteItem = state.selectedItem
@@ -156,6 +159,7 @@ final class MainPanelViewModel: ObservableObject {
                     }
                     self.state.isLoading = false
                     if case let .failure(error) = completion {
+                        LoggerService.error("Search failed: \(error.localizedDescription)")
                         self.state.errorMessage = error.localizedDescription
                     }
                 },
@@ -191,6 +195,7 @@ final class MainPanelViewModel: ObservableObject {
             .sink(
                 receiveCompletion: { [weak self] completion in
                     if let self, case let .failure(error) = completion {
+                        LoggerService.error("Failed to load full item: \(error.localizedDescription)")
                         self.state.errorMessage = error.localizedDescription
                     }
                 },

@@ -2,11 +2,11 @@
 
 #include <pasty/history/history.h>
 #include <pasty/settings/settings_api.h>
+#include <pasty/logger.h>
 
 #include <chrono>
 #include <cstdint>
 #include <iomanip>
-#include <iostream>
 #include <sstream>
 
 namespace {
@@ -71,10 +71,6 @@ std::string makeItemId(std::int64_t timestampMs, const std::string& sourceAppId,
     return toHex(hashed);
 }
 
-void logHistoryMessage(const std::string& message) {
-    std::cerr << "[core.history] " << message << std::endl;
-}
-
 }
 
 namespace pasty {
@@ -126,7 +122,8 @@ bool ClipboardHistory::ingest(const ClipboardHistoryIngestEvent& event) {
     }
 
     if (event.flags.isFileOrFolderReference || event.flags.isTransient || event.flags.isConcealed) {
-        logHistoryMessage("skipped clipboard item due to privacy or file-reference flags");
+        PASTY_LOG_INFO("Core.History", "Skipped item. Flags: file=%d transient=%d concealed=%d", 
+            event.flags.isFileOrFolderReference, event.flags.isTransient, event.flags.isConcealed);
         return true;
     }
 
@@ -151,9 +148,11 @@ bool ClipboardHistory::ingest(const ClipboardHistoryIngestEvent& event) {
         const std::string id = m_store->upsertImageItem(item, event.image.bytes);
         const bool ok = !id.empty();
         if (ok) {
+            PASTY_LOG_INFO("Core.History", "Stored image item. ID: %s, Size: %dx%d", item.id.c_str(), item.imageWidth, item.imageHeight);
             m_store->enforceRetention(pasty_settings_get_max_history_count());
+        } else {
+            PASTY_LOG_ERROR("Core.History", "Failed to store image item. ID: %s", item.id.c_str());
         }
-        logHistoryMessage(ok ? "stored image item" : "failed to store image item");
         return ok;
     }
 
@@ -162,9 +161,11 @@ bool ClipboardHistory::ingest(const ClipboardHistoryIngestEvent& event) {
     const std::string id = m_store->upsertTextItem(item);
     const bool ok = !id.empty();
     if (ok) {
+        PASTY_LOG_INFO("Core.History", "Stored text item. ID: %s, Length: %zu", item.id.c_str(), item.content.size());
         m_store->enforceRetention(pasty_settings_get_max_history_count());
+    } else {
+        PASTY_LOG_ERROR("Core.History", "Failed to store text item. ID: %s", item.id.c_str());
     }
-    logHistoryMessage(ok ? "stored text item" : "failed to store text item");
     return ok;
 }
 
@@ -245,7 +246,13 @@ bool ClipboardHistory::deleteById(const std::string& id) {
         return false;
     }
 
-    return m_store->deleteItem(id);
+    bool success = m_store->deleteItem(id);
+    if (success) {
+        PASTY_LOG_INFO("Core.History", "Deleted item. ID: %s", id.c_str());
+    } else {
+        PASTY_LOG_WARN("Core.History", "Failed to delete item. ID: %s", id.c_str());
+    }
+    return success;
 }
 
 bool ClipboardHistory::enforceRetention(std::int32_t maxCount) {

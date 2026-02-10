@@ -80,9 +80,12 @@ final class OCRService {
             scheduleNextCheck(after: 10)
             return
         }
+        
+        LoggerService.info("OCRService: Starting task \(task.id)")
 
         isProcessing = true
         guard markProcessing(id: task.id) else {
+            LoggerService.error("OCRService: Failed to mark processing for task \(task.id)")
             isProcessing = false
             scheduleNextCheck(after: 2)
             return
@@ -95,8 +98,10 @@ final class OCRService {
             self.queue.async {
                 switch result {
                 case let .success(text):
+                    LoggerService.info("OCRService: Task \(task.id) completed")
                     _ = self.reportSuccess(id: task.id, text: text)
-                case .failure:
+                case let .failure(error):
+                    LoggerService.error("OCRService: Task \(task.id) failed: \(error.localizedDescription)")
                     _ = self.reportFailure(id: task.id)
                 }
 
@@ -150,6 +155,7 @@ final class OCRService {
     }
 
     private func performOCR(imagePath: String, completion: @escaping (Result<String, Error>) -> Void) {
+        let startTime = CFAbsoluteTimeGetCurrent()
         let absolutePath = SettingsManager.shared.clipboardData.appendingPathComponent(imagePath).path
         guard let image = NSImage(contentsOfFile: absolutePath) else {
             completion(.failure(NSError(domain: "OCRService", code: -10)))
@@ -173,6 +179,9 @@ final class OCRService {
                 return
             }
             timeout.cancel()
+            
+            let duration = CFAbsoluteTimeGetCurrent() - startTime
+            LoggerService.debug("OCRService: OCR processing finished in \(String(format: "%.3f", duration))s")
 
             if let error {
                 completion(.failure(error))

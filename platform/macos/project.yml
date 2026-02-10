@@ -15,6 +15,9 @@ packages:
   SnapKit:
     url: https://github.com/SnapKit/SnapKit
     from: "5.0.0"
+  CocoaLumberjack:
+    url: https://github.com/CocoaLumberjack/CocoaLumberjack.git
+    from: "3.8.0"
 
 settings:
   base:
@@ -35,6 +38,9 @@ targets:
         compilerFlags:
           - -Wall
       - path: ../../core/src/settings
+        compilerFlags:
+          - -Wall
+      - path: ../../core/src/logger.cpp
         compilerFlags:
           - -Wall
       - path: ../../core/include/pasty
@@ -82,3 +88,5 @@ targets:
       - sdk: libsqlite3.tbd
       - package: KeyboardShortcuts
       - package: SnapKit
+      - package: CocoaLumberjack
+        product: CocoaLumberjackSwift

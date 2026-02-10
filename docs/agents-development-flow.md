@@ -285,6 +285,7 @@ LSP 工具（如 clangd、VSCode 语言扩展等）可能因项目配置复杂�
 - [ ] Platform 层仅包含 UI 和系统集成
 - [ ] 依赖方向正确（Platform → Core）
 - [ ] 遵循 C++17 标准
+- [ ] 日志使用规范（Core 用 PASTY_LOG_*, Platform 用 DDLog*）
 
 ### 6.3 开发后检查
 
@@ -320,6 +321,12 @@ LSP 工具（如 clangd、VSCode 语言扩展等）可能因项目配置复杂�
 ### Q4: 可以创建新的顶级目录吗？
 
 **A**: 不可以。参见 AGENTS.md 第 2 条规则。
+
+### Q5: 如何记录日志？
+
+**A**: 
+- **Core 层**：使用 `PASTY_LOG_*` 宏（`PASTY_LOG_INFO`, `PASTY_LOG_ERROR` 等），禁止 `std::cout`。
+- **Platform 层**：使用 `CocoaLumberjack` (`DDLogInfo`, `DDLogError` 等)，禁止 `print` / `NSLog`。
 
 ---
 

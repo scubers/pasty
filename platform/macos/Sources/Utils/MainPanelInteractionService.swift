@@ -91,18 +91,18 @@ final class MainPanelInteractionServiceImpl: MainPanelInteractionService {
         }
         // Cmd+V simulation requires Accessibility trust; prompt on first failure.
         guard ensureAccessibilityPermissionForPaste() else {
-            print("[main-panel] accessibility permission missing, paste command not sent")
+            LoggerService.error("[main-panel] accessibility permission missing, paste command not sent")
             return
         }
 
         guard let source = CGEventSource(stateID: .combinedSessionState) else {
-            print("[main-panel] failed to create CGEventSource for paste command")
+            LoggerService.error("[main-panel] failed to create CGEventSource for paste command")
             return
         }
 
         guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: true),
               let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: false) else {
-            print("[main-panel] failed to create Cmd+V key events")
+            LoggerService.error("[main-panel] failed to create Cmd+V key events")
             return
         }
 

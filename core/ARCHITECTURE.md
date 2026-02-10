@@ -46,6 +46,7 @@ core/
 | `include/pasty/` | 公共 API 头文件，平台层可 include |
 | `include/pasty/history/` | 剪贴板历史模块公共接口 |
 | `include/pasty/api/` | C 语言 API（供 Swift/Kotlin FFI 调用） |
+| `include/pasty/logger.h` | 统一日志接口 |
 | `src/` | 实现文件，不对外暴露 |
 | `src/history/` | 历史模块实现 |
 
@@ -85,6 +86,19 @@ const char* json = pasty_history_list_json(100);
 bool success = pasty_history_search("Hello", 10, 200, &out_json);
 pasty_history_delete("item-id");
 ```
+
+### 4. 日志模块 (`pasty/logger.h`)
+
+提供统一的日志记录接口和宏：
+
+```cpp
+#include <pasty/logger.h>
+
+PASTY_LOG_INFO("Core.Tag", "Message with %s", "args");
+PASTY_LOG_ERROR("Core.Tag", "Error occurred: %d", errorCode);
+```
+
+**必须**使用宏记录日志，禁止使用 `std::cout` / `printf`。
 
 ### 3. 主入口 (`pasty/pasty.h`)
 

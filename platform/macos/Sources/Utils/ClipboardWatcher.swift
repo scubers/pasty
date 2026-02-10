@@ -155,7 +155,7 @@ final class ClipboardWatcher {
     }
 
     private func log(_ message: String) {
-        print("[watcher] \(message)")
+        LoggerService.debug("[watcher] \(message)")
     }
 
     private static func defaultIngestText(_ text: String, _ sourceAppID: String) -> Bool {
