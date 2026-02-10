@@ -5,6 +5,7 @@ options:
   createIntermediateGroups: true
   deploymentTarget:
     macOS: "14.0"
+  xcodeVersion: "15.4"
 
 packages:
   KeyboardShortcuts:
