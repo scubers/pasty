@@ -57,13 +57,20 @@ pasty/
 │   │   ├── Pasty.xcodeproj/     # 生成产物：Xcode 工程（不要手工编辑）
 │   │   └── Sources/              # macOS 层源码
 │   │       ├── App.swift
-│   │       ├── Settings/         # 设置窗口与视图
-│   │       │   ├── SettingsManager.swift  # 双目录路径管理（appData + clipboardData）
-│   │       ├── Utils/
-│   │       ├── Model/
-│   │       ├── ViewModel/
-│   │       └── View/
-│   │           └── MainPanel/    # 主面板 UI
+│   │       ├── DesignSystem/     # 设计系统与通用 UI 组件
+│   │       ├── Features/         # 按功能组织的模块
+│   │       │   ├── MainPanel/
+│   │       │   │   ├── Model/
+│   │       │   │   ├── ViewModel/
+│   │       │   │   └── View/
+│   │       │   ├── Settings/
+│   │       │   │   ├── ViewModel/
+│   │       │   │   └── View/
+│   │       │   └── FutureModules/
+│   │       ├── Services/         # 业务服务层
+│   │       │   ├── Interface/
+│   │       │   └── Impl/
+│   │       └── Utilities/        # 纯工具函数与扩展
 │   ├── windows/                   # Windows 平台（待实现）
 │   ├── ios/                       # iOS 平台（待实现）
 │   └── android/                   # Android 平台（待实现）

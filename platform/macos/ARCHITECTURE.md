@@ -142,12 +142,20 @@ platform/macos/
 ├── Pasty.xcodeproj/           # 生成产物：Xcode 工程（不要手工编辑）
 ├── Sources/                    # macOS 层源码（新代码必须放这里）
 │   ├── App.swift               # 应用入口与依赖组装（Composition Root）
-│   ├── Settings/               # 设置窗口与视图 (SwiftUI hosting in WindowController)
-│   ├── Utils/                  # 通用工具/扩展/日志/Combine 辅助
-│   ├── Model/                  # Presentation Model + 映射（不得放业务规则）
-│   ├── ViewModel/              # ViewModel（Action -> Effect -> State）
-│   └── View/                   # View / ViewController（只渲染 + 发送 Action）
-│       └── MainPanel/          # 主面板 UI 组件
+│   ├── DesignSystem/           # 共享设计系统
+│   ├── Features/               # 按功能组织的模块
+│   │   ├── MainPanel/
+│   │   │   ├── Model/          # MainPanel Presentation Model + 映射（不得放业务规则）
+│   │   │   ├── ViewModel/      # MainPanel ViewModel（Action -> Effect -> State）
+│   │   │   └── View/           # MainPanel View / ViewController（只渲染 + 发送 Action）
+│   │   ├── Settings/
+│   │   │   ├── ViewModel/
+│   │   │   └── View/
+│   │   └── FutureModules/      # 未来模块占位
+│   ├── Services/
+│   │   ├── Interface/          # 服务协议（可注入、可替换）
+│   │   └── Impl/               # 服务实现
+│   └── Utilities/              # 通用工具/扩展/日志/Combine 辅助
 └── ARCHITECTURE.md             # 本文件
 ```
 
@@ -159,7 +167,7 @@ platform/macos/
 
 ## 分层职责（必须遵守）
 
-### View（`platform/macos/Sources/View/`）
+### Feature View（`platform/macos/Sources/Features/*/View/`）
 
 允许：
 - 读取 ViewModel 输出（State / Published / derived values）并渲染
@@ -171,7 +179,7 @@ platform/macos/
 - 读写数据库/文件系统/网络
 - 在 View 内部持有业务状态源（状态源只能在 ViewModel）
 
-### ViewModel（`platform/macos/Sources/ViewModel/`）
+### Feature ViewModel（`platform/macos/Sources/Features/*/ViewModel/`）
 
 职责：
 - 定义 `State`（UI 所需的最小状态集合）与 `Action`
@@ -182,7 +190,7 @@ platform/macos/
 - ViewModel 是唯一可以触发副作用的层（通过依赖注入的 Service/Adapter）。
 - 不允许把 Core 数据结构“直接透传”给 View；需要在 Model 层做映射/裁剪。
 
-### Model（`platform/macos/Sources/Model/`）
+### Feature Model（`platform/macos/Sources/Features/*/Model/`）
 
 职责：
 - Presentation Model（供 View 渲染用的轻量模型）
@@ -192,7 +200,17 @@ platform/macos/
 禁止：
 - 业务规则（去重、保留策略、搜索语义、删除语义等）必须在 Core
 
-### Utils（`platform/macos/Sources/Utils/`）
+### Services（`platform/macos/Sources/Services/`）
+
+职责：
+- 通过 Interface/Impl 分离业务服务协议与实现
+- 封装平台能力（快捷键、剪贴板监听、窗口交互）与 Core 调用边界
+
+约束：
+- ViewModel 依赖协议（Interface），避免直接耦合具体实现
+- 不将纯工具函数放入 Services
+
+### Utilities（`platform/macos/Sources/Utilities/`）
 
 职责：
 - 通用 helper（路径、时间、日志、Combine 扩展）
@@ -208,7 +226,8 @@ platform/macos/
 
 约束：
 - ViewModel 只依赖协议，不直接 new 平台实现。
-- 平台实现可放在 `Model/`（若主要是数据映射/桥接）或 `Utils/`（若是纯工具）。
+- 服务实现放在 `Services/Impl/`。
+- 纯工具和扩展放在 `Utilities/`。
 
 ## 线程与并发
 
@@ -241,4 +260,3 @@ macOS 层集成 `CocoaLumberjack` 进行日志记录，但必须通过 `LoggerSe
   - 控制台 (Console.app)
   - 文件 (`~/Library/Application Support/Pasty/Logs`)
 - 日志服务 (`LoggerService`) 负责初始化和桥接 Core 日志。
-

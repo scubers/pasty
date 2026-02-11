@@ -1,16 +1,13 @@
 # Settings UI
 
-## Purpose
-管理和展示应用程序的设置界面逻辑。
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: 设置逻辑迁移
 系统必须将现有设置逻辑迁移到新的 UI 框架，同时保持数据持久性。设置模块文件组织在 `Features/Settings/` 功能目录中，遵循基于功能的架构。
 
 #### Scenario: 常规设置迁移
 - **WHEN** 加载常规设置页面
-- **THEN** 它从底层平台 API 获取“登录时启动”状态
+- **THEN** 它从底层平台 API 获取"登录时启动"状态
 - **AND** 切换该选项会更新平台设置
 
 #### Scenario: 剪贴板设置迁移

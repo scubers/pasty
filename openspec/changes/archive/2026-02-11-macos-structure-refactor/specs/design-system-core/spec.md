@@ -1,9 +1,6 @@
 # Design System Core
 
-## Purpose
-实现全应用共享的设计系统基础，包括颜色 Token、字体样式和基础视觉效果（Glassmorphism）。
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: 全局设计 Token
 系统必须定义一套中心化的设计 Token，包括颜色、排版和间距，并在整个应用程序（主面板和设置面板）中共享。设计系统组件位于顶级 `DesignSystem/` 目录中。
