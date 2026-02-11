@@ -49,3 +49,6 @@ Thumbs.db
 # tools
 .sisyphus/
 .coco/
+
+# git worktrees
+worktree/
