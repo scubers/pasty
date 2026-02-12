@@ -10,6 +10,17 @@ final class OCRService {
         let imagePath: String
     }
 
+    private struct OCRPassResult {
+        let text: String
+        let averageConfidence: Float
+        let quality: Float
+
+        var score: Float {
+            // Balance engine confidence and content readability to avoid mojibake-like garbage.
+            (averageConfidence * 0.65) + (quality * 0.35)
+        }
+    }
+
     private let queue = DispatchQueue(label: "OCRService", qos: .background)
     private var isProcessing = false
     private var started = false
@@ -161,71 +172,155 @@ final class OCRService {
             completion(.failure(NSError(domain: "OCRService", code: -11)))
             return
         }
+        
+        let settings = coordinator.settings.ocr
+        let normalizedLanguages = normalizedRecognitionLanguages(from: settings.languages)
 
-        let timeout = DispatchWorkItem {
-            completion(.failure(NSError(domain: "OCRService", code: -12)))
-        }
+        do {
+            let primary = try recognizeText(
+                in: cgImage,
+                recognitionLevel: settings.recognitionLevel == "fast" ? .fast : .accurate,
+                languages: normalizedLanguages,
+                usesLanguageCorrection: true,
+                autoDetectLanguage: true
+            )
 
-        queue.asyncAfter(deadline: .now() + 30, execute: timeout)
+            // Fallback pass for mixed-script short headlines where first pass can output garbage.
+            let fallback = try recognizeText(
+                in: cgImage,
+                recognitionLevel: .accurate,
+                languages: normalizedLanguages,
+                usesLanguageCorrection: true,
+                autoDetectLanguage: true
+            )
 
-        let request = VNRecognizeTextRequest { request, error in
-            if timeout.isCancelled {
-                return
-            }
-            timeout.cancel()
-            
-            let duration = CFAbsoluteTimeGetCurrent() - startTime
-            LoggerService.debug("OCRService: OCR processing finished in \(String(format: "%.3f", duration))s")
-
-            if let error {
-                completion(.failure(error))
-                return
-            }
-
-            let observations = request.results as? [VNRecognizedTextObservation] ?? []
-            var confidenceSum: Float = 0
-            var confidenceCount: Float = 0
-            var lines: [String] = []
-
-            for observation in observations {
-                guard let candidate = observation.topCandidates(1).first else {
-                    continue
-                }
-                confidenceSum += candidate.confidence
-                confidenceCount += 1
-                lines.append(candidate.string)
-            }
-
-            let averageConfidence = confidenceCount == 0 ? 0 : confidenceSum / confidenceCount
-            let threshold = self.coordinator.settings.ocr.confidenceThreshold
-            if averageConfidence < threshold {
+            let best = primary.score >= fallback.score ? primary : fallback
+            let threshold = settings.confidenceThreshold
+            if best.averageConfidence < threshold && best.quality < 0.55 {
                 completion(.success(""))
                 return
             }
 
-            let text = lines
-                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                .filter { !$0.isEmpty }
-                .joined(separator: "\n")
-            completion(.success(text))
+            let duration = CFAbsoluteTimeGetCurrent() - startTime
+            LoggerService.debug(
+                "OCRService: OCR finished in \(String(format: "%.3f", duration))s " +
+                "score=\(String(format: "%.3f", best.score)) conf=\(String(format: "%.3f", best.averageConfidence)) quality=\(String(format: "%.3f", best.quality))"
+            )
+            completion(.success(best.text))
+        } catch {
+            completion(.failure(error))
         }
-        
-        let settings = coordinator.settings.ocr
-        request.recognitionLevel = settings.recognitionLevel == "fast" ? .fast : .accurate
-        request.usesLanguageCorrection = true
-        request.recognitionLanguages = settings.languages
+    }
+
+    private func normalizedRecognitionLanguages(from raw: [String]) -> [String] {
+        let normalized = raw
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .map { code -> String in
+                switch code.lowercased() {
+                case "zh-ch", "zh_cn", "zh-cn", "zh":
+                    return "zh-Hans"
+                case "zh-tw", "zh_hk", "zh-hk":
+                    return "zh-Hant"
+                case "en":
+                    return "en-US"
+                default:
+                    return code
+                }
+            }
+
+        let deduplicated = Array(NSOrderedSet(array: normalized)) as? [String] ?? normalized
+        return deduplicated.isEmpty ? ["en", "zh-Hans"] : deduplicated
+    }
+
+    private func recognizeText(
+        in cgImage: CGImage,
+        recognitionLevel: VNRequestTextRecognitionLevel,
+        languages: [String],
+        usesLanguageCorrection: Bool,
+        autoDetectLanguage: Bool
+    ) throws -> OCRPassResult {
+        let request = VNRecognizeTextRequest()
+        request.recognitionLevel = recognitionLevel
+        request.usesLanguageCorrection = usesLanguageCorrection
+        request.recognitionLanguages = languages
+        request.minimumTextHeight = 0.01
 
         if #available(macOS 13.0, *) {
-            request.revision = VNRecognizeTextRequestRevision3
-            request.automaticallyDetectsLanguage = true
+            request.revision = VNRecognizeTextRequest.currentRevision
+            request.automaticallyDetectsLanguage = autoDetectLanguage
         }
 
         let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-        do {
-            try handler.perform([request])
-        } catch {
-            timeout.cancel()
-            completion(.failure(error))
+        try handler.perform([request])
+
+        let observations = request.results ?? []
+        var confidenceSum: Float = 0
+        var confidenceCount: Float = 0
+        var lines: [String] = []
+
+        for observation in observations {
+            let candidates = observation.topCandidates(3)
+            guard let bestCandidate = candidates.max(by: { lhs, rhs in
+                candidateScore(lhs) < candidateScore(rhs)
+            }) else {
+                continue
+            }
+
+            confidenceSum += bestCandidate.confidence
+            confidenceCount += 1
+            lines.append(bestCandidate.string)
         }
+
+        let text = lines
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n")
+
+        let averageConfidence = confidenceCount == 0 ? 0 : confidenceSum / confidenceCount
+        let quality = textQuality(text)
+        return OCRPassResult(text: text, averageConfidence: averageConfidence, quality: quality)
+    }
+
+    private func candidateScore(_ candidate: VNRecognizedText) -> Float {
+        let quality = textQuality(candidate.string)
+        return (candidate.confidence * 0.7) + (quality * 0.3)
+    }
+
+    private func textQuality(_ text: String) -> Float {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return 0
+        }
+
+        let acceptable = CharacterSet.alphanumerics
+            .union(.whitespacesAndNewlines)
+            .union(.punctuationCharacters)
+            .union(CharacterSet(charactersIn: "，。！？；：、（）《》“”‘’【】·—…「」『』"))
+            .union(CharacterSet(charactersIn: "\u{4E00}"..."\u{9FFF}"))
+            .union(CharacterSet(charactersIn: "\u{3400}"..."\u{4DBF}"))
+
+        let stronglySuspicious = CharacterSet(charactersIn: "†‡÷§ß¤¦¶")
+        var acceptableCount = 0
+        var suspiciousCount = 0
+        var totalCount = 0
+
+        for scalar in trimmed.unicodeScalars {
+            totalCount += 1
+            if stronglySuspicious.contains(scalar) {
+                suspiciousCount += 1
+            }
+            if acceptable.contains(scalar) {
+                acceptableCount += 1
+            }
+        }
+
+        guard totalCount > 0 else {
+            return 0
+        }
+
+        let acceptableRatio = Float(acceptableCount) / Float(totalCount)
+        let suspiciousRatio = Float(suspiciousCount) / Float(totalCount)
+        return max(0, min(1, acceptableRatio - suspiciousRatio * 0.7))
     }
 }

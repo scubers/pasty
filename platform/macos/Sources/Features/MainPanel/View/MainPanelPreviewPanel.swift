@@ -5,6 +5,7 @@ import Foundation
 struct MainPanelPreviewPanel: View {
     let item: ClipboardItemRow?
     @EnvironmentObject var appCoordinator: AppCoordinator
+    @EnvironmentObject var viewModel: MainPanelViewModel
     @StateObject private var imageLoader: MainPanelImageLoader
 
     init(item: ClipboardItemRow?) {
@@ -76,13 +77,31 @@ struct MainPanelPreviewPanel: View {
                 }
 
                 if let ocrText = nonEmptyOcrText(for: item) {
-                    Text("OCR Text")
-                        .font(MainPanelTokens.Typography.smallBold)
-                        .foregroundStyle(MainPanelTokens.Colors.textSecondary)
-                        .textCase(.uppercase)
+                    HStack(spacing: 8) {
+                        Text("OCR Text")
+                            .font(MainPanelTokens.Typography.smallBold)
+                            .foregroundStyle(MainPanelTokens.Colors.textSecondary)
+                            .textCase(.uppercase)
+                        Spacer()
+                        Button {
+                            viewModel.send(.copyOCRText(ocrText))
+                        } label: {
+                            Text("Copy")
+                                .font(MainPanelTokens.Typography.small)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(Color.white.opacity(0.08))
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: MainPanelTokens.Layout.cornerRadiusSmall)
+                                        .stroke(MainPanelTokens.Colors.border, lineWidth: 1)
+                                }
+                                .clipShape(RoundedRectangle(cornerRadius: MainPanelTokens.Layout.cornerRadiusSmall))
+                        }
+                        .buttonStyle(.plain)
+                    }
 
                     MainPanelLongTextRepresentable(itemId: "\(item.id)-ocr", text: ocrText)
-                    .frame(maxHeight: 140)
+//                    .frame(maxHeight: 140)
                     .padding(8)
                     .background(MainPanelTokens.Colors.card)
                     .overlay {

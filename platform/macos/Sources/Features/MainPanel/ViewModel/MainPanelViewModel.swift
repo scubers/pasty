@@ -49,6 +49,7 @@ final class MainPanelViewModel: ObservableObject {
         case frontmostApplicationTracked(FrontmostAppTracker?)
         case clipboardContentChanged
         case filterChanged(ClipboardItemRow.ItemType?)
+        case copyOCRText(String)
     }
 
     @Published private(set) var state = State()
@@ -158,6 +159,10 @@ final class MainPanelViewModel: ObservableObject {
 
         case let .filterChanged(newFilter):
             state.filterType = newFilter
+            requestSearchFocus()
+
+        case let .copyOCRText(text):
+            _ = interactionService.copyToPasteboard(text)
             requestSearchFocus()
         }
     }
