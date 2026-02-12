@@ -229,6 +229,63 @@ platform/macos/
 - 服务实现放在 `Services/Impl/`。
 - 纯工具和扩展放在 `Utilities/`。
 
+## Feature 架构行为准则（通用）
+
+以下准则适用于 **所有新功能模块**（不仅是 Settings）：
+
+### 1) Composition Root 单点组装
+
+- 应用级依赖必须在 `App.swift` 统一创建与组装。
+- 业务对象禁止在 Feature 内部“隐式全局获取”（例如单例硬编码）。
+- 依赖传递优先级：构造注入 > `EnvironmentObject`（仅用于 SwiftUI 视图树）。
+
+### 2) 状态与行为分离
+
+- `Coordinator` 仅负责：
+  - 应用级状态承载
+  - 模块间事件分发
+- `Coordinator` 禁止承载业务读写逻辑（IO、校验、Core 同步、策略决策）。
+- 业务逻辑应放在 `Store/Service`（数据与副作用）和 `ViewModel`（用例编排）中。
+
+### 3) 统一数据流（Action -> Effect -> State）
+
+- View 只负责渲染与发送 Action，不直接做副作用。
+- ViewModel 处理 Action，调用 Store/Service，更新状态并暴露给 View。
+- Store/Service 负责外部系统交互（文件、数据库、Core API、平台能力）。
+
+### 4) 事件系统分层
+
+- 业务事件优先通过 `Coordinator.events`（Combine）传递。
+- `NotificationCenter` 仅用于系统级通知（如 `NSApplication` 生命周期、系统广播）。
+- 禁止在业务层混用多套事件源导致状态分叉。
+
+### 5) 单一状态源
+
+- 同一应用实例内，应用级状态源必须唯一（单实例注入，不是单例硬编码）。
+- 任何模块读取应用状态时必须依赖被注入的同一对象，禁止创建平行状态容器。
+
+### 6) DesignSystem 去业务化
+
+- `DesignSystem/Components/*` 必须保持纯展示组件。
+- 公共组件只接收必要参数（`Binding`、`Color`、尺寸、文案、样式值等）。
+- 禁止公共组件依赖 `Coordinator`、`ViewModel`、`Service`、`Core` 等业务对象。
+
+### 7) 迁移与扩展建议
+
+- 新 Feature 默认模板：
+  - `FeatureCoordinatorState`（并入 AppCoordinator 或子协调器）
+  - `FeatureStore`（数据与副作用）
+  - `FeatureViewModel`（Action 编排）
+  - `FeatureView`（纯渲染）
+- 旧模块改造时，优先先做“去单例 + 可注入”，再做逻辑拆分，保证可渐进迁移。
+
+### 8) Settings 模块作为参考实现
+
+- Settings 已按上述准则完成改造，可作为后续 Feature 的落地样板：
+  - `AppCoordinator`：状态 + 事件
+  - `SettingsStore`：设置读写与副作用
+  - `SettingsViewModel`：UI 事件编排
+
 ## 线程与并发
 
 - UI 状态必须在主线程更新（推荐 ViewModel 标注 `@MainActor`）。
