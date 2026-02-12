@@ -2,7 +2,6 @@ import AppKit
 import SnapKit
 
 private final class MainPanelTableView: NSTableView {
-    var onExplicitNavigation: ((Int) -> Void)?
 
     // Keep keyboard focus on the search field while still allowing row selection.
     override var acceptsFirstResponder: Bool {
@@ -13,25 +12,6 @@ private final class MainPanelTableView: NSTableView {
         true
     }
 
-    override func keyDown(with event: NSEvent) {
-        switch event.keyCode {
-        case 115: // Home
-            guard numberOfRows > 0 else { return }
-            onExplicitNavigation?(0)
-        case 119: // End
-            guard numberOfRows > 0 else { return }
-            onExplicitNavigation?(numberOfRows - 1)
-        case 116: // Page Up
-            let current = max(selectedRow, 0)
-            onExplicitNavigation?(max(current - 10, 0))
-        case 121: // Page Down
-            guard numberOfRows > 0 else { return }
-            let current = max(selectedRow, 0)
-            onExplicitNavigation?(min(current + 10, numberOfRows - 1))
-        default:
-            super.keyDown(with: event)
-        }
-    }
 }
 
 final class MainPanelItemTableView: NSView, NSTableViewDataSource, NSTableViewDelegate {
@@ -178,15 +158,6 @@ final class MainPanelItemTableView: NSView, NSTableViewDataSource, NSTableViewDe
         tableView.dataSource = self
         tableView.delegate = self
         tableView.backgroundColor = .clear
-        tableView.onExplicitNavigation = { [weak self] targetRow in
-            guard let self, targetRow >= 0, targetRow < self.items.count else {
-                return
-            }
-            self.tableView.selectRowIndexes(IndexSet(integer: targetRow), byExtendingSelection: false)
-            self.tableView.scrollRowToVisible(targetRow)
-            self.selectedId = self.items[targetRow].id
-            self.onSelect?(self.items[targetRow])
-        }
 
         scrollView.drawsBackground = false
         scrollView.hasVerticalScroller = true

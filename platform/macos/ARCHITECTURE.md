@@ -131,6 +131,48 @@ Combine 约定：
 - 所有订阅必须可取消，生命周期由 ViewModel 管理（`Set<AnyCancellable>`）。
 - View 侧只允许订阅/绑定 ViewModel State；禁止在 View 里做副作用（写数据、调用 Core）。
 
+## Feature 状态编排模板（推荐）
+
+为降低状态混杂与 Combine re-entrant 风险，复杂 Feature（如 MainPanel）应采用“单一状态源 + 子 Store”的编排方式。
+
+### 1) 单一状态源（Single Source of Truth）
+
+- `ViewModel.State` 是唯一 UI 状态源。
+- 子 Store 不持有业务状态，只做纯逻辑变换或 Publisher 组合。
+- 优先保存“主键/标识”而非冗余对象（例如 `selectedItemID`），对象通过 `items` 派生。
+- 严禁在多个对象中并行维护同一业务状态（例如同时维护一份 `searchQuery`）。
+
+### 2) 子 Store 责任边界
+
+- `*SearchStore`：只负责输入流组合（`debounce` / `removeDuplicates` / `combineLatest`）。
+- `*SelectionStore`：只负责选中策略（默认选中、删除后迁移、键盘移动边界）。
+- `*ListStore`：只负责内存列表变换（替换、删除、局部更新），不做 IO。
+- `ViewModel`：Action 分发、调用 Service 副作用、落地最终 State。
+
+### 3) 事件流标准
+
+- 统一遵循：`Action -> ViewModel -> (Store/Service) -> State`。
+- 查询型刷新必须显式区分触发源：
+  - 面板展示触发查询
+  - 搜索/筛选组合触发查询（可 debounce）
+  - 外部数据变更（如剪贴板落盘成功）触发查询
+- 删除型操作优先内存更新，不强制重新查库（除非数据一致性要求）。
+
+### 4) 反重入（Anti Re-entrant）约束
+
+- 禁止在 `send(_:)` 的状态变更链上再依赖同一状态的隐式订阅回调形成环路。
+- 对并发查询使用“最新请求生效”策略（例如 request id / cancel previous）避免旧结果覆写新状态。
+- 用显式 Action 表达 UI 意图（如 `panelInteracted`），不要让 View 直接操作 State。
+
+### 5) 焦点与键盘密集场景规范（MainPanel 类）
+
+- 搜索框聚焦必须由 ViewModel 发起“焦点令牌/信号”，View 仅消费该信号。
+- 鼠标交互与列表选中不可冲突：先完成列表选中，再恢复搜索框焦点。
+- 键盘导航规则必须稳定且可预测：
+  - 查询完成默认首项
+  - 删除后优先下一个，无下一个则上一个
+  - 上下移动到边界保持不变（不循环，除非产品明确要求）
+
 ## 目录结构（以此为准）
 
 `platform/macos/` 的推荐结构如下：
