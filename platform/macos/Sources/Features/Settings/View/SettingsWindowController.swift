@@ -2,11 +2,15 @@ import Cocoa
 import SwiftUI
 
 final class SettingsWindowController: NSWindowController, NSWindowDelegate {
-    private let hostingController: NSHostingController<SettingsView>
+    private let hostingController: NSHostingController<AnyView>
     static var shared: SettingsWindowController?
 
-    init() {
-        let view = SettingsView()
+    init(settingsViewModel: SettingsViewModel, coordinator: AppCoordinator) {
+        let view = AnyView(
+            SettingsView()
+                .environmentObject(settingsViewModel)
+                .environmentObject(coordinator)
+        )
         self.hostingController = NSHostingController(rootView: view)
 
         let window = NSWindow(
@@ -34,9 +38,9 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         fatalError("init(coder:) has not been implemented")
     }
     
-    static func show() {
+    static func show(settingsViewModel: SettingsViewModel, coordinator: AppCoordinator) {
         if shared == nil {
-            shared = SettingsWindowController()
+            shared = SettingsWindowController(settingsViewModel: settingsViewModel, coordinator: coordinator)
         }
         shared?.showWindow(nil)
         shared?.window?.makeKeyAndOrderFront(nil)

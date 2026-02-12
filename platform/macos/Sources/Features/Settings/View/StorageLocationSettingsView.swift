@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 
 struct StorageLocationSettingsView: View {
-    @ObservedObject var settingsManager = SettingsManager.shared
+    @EnvironmentObject var viewModel: SettingsViewModel
     @State private var showingRestartAlert = false
     @State private var errorMessage: String?
     @State private var showingErrorAlert = false
@@ -11,11 +11,11 @@ struct StorageLocationSettingsView: View {
         VStack(alignment: .leading, spacing: 0) {
             SettingsRow(title: "Data Location", icon: "folder") {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Clipboard Data: " + settingsManager.clipboardData.path)
+                    Text("Clipboard Data: " + viewModel.clipboardData.path)
                         .font(DesignSystem.Typography.caption)
                         .foregroundColor(DesignSystem.Colors.textSecondary)
                         .textSelection(.enabled)
-                    Text("App Data: " + settingsManager.appData.path)
+                    Text("App Data: " + viewModel.appData.path)
                         .font(.system(size: 10, weight: .regular))
                         .foregroundColor(DesignSystem.Colors.textTertiary)
                         .textSelection(.enabled)
@@ -25,7 +25,7 @@ struct StorageLocationSettingsView: View {
             SettingsRow(title: "", icon: "") {
                 HStack(spacing: 8) {
                     Button("Show in Finder") {
-                        NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: settingsManager.clipboardData.path)
+                        NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: viewModel.clipboardData.path)
                     }
 
                     Button("Change...") {
@@ -33,7 +33,7 @@ struct StorageLocationSettingsView: View {
                     }
 
                     Button("恢复默认路径") {
-                        settingsManager.restoreDefaultClipboardDataDirectory()
+                        viewModel.restoreDefaultClipboardDataDirectory()
                         showingRestartAlert = true
                     }
                 }
@@ -55,7 +55,7 @@ struct StorageLocationSettingsView: View {
     }
 
     private func selectNewDirectory() {
-        StorageLocationHelper.selectNewDirectory(settingsManager: settingsManager) { url in
+        StorageLocationHelper.selectNewDirectory { url in
             if let url = url {
                 validateAndSetDirectory(url)
             }
@@ -63,7 +63,7 @@ struct StorageLocationSettingsView: View {
     }
 
     private func validateAndSetDirectory(_ url: URL) {
-        StorageLocationHelper.validateAndSetDirectory(url, settingsManager: settingsManager, showError: { message in
+        StorageLocationHelper.validateAndSetDirectory(url, settingsViewModel: viewModel, showError: { message in
             errorMessage = message
             showingErrorAlert = true
         }, showRestart: {

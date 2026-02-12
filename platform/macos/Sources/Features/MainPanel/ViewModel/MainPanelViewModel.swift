@@ -48,16 +48,19 @@ final class MainPanelViewModel: ObservableObject {
     private let historyService: ClipboardHistoryService
     private let hotkeyService: HotkeyService
     private let interactionService: MainPanelInteractionService
+    private let coordinator: AppCoordinator
     private var pendingSelectionIndexAfterRefresh: Int?
 
     init(
         historyService: ClipboardHistoryService,
         hotkeyService: HotkeyService,
-        interactionService: MainPanelInteractionService
+        interactionService: MainPanelInteractionService,
+        coordinator: AppCoordinator
     ) {
         self.historyService = historyService
         self.hotkeyService = hotkeyService
         self.interactionService = interactionService
+        self.coordinator = coordinator
 
         setupSearchPipeline()
         setupHotkey()
@@ -323,7 +326,7 @@ final class MainPanelViewModel: ObservableObject {
             guard let imagePath = item.imagePath else {
                 return false
             }
-            let absolutePath = SettingsManager.shared.clipboardData.appendingPathComponent(imagePath).path
+            let absolutePath = coordinator.clipboardData.appendingPathComponent(imagePath).path
             guard let image = NSImage(contentsOfFile: absolutePath) else {
                 return false
             }

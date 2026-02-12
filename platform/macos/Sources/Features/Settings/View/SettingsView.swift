@@ -3,8 +3,8 @@ import SwiftUI
 struct SettingsView: View {
     @State private var selectedTab: SettingsTab = .general
     @State private var sidebarWidth: CGFloat = 200
-    @ObservedObject var settingsManager = SettingsManager.shared
-    @EnvironmentObject var envSettingsManager: SettingsManager
+    @EnvironmentObject var viewModel: SettingsViewModel
+    @EnvironmentObject var appCoordinator: AppCoordinator
 
     var body: some View {
         HStack(spacing: 0) {
@@ -33,7 +33,7 @@ struct SettingsView: View {
                 material: .hudWindow,
                 blendingMode: .behindWindow
             )
-            .opacity(settingsManager.settings.appearance.blurIntensity)
+            .opacity(viewModel.blurIntensity)
         }
         .overlay(
             Rectangle()

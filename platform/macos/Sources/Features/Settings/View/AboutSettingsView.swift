@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct AboutSettingsView: View {
+    @EnvironmentObject var viewModel: SettingsViewModel
+
     var body: some View {
         VStack(spacing: 20) {
             Spacer()
@@ -43,6 +45,7 @@ struct AboutSettingsView: View {
 struct LinkButton: View {
     let title: String
     let url: String
+    @EnvironmentObject var viewModel: SettingsViewModel
 
     var body: some View {
         Button(action: {
@@ -52,7 +55,7 @@ struct LinkButton: View {
         }) {
             Text(title)
                 .font(DesignSystem.Typography.bodyBold)
-                .foregroundColor(SettingsManager.shared.settings.appearance.themeColor.toColor())
+                .foregroundColor(viewModel.settings.appearance.themeColor.toColor())
         }
         .buttonStyle(.plain)
         .onHover { inside in

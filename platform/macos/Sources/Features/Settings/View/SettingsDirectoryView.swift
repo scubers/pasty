@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 
 struct SettingsDirectoryView: View {
-    @ObservedObject var settingsManager = SettingsManager.shared
+    @EnvironmentObject var viewModel: SettingsViewModel
     @State private var showingRestartAlert = false
     @State private var newDirectoryURL: URL?
     @State private var errorMessage: String?
@@ -11,14 +11,14 @@ struct SettingsDirectoryView: View {
     var body: some View {
         Form {
             Section(header: Text("Storage Location")) {
-                Text(settingsManager.clipboardData.path)
+                Text(viewModel.clipboardData.path)
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .textSelection(.enabled)
                 
                 HStack {
                     Button("Show in Finder") {
-                        NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: settingsManager.clipboardData.path)
+                        NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: viewModel.clipboardData.path)
                     }
                     
                     Button("Change Location...") {
@@ -26,7 +26,7 @@ struct SettingsDirectoryView: View {
                     }
 
                     Button("恢复默认路径") {
-                        settingsManager.restoreDefaultClipboardDataDirectory()
+                        viewModel.restoreDefaultClipboardDataDirectory()
                         showingRestartAlert = true
                     }
                 }
@@ -68,7 +68,7 @@ struct SettingsDirectoryView: View {
     }
     
     private func validateAndSetDirectory(_ url: URL) {
-        StorageLocationHelper.validateAndSetDirectory(url, settingsManager: settingsManager, showError: { message in
+        StorageLocationHelper.validateAndSetDirectory(url, settingsViewModel: viewModel, showError: { message in
             errorMessage = message
             showingErrorAlert = true
         }, showRestart: {

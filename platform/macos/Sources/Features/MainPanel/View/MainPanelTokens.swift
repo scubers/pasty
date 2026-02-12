@@ -21,8 +21,7 @@ enum MainPanelTokens {
         /// Muted text color for low-emphasis hints and footer labels.
         static let textMuted = Color(hex: 0x6B7280)
         /// Accent color for focus ring, selected markers, and emphasis.
-        static var accentPrimary: Color {
-            let theme = SettingsManager.shared.settings.appearance.themeColor
+        static func accentPrimary(theme: String) -> Color {
             switch theme {
             case "blue": return Color(hex: 0x3B82F6)
             case "purple": return Color(hex: 0xA855F7)
@@ -34,9 +33,10 @@ enum MainPanelTokens {
             default: return Color(hex: 0x2DD4BF)
             }
         }
-        static var accentGradient: LinearGradient {
-            let start = accentPrimary
-            let end = accentPrimary.opacity(0.8)
+
+        static func accentGradient(theme: String) -> LinearGradient {
+            let start = accentPrimary(theme: theme)
+            let end = start.opacity(0.8)
             return LinearGradient(
                 colors: [start, end],
                 startPoint: .leading,

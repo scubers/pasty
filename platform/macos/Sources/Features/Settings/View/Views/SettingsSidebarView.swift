@@ -3,6 +3,7 @@ import Cocoa
 
 struct SettingsSidebarView: View {
     @Binding var selection: SettingsTab
+    @EnvironmentObject var viewModel: SettingsViewModel
 
     var body: some View {
         VStack(spacing: 0) {
@@ -44,6 +45,7 @@ struct SettingsSidebarView: View {
 struct SidebarItem: View {
     let tab: SettingsTab
     let isSelected: Bool
+    @EnvironmentObject var viewModel: SettingsViewModel
 
     var body: some View {
         HStack(spacing: 12) {
@@ -62,7 +64,7 @@ struct SidebarItem: View {
         .padding(.vertical, 8)
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(isSelected ? SettingsManager.shared.settings.appearance.themeColor.toColor().opacity(0.1) : Color.clear)
+                .fill(isSelected ? viewModel.settings.appearance.themeColor.toColor().opacity(0.1) : Color.clear)
         )
         .contentShape(Rectangle())
     }

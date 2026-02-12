@@ -1,7 +1,8 @@
 import SwiftUI
 
 struct OCRSettingsView: View {
-    @ObservedObject var settingsManager = SettingsManager.shared
+    @EnvironmentObject var viewModel: SettingsViewModel
+    private var themeColor: Color { viewModel.settings.appearance.themeColor.toColor() }
     
     let languages = [
         "en": "English",
@@ -24,27 +25,33 @@ struct OCRSettingsView: View {
                 SettingsSection(title: "Main") {
                     SettingsRow(title: "Enable OCR", icon: "text.viewfinder") {
                         PastyToggle(isOn: Binding(
-                            get: { settingsManager.settings.ocr.enabled },
-                            set: { settingsManager.settings.ocr.enabled = $0 }
-                        ))
+                            get: { viewModel.settings.ocr.enabled },
+                            set: { newValue in
+                                viewModel.updateSettings { $0.ocr.enabled = newValue }
+                            }
+                        ), activeColor: themeColor)
                     }
                     
-                    if settingsManager.settings.ocr.enabled {
+                    if viewModel.settings.ocr.enabled {
                         SettingsRow(title: "Include in Search", icon: "magnifyingglass") {
                             PastyToggle(isOn: Binding(
-                                get: { settingsManager.settings.ocr.includeInSearch },
-                                set: { settingsManager.settings.ocr.includeInSearch = $0 }
-                            ))
+                                get: { viewModel.settings.ocr.includeInSearch },
+                                set: { newValue in
+                                    viewModel.updateSettings { $0.ocr.includeInSearch = newValue }
+                                }
+                            ), activeColor: themeColor)
                         }
                     }
                 }
                 
-                if settingsManager.settings.ocr.enabled {
+                if viewModel.settings.ocr.enabled {
                     SettingsSection(title: "Configuration") {
                         SettingsRow(title: "Recognition Level", icon: "speedometer") {
                             Picker("", selection: Binding(
-                                get: { settingsManager.settings.ocr.recognitionLevel },
-                                set: { settingsManager.settings.ocr.recognitionLevel = $0 }
+                                get: { viewModel.settings.ocr.recognitionLevel },
+                                set: { newValue in
+                                    viewModel.updateSettings { $0.ocr.recognitionLevel = newValue }
+                                }
                             )) {
                                 Text("Accurate").tag("accurate")
                                 Text("Fast").tag("fast")
@@ -54,15 +61,18 @@ struct OCRSettingsView: View {
                         
                          SettingsRow(title: "Confidence Threshold", icon: "chart.bar") {
                              VStack(alignment: .trailing) {
-                                Text(String(format: "%.2f", settingsManager.settings.ocr.confidenceThreshold))
+                                Text(String(format: "%.2f", viewModel.settings.ocr.confidenceThreshold))
                                     .font(DesignSystem.Typography.caption)
                                     .foregroundColor(DesignSystem.Colors.textSecondary)
                                 
                                 PastySlider(
                                     value: Binding(
-                                        get: { Double(settingsManager.settings.ocr.confidenceThreshold) },
-                                        set: { settingsManager.settings.ocr.confidenceThreshold = Float($0) }
+                                        get: { Double(viewModel.settings.ocr.confidenceThreshold) },
+                                        set: { newValue in
+                                            viewModel.updateSettings { $0.ocr.confidenceThreshold = Float(newValue) }
+                                        }
                                     ),
+                                    accentColor: themeColor,
                                     range: 0.1...1.0
                                 )
                             }
@@ -74,7 +84,7 @@ struct OCRSettingsView: View {
                              ForEach(languages.sorted(by: { $0.key < $1.key }), id: \.key) { key, name in
                                 LanguageRow(
                                     name: name,
-                                    isSelected: settingsManager.settings.ocr.languages.contains(key)
+                                    isSelected: viewModel.settings.ocr.languages.contains(key)
                                 )
                                 .onTapGesture {
                                     toggleLanguage(key)
@@ -104,13 +114,7 @@ struct OCRSettingsView: View {
     }
     
     private func toggleLanguage(_ code: String) {
-        var langs = settingsManager.settings.ocr.languages
-        if let index = langs.firstIndex(of: code) {
-            langs.remove(at: index)
-        } else {
-            langs.append(code)
-        }
-        settingsManager.settings.ocr.languages = langs
+        viewModel.toggleOCRLanguage(code)
     }
 }
 

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PastySlider: View {
     @Binding var value: Double
+    var accentColor: Color = DesignSystem.Colors.accent
     var range: ClosedRange<Double> = 0...1
     var title: String? = nil
 
@@ -26,8 +27,6 @@ struct PastySlider: View {
                         )
 
                     // Active Track
-                    let accentColor = SettingsManager.shared.settings.appearance.themeColor.toColor()
-
                     Capsule()
                         .fill(accentColor)
                         .frame(width: max(0, CGFloat(normalizedValue) * geometry.size.width), height: 4)

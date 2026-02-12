@@ -11,19 +11,25 @@ private final class MainPanelWindow: NSPanel {
 }
 
 final class MainPanelWindowController: NSWindowController, NSWindowDelegate, InAppHotkeyOwner {
-    private let hostingController: NSHostingController<MainPanelView>
+    private let hostingController: NSHostingController<AnyView>
     private let viewModel: MainPanelViewModel
+    private let coordinator: AppCoordinator
     private var lastShownScreenID: String?
     private var lastFrameOrigin: NSPoint?
     private var hotkeyPermissionToken: InAppHotkeyPermissionToken?
     private var cancellables = Set<AnyCancellable>()
 
-    init(viewModel: MainPanelViewModel) {
+    init(viewModel: MainPanelViewModel, coordinator: AppCoordinator) {
         self.viewModel = viewModel
-        let view = MainPanelView(viewModel: viewModel)
+        self.coordinator = coordinator
+        let view = AnyView(
+            MainPanelView()
+                .environmentObject(viewModel)
+                .environmentObject(coordinator)
+        )
         self.hostingController = NSHostingController(rootView: view)
 
-        let settings = SettingsManager.shared.settings.appearance
+        let settings = coordinator.settings.appearance
         let panel = MainPanelWindow(
             contentRect: NSRect(x: 0, y: 0, width: settings.panelWidth, height: settings.panelHeight),
             styleMask: [.borderless, .fullSizeContentView, .resizable],
@@ -44,7 +50,7 @@ final class MainPanelWindowController: NSWindowController, NSWindowDelegate, InA
         panel.delegate = self
         setupLayout()
         
-        SettingsManager.shared.$settings
+        coordinator.$settings
             .map(\.appearance)
             .removeDuplicates()
             .sink { [weak self] appearance in

@@ -35,6 +35,7 @@ private final class MainPanelTableView: NSTableView {
 }
 
 final class MainPanelItemTableView: NSView, NSTableViewDataSource, NSTableViewDelegate {
+    private let coordinator: AppCoordinator
     var items: [ClipboardItemRow] = []
     var selectedId: String?
     var onSelect: ((ClipboardItemRow) -> Void)?
@@ -46,7 +47,8 @@ final class MainPanelItemTableView: NSView, NSTableViewDataSource, NSTableViewDe
     private var previouslySelectedRow: Int = -1
     private var isSyncingSelection = false
 
-    override init(frame frameRect: NSRect) {
+    init(frame frameRect: NSRect, coordinator: AppCoordinator) {
+        self.coordinator = coordinator
         super.init(frame: frameRect)
         setupView()
     }
@@ -102,7 +104,7 @@ final class MainPanelItemTableView: NSView, NSTableViewDataSource, NSTableViewDe
         if let reused = tableView.makeView(withIdentifier: identifier, owner: self) as? MainPanelItemTableCellView {
             cell = reused
         } else {
-            cell = MainPanelItemTableCellView(frame: .zero)
+            cell = MainPanelItemTableCellView(frame: .zero, coordinator: coordinator)
             cell.identifier = identifier
         }
         let isSelected = item.id == selectedId

@@ -3,7 +3,7 @@ import AppKit
 import SwiftUI
 
 struct StorageLocationHelper {
-    static func selectNewDirectory(settingsManager: SettingsManager, onComplete: @escaping (URL?) -> Void) {
+    static func selectNewDirectory(onComplete: @escaping (URL?) -> Void) {
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
@@ -20,13 +20,14 @@ struct StorageLocationHelper {
         }
     }
 
-    static func validateAndSetDirectory(_ url: URL, settingsManager: SettingsManager, showError: @escaping (String) -> Void, showRestart: @escaping () -> Void) {
+    @MainActor
+    static func validateAndSetDirectory(_ url: URL, settingsViewModel: SettingsViewModel, showError: @escaping (String) -> Void, showRestart: @escaping () -> Void) {
         guard validateDirectory(url) else {
             showError("The selected directory is not writable.")
             return
         }
 
-        settingsManager.setClipboardDataDirectory(url)
+        settingsViewModel.setClipboardDataDirectory(url)
         showRestart()
     }
 
