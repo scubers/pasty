@@ -3,10 +3,13 @@ import SwiftUI
 struct MainPanelFooterView: View {
     var body: some View {
         HStack(spacing: MainPanelTokens.Layout.paddingCompact) {
-            Text("Cmd+Shift+V to toggle panel")
+            Text("↑↓ select ·")
+            Text("⌘+D delete ·")
+            Text("⌘+↩ copy ·")
+            Text("↩ paste ·")
+            Text("Esc close")
             Spacer()
-            Text("Enter to paste")
-            Text("Esc to close")
+//            Text("⌘+⇧+v toggle panel")
         }
         .font(MainPanelTokens.Typography.small)
         .foregroundStyle(MainPanelTokens.Colors.textMuted)
