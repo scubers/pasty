@@ -16,25 +16,30 @@ pasty/
 ├── core/                          # C++ 跨平台核心层
 │   ├── CMakeLists.txt            # CMake 构建配置（支持独立构建）
 │   ├── ARCHITECTURE.md           # Core 层架构与开发规范（目录结构以此为准）
-│   ├── include/                   # 公共头文件
-│   │   ├── module.modulemap      # Swift 模块映射
-│   │   └── pasty/                # 命名空间对应目录
-│   │       ├── pasty.h           # 主入口头文件
-│   │       ├── api/              # C API（供 FFI / Swift 互操作）
-│   │       │   └── history_api.h
-│   │       ├── history/          # 剪贴板历史模块
-│   │       │   ├── types.h
-│   │       │   ├── history.h
-│   │       │   └── store.h
-│   │       └── settings/         # 设置模块
-│   │           └── settings_api.h
 │   ├── src/                       # 实现文件
-│   │   ├── Pasty.cpp             # 主入口实现
+│   │   ├── api/                  # Core API 组装（内部入口）
+│   │   │   ├── pasty.h
+│   │   │   └── pasty.cpp
+│   │   ├── common/               # 通用基础模块
+│   │   │   ├── logger.h
+│   │   │   └── logger.cpp
 │   │   ├── history/              # 历史模块实现
-│   │   │   ├── history.cpp
+│   │   │   ├── history.h
+│   │   │   └── history.cpp
+│   │   ├── store/                # 存储模块实现
+│   │   │   ├── store_sqlite.h
 │   │   │   └── store_sqlite.cpp
-│   │   └── settings/             # 设置模块实现
-│   │       └── settings_api.cpp
+│   │   ├── settings/             # 设置模块实现
+│   │   │   ├── settings_api.h
+│   │   │   └── settings_api.cpp
+│   │   ├── pasty/                # 公共头文件（对外 API）
+│   │   │   ├── pasty.h
+│   │   │   ├── api/
+│   │   │   ├── history/
+│   │   │   ├── settings/
+│   │   │   └── logger.h
+│   │   ├── module.modulemap      # Swift 模块映射
+│   │   └── thirdparty/           # Core 内部第三方头文件
 │   ├── migrations/                # 数据库迁移脚本
 │   │   ├── 0001-initial-schema.sql
 │   │   ├── 0002-add-search-index.sql

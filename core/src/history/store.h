@@ -3,7 +3,7 @@
 #ifndef PASTY_HISTORY_STORE_H
 #define PASTY_HISTORY_STORE_H
 
-#include <pasty/history/types.h>
+#include <history/types.h>
 
 #include <cstdint>
 #include <memory>

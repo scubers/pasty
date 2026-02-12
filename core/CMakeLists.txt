@@ -14,15 +14,15 @@ find_package(SQLite3 REQUIRED)
 
 # 源文件
 set(PASTY_CORE_SOURCES
-    src/Pasty.cpp
+    src/api/pasty.cpp
+    src/common/logger.cpp
     src/history/history.cpp
-    src/history/store_sqlite.cpp
+    src/store/store_sqlite.cpp
     src/settings/settings_api.cpp
-    src/logger.cpp
 )
 
 # 头文件目录
-set(PASTY_CORE_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
+set(PASTY_CORE_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 # 静态库
 add_library(PastyCore STATIC ${PASTY_CORE_SOURCES})
@@ -32,7 +32,7 @@ target_include_directories(PastyCore
         ${PASTY_CORE_INCLUDE_DIR}
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
-        ${CMAKE_CURRENT_SOURCE_DIR}/third_party
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/thirdparty
 )
 
 target_link_libraries(PastyCore
@@ -51,11 +51,16 @@ install(TARGETS PastyCore
     ARCHIVE DESTINATION lib
 )
 
-install(DIRECTORY include/pasty
+install(DIRECTORY
+    src/api
+    src/common
+    src/history
+    src/settings
     DESTINATION include
+    FILES_MATCHING PATTERN "*.h"
 )
 
-install(FILES include/module.modulemap
+install(FILES src/module.modulemap
     DESTINATION include
 )
 

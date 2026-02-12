@@ -1,8 +1,8 @@
 // Pasty - Copyright (c) 2026. MIT License.
 
-#include <pasty/pasty.h>
-#include <pasty/history/history.h>
-#include <pasty/history/store.h>
+#include "api/pasty.h"
+#include <history/history.h>
+#include <history/store.h>
 
 #include <chrono>
 #include <cstdint>

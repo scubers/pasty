@@ -1,7 +1,7 @@
-#include <pasty/history/history.h>
-#include <pasty/history/store.h>
-#include <pasty/api/history_api.h>
-#include <pasty/settings/settings_api.h>
+#include <history/history.h>
+#include <history/store.h>
+#include <api/history_api.h>
+#include <settings/settings_api.h>
 #include <cassert>
 #include <iostream>
 #include <vector>

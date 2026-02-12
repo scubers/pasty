@@ -1,4 +1,4 @@
-#include <pasty/settings/settings_api.h>
+#include <settings/settings_api.h>
 #include <cassert>
 #include <iostream>
 

@@ -3,10 +3,10 @@
 #ifndef PASTY_PASTY_H
 #define PASTY_PASTY_H
 
-#include <pasty/history/types.h>
-#include <pasty/history/store.h>
-#include <pasty/history/history.h>
-#include <pasty/api/history_api.h>
+#include <history/types.h>
+#include <history/store.h>
+#include <history/history.h>
+#include <api/history_api.h>
 
 #include <string>
 

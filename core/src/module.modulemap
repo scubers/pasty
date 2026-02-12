@@ -1,0 +1,13 @@
+// Pasty - Copyright (c) 2026. MIT License.
+
+module PastyCore {
+    header "api/pasty.h"
+    header "history/types.h"
+    header "history/store.h"
+    header "history/history.h"
+    header "api/history_api.h"
+    header "settings/settings_api.h"
+    header "common/logger.h"
+    requires cplusplus
+    export *
+}

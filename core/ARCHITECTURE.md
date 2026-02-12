@@ -22,33 +22,51 @@
 core/
 ├── CMakeLists.txt              # CMake 构建配置（支持独立构建）
 ├── ARCHITECTURE.md             # 本文件
-├── include/                    # 公共头文件（对外 API）
-│   ├── pasty/                  # 命名空间对应目录
-│   │   ├── pasty.h             # 主入口头文件（平台层 import 此文件）
-│   │   ├── history/            # 剪贴板历史模块
-│   │   │   ├── types.h         # 数据类型定义
-│   │   │   ├── history.h       # ClipboardHistory 类
-│   │   │   └── store.h         # ClipboardHistoryStore 接口
-│   │   └── api/                # C API（供 FFI / Swift 互操作）
-│   │       └── history_api.h   # 历史模块 C 接口
-│   └── module.modulemap        # Swift 模块映射（保留在 include/ 根目录）
-└── src/                        # 实现文件（内部）
-    ├── pasty.cpp               # 主入口实现（含 C API 实现）
-    └── history/                # 历史模块实现
-        ├── history.cpp
-        └── store_sqlite.cpp    # SQLite 存储实现
+└── src/                        # Core 源码（实现 + 公开头）
+    ├── api/                    # Core API 组装（内部入口）
+    │   ├── pasty.h
+    │   └── pasty.cpp           # 主入口实现（含 C API 实现）
+    ├── common/                 # 通用基础模块
+    │   ├── logger.h
+    │   └── logger.cpp
+    ├── history/                # 历史模块实现
+    │   ├── history.h
+    │   └── history.cpp
+    ├── store/                  # 存储实现
+    │   ├── store_sqlite.h
+    │   └── store_sqlite.cpp    # SQLite 存储实现
+    ├── settings/               # 设置模块实现
+    │   ├── settings_api.h
+    │   └── settings_api.cpp
+    ├── pasty/                  # 公共头文件（对外 API）
+    │   ├── pasty.h             # 主入口头文件（平台层 import 此文件）
+    │   ├── history/            # 剪贴板历史模块
+    │   │   ├── types.h
+    │   │   ├── history.h
+    │   │   └── store.h
+    │   ├── api/                # C API（供 FFI / Swift 互操作）
+    │   │   └── history_api.h
+    │   └── settings/           # 设置模块公共接口
+    │       └── settings_api.h
+    ├── module.modulemap        # Swift 模块映射
+    └── thirdparty/             # Core 内部第三方头文件
 ```
 
 ### 目录职责
 
 | 目录 | 职责 |
 |------|------|
-| `include/pasty/` | 公共 API 头文件，平台层可 include |
-| `include/pasty/history/` | 剪贴板历史模块公共接口 |
-| `include/pasty/api/` | C 语言 API（供 Swift/Kotlin FFI 调用） |
-| `include/pasty/logger.h` | 统一日志接口 |
-| `src/` | 实现文件，不对外暴露 |
+| `src/pasty/` | 公共 API 头文件，平台层可 include |
+| `src/pasty/history/` | 剪贴板历史模块公共接口 |
+| `src/pasty/api/` | C 语言 API（供 Swift/Kotlin FFI 调用） |
+| `src/pasty/logger.h` | 统一日志接口 |
+| `src/` | Core 源文件根目录 |
+| `src/api/` | Core 内部 API 组装与 C API 入口实现 |
+| `src/common/` | 通用模块实现（日志等） |
 | `src/history/` | 历史模块实现 |
+| `src/store/` | 存储模块实现（SQLite 等） |
+| `src/settings/` | 设置模块实现 |
+| `src/thirdparty/` | Core 内部第三方头文件 |
 
 ---
 
@@ -207,7 +225,7 @@ CMake 配置要点：
 
 ### 1. 接口隔离
 
-- 公共接口放在 `include/pasty/`
+- 公共接口放在 `src/pasty/`
 - 内部实现细节放在 `src/`（不对外暴露）
 - 使用抽象接口（如 `ClipboardHistoryStore`）隔离实现
 
@@ -299,7 +317,7 @@ Core 层**禁止**包含以下头文件：
 
 ### 添加新模块
 
-1. 在 `include/pasty/` 下创建模块目录
+1. 在 `src/pasty/` 下创建模块目录
 2. 在 `src/` 下创建对应实现目录
 3. 更新 `CMakeLists.txt` 添加源文件
 4. 更新 `module.modulemap` 添加头文件

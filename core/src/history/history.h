@@ -3,8 +3,8 @@
 #ifndef PASTY_HISTORY_HISTORY_H
 #define PASTY_HISTORY_HISTORY_H
 
-#include <pasty/history/store.h>
-#include <pasty/history/types.h>
+#include <history/store.h>
+#include <history/types.h>
 
 #include <vector>
 #include <string>

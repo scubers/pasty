@@ -1,7 +1,7 @@
 // Pasty - Copyright (c) 2026. MIT License.
 
-#include <pasty/history/store.h>
-#include <pasty/logger.h>
+#include "store/store_sqlite.h"
+#include <common/logger.h>
 
 #include <cstddef>
 #include <chrono>
