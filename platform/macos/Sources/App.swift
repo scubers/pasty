@@ -7,6 +7,9 @@ import PastyCore
 
 @main
 class App: NSObject, NSApplicationDelegate {
+    var coreRuntime: UnsafeMutableRawPointer? {
+        appCoordinator.coreRuntime
+    }
 
 
     static func main() {
@@ -17,7 +20,6 @@ class App: NSObject, NSApplicationDelegate {
     }
 
     // Core Components
-    private var clipboardManager = pasty.ClipboardManager()
     private var clipboardWatcher: ClipboardWatcher!
     private var ocrService: OCRService!
     private let appCoordinator = AppCoordinator()
@@ -41,8 +43,7 @@ class App: NSObject, NSApplicationDelegate {
         LoggerService.info("Application started")
 
         // Initialize Core
-        let version = pasty.ClipboardManager.getVersion()
-        LoggerService.info("Pasty Core v\(String(version))")
+        LoggerService.info("Pasty Core v0.1.0")
 
         settingsStore = SettingsStore(coordinator: appCoordinator)
         settingsViewModel = SettingsViewModel(coordinator: appCoordinator, settingsStore: settingsStore)
@@ -69,18 +70,38 @@ class App: NSObject, NSApplicationDelegate {
             }
             .store(in: &cancellables)
         
-        if let bundleMigrationsPath = Bundle.main.resourceURL?.appendingPathComponent("migrations") {
-            bundleMigrationsPath.path.withCString { pointer in
-                pasty_history_set_migration_directory(pointer)
+        let runtime = pasty_runtime_create()
+        appCoordinator.coreRuntime = runtime
+
+        var coreStarted = false
+        if let runtime {
+            if let bundleMigrationsPath = Bundle.main.resourceURL?.appendingPathComponent("migrations") {
+                coreStarted = clipboardDataPath.withCString { storagePointer in
+                    bundleMigrationsPath.path.withCString { migrationPointer in
+                        pasty_runtime_start(
+                            runtime,
+                            storagePointer,
+                            migrationPointer,
+                            Int32(appCoordinator.settings.history.maxCount)
+                        )
+                    }
+                }
+            } else {
+                coreStarted = clipboardDataPath.withCString { storagePointer in
+                    pasty_runtime_start(
+                        runtime,
+                        storagePointer,
+                        nil,
+                        Int32(appCoordinator.settings.history.maxCount)
+                    )
+                }
             }
         }
-        
-        clipboardDataPath.withCString { pointer in
-            pasty_history_set_storage_directory(pointer)
-        }
-        
-        if clipboardManager.initialize() {
+
+        if coreStarted {
             LoggerService.info("Core initialized successfully")
+        } else {
+            LoggerService.error("Core initialization failed")
         }
         
         // UI Setup
@@ -133,7 +154,11 @@ class App: NSObject, NSApplicationDelegate {
         }
         mouseDownMonitor?.cancel()
         mouseDownMonitor = nil
-        clipboardManager.shutdown()
+        if let runtime = appCoordinator.coreRuntime {
+            pasty_runtime_stop(runtime)
+            pasty_runtime_destroy(runtime)
+            appCoordinator.coreRuntime = nil
+        }
     }
 
     @MainActor

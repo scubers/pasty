@@ -1,6 +1,6 @@
 // Pasty - Copyright (c) 2026. MIT License.
 
-#include "store/store_sqlite.h"
+#include "store/sqlite_clipboard_history_store.h"
 #include <common/logger.h>
 
 #include <cstddef>
@@ -912,11 +912,8 @@ private:
 
 }
 
-extern "C" void pasty_history_set_migration_directory(const char* path) {
-    if (path == nullptr) {
-        return;
-    }
-    g_migration_directory = std::string(path);
+void setClipboardHistoryMigrationDirectory(const std::string& path) {
+    g_migration_directory = path;
 }
 
 std::unique_ptr<ClipboardHistoryStore> createClipboardHistoryStore() {

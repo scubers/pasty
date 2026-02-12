@@ -31,61 +31,35 @@ targets:
     type: library.static
     platform: macOS
     sources:
-      - path: ../../core/src/api/pasty.cpp
-        compilerFlags:
-          - -Wall
-      - path: ../../core/src/common/logger.cpp
-        compilerFlags:
-          - -Wall
-      - path: ../../core/src/history
+      - path: ../../core/src
         excludes:
           - "**/*.h"
+          - "module.modulemap"
+          - "thirdparty/**"
         compilerFlags:
           - -Wall
-      - path: ../../core/src/store
-        excludes:
-          - "**/*.h"
-        compilerFlags:
-          - -Wall
-      - path: ../../core/src/settings
-        excludes:
-          - "**/*.h"
-        compilerFlags:
-          - -Wall
-      - path: ../../core/src/api
+      - path: ../../core/src
         includes:
           - "**/*.h"
-        buildPhase: headers
-        headerVisibility: public
-      - path: ../../core/src/common
-        includes:
-          - "**/*.h"
-        buildPhase: headers
-        headerVisibility: public
-      - path: ../../core/src/history
-        includes:
-          - "**/*.h"
-        buildPhase: headers
-        headerVisibility: public
-      - path: ../../core/src/settings
-        includes:
-          - "**/*.h"
-        buildPhase: headers
-        headerVisibility: public
-      - path: ../../core/src/store
-        includes:
-          - "**/*.h"
+          - "module.modulemap"
         buildPhase: none
-      - path: ../../core/src/module.modulemap
+      - path: ../../core/include/pasty
+        excludes:
+          - "api/**"
+          - "common/**"
+        buildPhase: headers
+        headerVisibility: public
+      - path: ../../core/migrations
         buildPhase: none
     settings:
       HEADER_SEARCH_PATHS:
+        - $(SRCROOT)/../../core/include
         - $(SRCROOT)/../../core/src
         - $(SRCROOT)/../../core/src/thirdparty
       PRODUCT_NAME: PastyCore
       SKIP_INSTALL: YES
       DEFINES_MODULE: YES
-      MODULEMAP_FILE: $(SRCROOT)/../../core/src/module.modulemap
+      MODULEMAP_FILE: $(SRCROOT)/../../core/include/pasty/module.modulemap
     dependencies:
       - sdk: libsqlite3.tbd
 
@@ -115,10 +89,6 @@ targets:
         SWIFT_EMIT_LOC_STRINGS: NO
         OTHER_SWIFT_FLAGS:
           - -cxx-interoperability-mode=default
-        HEADER_SEARCH_PATHS:
-          - $(SRCROOT)/../../core/src
-        SWIFT_INCLUDE_PATHS:
-          - $(SRCROOT)/../../core/src
       configs:
         Debug:
           PRODUCT_BUNDLE_IDENTIFIER: com.pasty.app.debug

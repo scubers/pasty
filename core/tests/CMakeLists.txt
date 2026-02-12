@@ -1,4 +1,4 @@
-add_executable(pasty_test history_test.cpp)
+add_executable(pasty_test clipboard_history_test.cpp)
 
 target_link_libraries(pasty_test
     PRIVATE

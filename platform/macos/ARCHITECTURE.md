@@ -16,12 +16,15 @@
 - Xcode 工程由 XcodeGen 生成：配置文件为 `platform/macos/project.yml`。
 - 生成工程：在 `platform/macos/` 目录执行 `xcodegen generate`。
 - 工程内包含两个关键 target：
-  - `PastyCore`：静态库，直接编译 `core/src`，并公开 `core/src/pasty` 头文件
+  - `PastyCore`：静态库，编译 `core/src`，公开头文件边界为 `core/include/pasty`
   - `Pasty`：macOS App，依赖 `PastyCore`
 - Swift 调用 Core 的方式：
   - `import PastyCore`
-  - Core Swift 模块由 `core/src/module.modulemap` 定义
+  - Core Swift 模块由 `core/include/pasty/module.modulemap` 定义
   - 允许使用 Swift-C++ 互操作（由 `project.yml` 中的 Swift 设置开启）
+- 可见性约束：
+  - Xcode 工程中可查看完整 `core/src` 源码
+  - `Pasty` target 不应直接引用 `core/src` 头文件，只通过 `PastyCore` 模块访问公开 API
 
 约束：
 - 不允许在 macOS 层复制/重写 Core 逻辑；需要能力时扩展 Core API。

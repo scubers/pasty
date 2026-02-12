@@ -1,44 +1,42 @@
-// Pasty - Copyright (c) 2026. MIT License.
+#pragma once
 
-#ifndef PASTY_HISTORY_HISTORY_H
-#define PASTY_HISTORY_HISTORY_H
+#include "history/clipboard_history_store.h"
+#include "ports/settings_store.h"
 
-#include <history/store.h>
-#include <history/types.h>
-
-#include <vector>
-#include <string>
+#include <memory>
 #include <optional>
+#include <string>
+#include <vector>
 
 namespace pasty {
 
-class ClipboardHistory {
+class ClipboardService {
 public:
-    explicit ClipboardHistory(std::unique_ptr<ClipboardHistoryStore> store);
-    ~ClipboardHistory();
+    ClipboardService(std::unique_ptr<ClipboardHistoryStore> store, SettingsStore& settingsStore);
 
     bool initialize(const std::string& baseDirectory);
     void shutdown();
     bool isInitialized() const;
 
     bool ingest(const ClipboardHistoryIngestEvent& event);
-    ClipboardHistoryListResult list(std::int32_t limit, const std::string& cursor) const;
+    ClipboardHistoryListResult list(std::int32_t limit, const std::string& cursor);
     std::vector<ClipboardHistoryItem> search(const SearchOptions& options);
-    std::vector<OcrTask> getPendingOcrImages(std::int32_t limit) const;
-    std::optional<OcrTask> getNextOcrTask() const;
+    std::vector<OcrTask> getPendingOcrImages(std::int32_t limit);
+    std::optional<OcrTask> getNextOcrTask();
     bool markOcrProcessing(const std::string& id);
     bool updateOcrSuccess(const std::string& id, const std::string& ocrText);
     bool updateOcrFailed(const std::string& id);
-    std::optional<OcrTaskStatus> getOcrStatus(const std::string& id) const;
+    std::optional<OcrTaskStatus> getOcrStatus(const std::string& id);
     std::optional<ClipboardHistoryItem> getById(const std::string& id);
     bool deleteById(const std::string& id);
+
+    bool applyRetentionFromSettings();
     bool enforceRetention(std::int32_t maxCount);
 
 private:
     std::unique_ptr<ClipboardHistoryStore> m_store;
+    SettingsStore& m_settingsStore;
     bool m_initialized;
 };
 
-}
-
-#endif
+} // namespace pasty

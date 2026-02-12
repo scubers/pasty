@@ -32,10 +32,15 @@ final class ClipboardHistoryServiceImpl: ClipboardHistoryService {
 
         return Future { promise in
             self.workQueue.async {
+                guard let runtime = self.coordinator.coreRuntime else {
+                    promise(.failure(NSError(domain: "ClipboardHistoryError", code: -10, userInfo: [NSLocalizedDescriptionKey: "Core runtime unavailable"])))
+                    return
+                }
+
                 var outJson: UnsafeMutablePointer<CChar>? = nil
                 let contentType = filterType?.rawValue ?? ""
                 let includeOcr = self.coordinator.settings.ocr.includeInSearch
-                let success = pasty_history_search(query, Int32(limit), Int32(self.previewLength), contentType, includeOcr, &outJson)
+                let success = pasty_history_search(runtime, query, Int32(limit), Int32(self.previewLength), contentType, includeOcr, &outJson)
 
                 if !success {
                     LoggerService.error("History search failed (core returned false)")
@@ -76,7 +81,18 @@ final class ClipboardHistoryServiceImpl: ClipboardHistoryService {
     func get(id: String) -> AnyPublisher<ClipboardItemRow?, Error> {
         return Future { promise in
             self.workQueue.async {
-                guard let jsonPtr = pasty_history_get_json(id) else {
+                guard let runtime = self.coordinator.coreRuntime else {
+                    promise(.failure(NSError(domain: "ClipboardHistoryError", code: -10, userInfo: [NSLocalizedDescriptionKey: "Core runtime unavailable"])))
+                    return
+                }
+
+                var outJson: UnsafeMutablePointer<CChar>? = nil
+                guard pasty_history_get_json(runtime, id, &outJson) else {
+                    promise(.failure(NSError(domain: "ClipboardHistoryError", code: -1, userInfo: nil)))
+                    return
+                }
+
+                guard let jsonPtr = outJson else {
                     promise(.success(nil))
                     return
                 }
@@ -105,8 +121,13 @@ final class ClipboardHistoryServiceImpl: ClipboardHistoryService {
     func delete(id: String) -> AnyPublisher<Void, Error> {
         return Future { promise in
             self.workQueue.async {
+                guard let runtime = self.coordinator.coreRuntime else {
+                    promise(.failure(NSError(domain: "ClipboardHistoryError", code: -10, userInfo: [NSLocalizedDescriptionKey: "Core runtime unavailable"])))
+                    return
+                }
+
                 let deleted = id.withCString { pointer in
-                    pasty_history_delete(pointer)
+                    pasty_history_delete(runtime, pointer)
                 }
                 if deleted {
                     LoggerService.info("Deleted history item: \(id)")
@@ -124,7 +145,12 @@ final class ClipboardHistoryServiceImpl: ClipboardHistoryService {
     func clearAll() -> AnyPublisher<Void, Error> {
         return Future { promise in
             self.workQueue.async {
-                let cleared = pasty_history_enforce_retention(0)
+                guard let runtime = self.coordinator.coreRuntime else {
+                    promise(.failure(NSError(domain: "ClipboardHistoryError", code: -10, userInfo: [NSLocalizedDescriptionKey: "Core runtime unavailable"])))
+                    return
+                }
+
+                let cleared = pasty_history_enforce_retention(runtime, 0)
                 if cleared {
                     self.invalidateSearchCache()
                     promise(.success(()))

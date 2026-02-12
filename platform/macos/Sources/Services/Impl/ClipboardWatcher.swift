@@ -12,8 +12,8 @@ final class ClipboardWatcher {
         coordinator.settings.clipboard.maxContentSizeBytes
     }
 
-    typealias TextIngest = (_ text: String, _ sourceAppID: String) -> Bool
-    typealias ImageIngest = (_ bytes: Data, _ width: Int, _ height: Int, _ formatHint: String, _ sourceAppID: String) -> Bool
+    typealias TextIngest = (_ runtime: UnsafeMutableRawPointer?, _ text: String, _ sourceAppID: String) -> Bool
+    typealias ImageIngest = (_ runtime: UnsafeMutableRawPointer?, _ bytes: Data, _ width: Int, _ height: Int, _ formatHint: String, _ sourceAppID: String) -> Bool
 
     private var timer: Timer?
     private var lastChangeCount: Int
@@ -98,7 +98,7 @@ final class ClipboardWatcher {
                 return false
             }
 
-            let stored = ingestText(text, sourceAppID)
+            let stored = ingestText(coordinator.coreRuntime, text, sourceAppID)
             log(stored ? "capture_text_success" : "capture_text_failed")
             return stored
         }
@@ -114,7 +114,7 @@ final class ClipboardWatcher {
 
             let width = Int(bitmap.pixelsWide)
             let height = Int(bitmap.pixelsHigh)
-            let stored = ingestImage(pngData, width, height, "png", sourceAppID)
+            let stored = ingestImage(coordinator.coreRuntime, pngData, width, height, "png", sourceAppID)
             log(stored ? "capture_image_success" : "capture_image_failed")
             if stored {
                 coordinator.dispatch(.clipboardImageCaptured)
@@ -158,22 +158,28 @@ final class ClipboardWatcher {
         LoggerService.debug("[watcher] \(message)")
     }
 
-    private static func defaultIngestText(_ text: String, _ sourceAppID: String) -> Bool {
+    private static func defaultIngestText(_ runtime: UnsafeMutableRawPointer?, _ text: String, _ sourceAppID: String) -> Bool {
+        guard let runtime else {
+            return false
+        }
         return text.withCString { textPointer in
             sourceAppID.withCString { sourcePointer in
-                pasty_history_ingest_text(textPointer, sourcePointer)
+                pasty_history_ingest_text(runtime, textPointer, sourcePointer)
             }
         }
     }
 
-    private static func defaultIngestImage(_ bytes: Data, _ width: Int, _ height: Int, _ formatHint: String, _ sourceAppID: String) -> Bool {
+    private static func defaultIngestImage(_ runtime: UnsafeMutableRawPointer?, _ bytes: Data, _ width: Int, _ height: Int, _ formatHint: String, _ sourceAppID: String) -> Bool {
+        guard let runtime else {
+            return false
+        }
         return bytes.withUnsafeBytes { rawBuffer in
             guard let rawPointer = rawBuffer.baseAddress?.assumingMemoryBound(to: UInt8.self) else {
                 return false
             }
             return sourceAppID.withCString { sourcePointer in
                 formatHint.withCString { formatPointer in
-                    pasty_history_ingest_image(rawPointer, numericCast(bytes.count), numericCast(width), numericCast(height), formatPointer, sourcePointer)
+                    pasty_history_ingest_image(runtime, rawPointer, numericCast(bytes.count), numericCast(width), numericCast(height), formatPointer, sourcePointer)
                 }
             }
         }

@@ -205,13 +205,17 @@ final class SettingsStore {
     }
 
     private func syncToCore() {
+        guard let runtime = coordinator.coreRuntime else {
+            return
+        }
+
         if !didInitializeCoreSettings {
-            pasty_settings_initialize(Int32(coordinator.settings.history.maxCount))
+            pasty_settings_initialize(runtime, Int32(coordinator.settings.history.maxCount))
             didInitializeCoreSettings = true
         } else {
             let maxCountStr = String(coordinator.settings.history.maxCount)
             maxCountStr.withCString { ptr in
-                pasty_settings_update("history.maxCount", ptr)
+                pasty_settings_update(runtime, "history.maxCount", ptr)
             }
         }
     }

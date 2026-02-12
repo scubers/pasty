@@ -123,8 +123,12 @@ final class OCRService {
     }
 
     private func getNextTask() -> TaskPayload? {
+        guard let runtime = coordinator.coreRuntime else {
+            return nil
+        }
+
         var outJson: UnsafeMutablePointer<CChar>?
-        guard pasty_history_get_next_ocr_task(&outJson) else {
+        guard pasty_history_get_next_ocr_task(runtime, &outJson) else {
             return nil
         }
         guard let outJson else {
@@ -144,19 +148,28 @@ final class OCRService {
     }
 
     private func markProcessing(id: String) -> Bool {
-        id.withCString { pasty_history_ocr_mark_processing($0) }
+        guard let runtime = coordinator.coreRuntime else {
+            return false
+        }
+        return id.withCString { pasty_history_ocr_mark_processing(runtime, $0) }
     }
 
     private func reportSuccess(id: String, text: String) -> Bool {
-        id.withCString { idPtr in
+        guard let runtime = coordinator.coreRuntime else {
+            return false
+        }
+        return id.withCString { idPtr in
             text.withCString { textPtr in
-                pasty_history_ocr_success(idPtr, textPtr)
+                pasty_history_ocr_success(runtime, idPtr, textPtr)
             }
         }
     }
 
     private func reportFailure(id: String) -> Bool {
-        id.withCString { pasty_history_ocr_failed($0) }
+        guard let runtime = coordinator.coreRuntime else {
+            return false
+        }
+        return id.withCString { pasty_history_ocr_failed(runtime, $0) }
     }
 
     private func performOCR(imagePath: String, completion: @escaping (Result<String, Error>) -> Void) {

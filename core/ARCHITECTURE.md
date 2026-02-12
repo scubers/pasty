@@ -9,323 +9,141 @@
 
 ## 目标与边界
 
-- Core 层是 **跨平台业务逻辑层**：纯 C++17 实现，禁止平台依赖。
-- Core 层是 **数据模型与规则的唯一真相来源**：去重、保留策略、搜索语义、存储逻辑等必须在 Core 实现。
-- Platform 层（macOS/Windows/iOS/Android）是 **thin shell**：只做 UI、系统集成、适配器。
-- 依赖方向永远是：`platform/*` -> `core`（单向）。Core 禁止依赖任何平台头文件/库。
+- Core 层是跨平台业务逻辑层：纯 C++17，禁止平台依赖。
+- Core 层是业务规则与数据模型的唯一真相来源。
+- 平台层只做 UI/系统集成/适配，不承载可移植业务逻辑。
+- 依赖方向固定为：`platform/* -> core`。
 
 ---
 
-## 目录结构（以此为准）
+## 目录结构（以当前代码为准）
 
 ```text
 core/
-├── CMakeLists.txt              # CMake 构建配置（支持独立构建）
-├── ARCHITECTURE.md             # 本文件
-└── src/                        # Core 源码（实现 + 公开头）
-    ├── api/                    # Core API 组装（内部入口）
-    │   ├── pasty.h
-    │   └── pasty.cpp           # 主入口实现（含 C API 实现）
-    ├── common/                 # 通用基础模块
-    │   ├── logger.h
-    │   └── logger.cpp
-    ├── history/                # 历史模块实现
-    │   ├── history.h
-    │   └── history.cpp
-    ├── store/                  # 存储实现
-    │   ├── store_sqlite.h
-    │   └── store_sqlite.cpp    # SQLite 存储实现
-    ├── settings/               # 设置模块实现
-    │   ├── settings_api.h
-    │   └── settings_api.cpp
-    ├── pasty/                  # 公共头文件（对外 API）
-    │   ├── pasty.h             # 主入口头文件（平台层 import 此文件）
-    │   ├── history/            # 剪贴板历史模块
-    │   │   ├── types.h
-    │   │   ├── history.h
-    │   │   └── store.h
-    │   ├── api/                # C API（供 FFI / Swift 互操作）
-    │   │   └── history_api.h
-    │   └── settings/           # 设置模块公共接口
-    │       └── settings_api.h
-    ├── module.modulemap        # Swift 模块映射
-    └── thirdparty/             # Core 内部第三方头文件
-```
-
-### 目录职责
-
-| 目录 | 职责 |
-|------|------|
-| `src/pasty/` | 公共 API 头文件，平台层可 include |
-| `src/pasty/history/` | 剪贴板历史模块公共接口 |
-| `src/pasty/api/` | C 语言 API（供 Swift/Kotlin FFI 调用） |
-| `src/pasty/logger.h` | 统一日志接口 |
-| `src/` | Core 源文件根目录 |
-| `src/api/` | Core 内部 API 组装与 C API 入口实现 |
-| `src/common/` | 通用模块实现（日志等） |
-| `src/history/` | 历史模块实现 |
-| `src/store/` | 存储模块实现（SQLite 等） |
-| `src/settings/` | 设置模块实现 |
-| `src/thirdparty/` | Core 内部第三方头文件 |
-
----
-
-## 模块设计
-
-### 1. History 模块 (`pasty/history/`)
-
-剪贴板历史的核心模块，包含：
-
-- **types.h**: 数据类型定义（`ClipboardHistoryItem`, `ClipboardHistoryIngestEvent` 等）
-- **history.h**: `ClipboardHistory` 类，历史管理的主入口
-- **store.h**: `ClipboardHistoryStore` 接口（存储抽象）
-
-```cpp
-// 使用示例
-#include <pasty/history/history.h>
-#include <pasty/history/types.h>
-
-pasty::ClipboardHistory history(pasty::createClipboardHistoryStore());
-history.initialize("/path/to/storage");
-history.ingest(event);
-auto result = history.list(100, "");
-```
-
-### 2. API 模块 (`pasty/api/`)
-
-C 语言接口层，供平台层通过 FFI 调用：
-
-```cpp
-// C API（Swift 可直接调用）
-#include <pasty/api/history_api.h>
-
-pasty_history_ingest_text("Hello", "com.app.source");
-const char* json = pasty_history_list_json(100);
-bool success = pasty_history_search("Hello", 10, 200, &out_json);
-pasty_history_delete("item-id");
-```
-
-### 4. 日志模块 (`pasty/logger.h`)
-
-提供统一的日志记录接口和宏：
-
-```cpp
-#include <pasty/logger.h>
-
-PASTY_LOG_INFO("Core.Tag", "Message with %s", "args");
-PASTY_LOG_ERROR("Core.Tag", "Error occurred: %d", errorCode);
-```
-
-**必须**使用宏记录日志，禁止使用 `std::cout` / `printf`。
-
-### 3. 主入口 (`pasty/pasty.h`)
-
-统一入口头文件，包含所有公共 API：
-
-```cpp
-#include <pasty/pasty.h>  // 包含所有公共头文件
+├── CMakeLists.txt
+├── ARCHITECTURE.md
+├── include/                         # 对外公开头文件（稳定边界）
+│   └── pasty/
+│       ├── module.modulemap
+│       ├── runtime_json_api.h
+│       ├── logger.h
+│       ├── api/
+│       │   └── runtime_json_api.h  # 兼容转发头
+│       ├── common/
+│       │   └── logger.h            # 兼容转发头
+│       ├── history/
+│       │   ├── clipboard_types.h
+│       │   └── clipboard_history_types.h
+│       └── runtime/
+│           ├── core_runtime.h
+│           └── runtime_config.h
+├── migrations/
+├── src/                             # Core 内部实现
+│   ├── api/
+│   │   ├── runtime_json_api.h
+│   │   └── runtime_json_api.cpp
+│   ├── application/history/
+│   │   ├── clipboard_service.h
+│   │   └── clipboard_service.cpp
+│   ├── history/
+│   │   ├── clipboard_history_store.h
+│   │   └── clipboard_history_types.h
+│   ├── runtime/
+│   │   ├── core_runtime.h
+│   │   └── core_runtime.cpp
+│   ├── store/
+│   │   ├── sqlite_clipboard_history_store.h
+│   │   └── sqlite_clipboard_history_store.cpp
+│   ├── infrastructure/settings/
+│   │   ├── in_memory_settings_store.h
+│   │   └── in_memory_settings_store.cpp
+│   ├── ports/
+│   │   └── settings_store.h
+│   ├── common/
+│   │   ├── logger.h
+│   │   └── logger.cpp
+│   ├── utils/
+│   │   ├── runtime_json_utils.h
+│   │   └── runtime_json_utils.cpp
+│   └── thirdparty/
+│       └── nlohmann/json.hpp
+└── tests/
 ```
 
 ---
 
-## 构建系统
+## 分层与职责
 
-### CMake 独立构建
+### 1) API 层（`src/api` + `include/pasty`）
 
-Core 层支持 CMake 独立构建，不依赖 Xcode 或其他平台工具链：
+- 对外暴露 JSON 化 C API（FFI 友好）。
+- API 不保存全局 runtime 状态，全部通过 `pasty_runtime_ref` 路由。
+- API 只做参数边界校验、序列化/反序列化与调用编排。
 
-```bash
-# 构建
-cd core
-mkdir build && cd build
-cmake ..
-cmake --build .
+### 2) Runtime 层（`src/runtime`）
 
-# 运行测试（如果有）
-ctest
-```
+- `CoreRuntime` 是 Core 唯一业务入口。
+- 持有并管理 service 生命周期。
+- 管理启动/停止、配置与 settings 读写协同。
 
-CMake 配置要点：
-- 目标名称：`PastyCore`（静态库）
-- C++ 标准：C++17
-- 编译选项：`-Wall -Wextra -Wpedantic`
-- 依赖：SQLite3（系统库）
+### 3) Application 层（`src/application`）
 
-### 平台集成构建
+- `ClipboardService` 承载 history 用例编排。
+- 调用 store 接口处理持久化，不暴露存储细节。
 
-- **macOS**: 通过 XcodeGen (`platform/macos/project.yml`) 集成
-- **Windows**: 通过 CMake + Visual Studio
-- **iOS/Android**: 待实现
+### 4) Domain/Store 抽象（`src/history`）
 
-### 构建脚本
+- 定义 `ClipboardHistoryStore` 接口和核心类型。
+- 不依赖具体存储实现。
 
-```bash
-# 独立构建（CMake）
-./scripts/core-build.sh Debug    # 或 Release
+### 5) Infrastructure 层（`src/store`, `src/infrastructure`）
 
-# macOS 集成构建
-./scripts/platform-build-macos.sh Debug
-```
+- `sqlite_clipboard_history_store`：history 持久化实现。
+- `in_memory_settings_store`：settings 存储实现。
+
+### 6) Utils 层（`src/utils`）
+
+- 放通用工具函数（JSON 拼装、字符串与时间工具）。
+- 不放业务规则。
 
 ---
 
-## 编码规范
+## 关键调用链（当前实现）
 
-### 命名约定
+平台层调用路径：
 
-| 类型 | 风格 | 示例 |
-|------|------|------|
-| 命名空间 | 小写 | `pasty`, `pasty::history` |
-| 类名 | PascalCase | `ClipboardHistory`, `ClipboardHistoryStore` |
-| 函数 | camelCase | `initialize()`, `ingestText()` |
-| 成员变量 | m_ 前缀 | `m_initialized`, `m_store` |
-| 常量 | k 前缀 + PascalCase | `kMaxHistoryItems` |
-| 宏 | SCREAMING_SNAKE | `PASTY_VERSION` |
-| C API | pasty_ 前缀 + snake_case | `pasty_history_ingest_text()` |
+`platform -> import PastyCore -> runtime_json_api -> CoreRuntime -> ClipboardService -> ClipboardHistoryStore(SQLite实现)`
 
-### 头文件约定
+这条链路中：
 
-```cpp
-// 头文件保护（使用 #pragma once 或 include guard）
-#ifndef PASTY_HISTORY_TYPES_H
-#define PASTY_HISTORY_TYPES_H
-
-// 版权声明
-// Pasty - Copyright (c) 2026. MIT License.
-
-// 内容...
-
-#endif
-```
-
-### Include 顺序
-
-```cpp
-// 1. 对应的头文件（如果是 .cpp）
-#include "pasty/history/history.h"
-
-// 2. 同模块头文件
-#include "store_sqlite.h"
-
-// 3. 其他 Core 模块头文件
-#include <pasty/history/types.h>
-
-// 4. 标准库
-#include <memory>
-#include <string>
-#include <vector>
-
-// 5. 第三方库（如果有）
-#include <sqlite3.h>
-```
+- 平台创建/销毁 runtime。
+- API 接口全部显式接收 runtime 引用。
+- Core 内部不依赖平台状态，也不依赖全局单例。
 
 ---
 
-## 设计原则
+## Header 边界规则
 
-### 1. 接口隔离
-
-- 公共接口放在 `src/pasty/`
-- 内部实现细节放在 `src/`（不对外暴露）
-- 使用抽象接口（如 `ClipboardHistoryStore`）隔离实现
-
-### 2. 依赖注入
-
-```cpp
-// 通过构造函数注入依赖
-ClipboardHistory history(createClipboardHistoryStore());
-
-// 便于测试：注入 mock 实现
-ClipboardHistory history(std::make_unique<MockStore>());
-```
-
-### 3. 错误处理
-
-- 优先使用返回值表示成功/失败（`bool`, `std::optional`, `Result` 类型）
-- 避免跨 API 边界抛出异常
-- C API 使用返回值 + 错误码模式
-
-```cpp
-// C++ API
-bool initialize(const std::string& path);
-std::optional<ClipboardHistoryItem> getById(const std::string& id);
-
-// C API
-bool pasty_history_delete(const char* id);  // 返回 false 表示失败
-```
-
-### 4. 内存管理
-
-- 使用 RAII 管理资源
-- 优先使用智能指针（`std::unique_ptr`, `std::shared_ptr`）
-- C API 返回的字符串由 Core 管理生命周期
+- 平台层只应依赖 `core/include` 暴露的头文件边界。
+- `core/src` 下头文件属于实现细节，不作为平台层依赖契约。
+- `include/pasty/api/*` 与 `include/pasty/common/*` 为兼容转发头，建议新代码优先使用：
+  - `#include <pasty/runtime_json_api.h>`
+  - `#include <pasty/logger.h>`
 
 ---
 
-## 平台适配
+## 构建约定
 
-### Swift 互操作
-
-通过 `module.modulemap` 将 Core 暴露给 Swift：
-
-```swift
-import PastyCore
-
-pasty_history_ingest_text("Hello", "com.app.source")
-```
-
-### 禁止的平台依赖
-
-Core 层**禁止**包含以下头文件：
-
-- `<Cocoa/Cocoa.h>`, `<AppKit/AppKit.h>`, `<UIKit/UIKit.h>`
-- `<windows.h>`, `<winrt/...>`
-- `<android/...>`, `<jni.h>`
-- 任何平台特定的系统调用
-
-如需平台能力，通过接口（port）定义在 Core，由平台层实现。
+- Core 独立构建：`./scripts/core-build.sh Debug`
+- macOS 集成构建：`./scripts/platform-build-macos.sh Debug`
+- `PastyCore` target 负责编译 `core/src`；公开头来自 `core/include/pasty`。
 
 ---
 
-## 测试
+## 扩展规则
 
-### 单元测试
+新增模块时必须同步：
 
-- 测试文件放在 `core/tests/`
-- 使用 CMake 自带的 CTest 框架
-- 通过 CMake 集成：`cmake --build .` 后运行 `ctest`
-
-### 测试覆盖
-
-| 模块 | 必须测试 |
-|------|----------|
-| History | ingest、list、delete、去重逻辑 |
-| Store | SQLite 读写、数据完整性 |
-| API | C 接口正确性 |
-
----
-
-## 版本与兼容性
-
-- C++ 标准：C++17（最低）
-- 编译器支持：Clang 14+, GCC 11+, MSVC 2019+
-- 平台：macOS 14+, Windows 10+, Ubuntu 20.04+
-
----
-
-## 扩展指南
-
-### 添加新模块
-
-1. 在 `src/pasty/` 下创建模块目录
-2. 在 `src/` 下创建对应实现目录
-3. 更新 `CMakeLists.txt` 添加源文件
-4. 更新 `module.modulemap` 添加头文件
-5. 更新本文档的目录结构
-
-### 添加新依赖
-
-1. 必须是跨平台库
-2. 必须得到明确批准
-3. 在 `CMakeLists.txt` 中添加 `find_package` 或 `FetchContent`
-4. 更新本文档记录依赖
+1. 落到对应层目录（api/runtime/application/store/infrastructure/utils）。
+2. 更新 `CMakeLists.txt` 与 `core/include/pasty/module.modulemap`（若对外暴露）。
+3. 补充或更新本文档的目录结构与调用链说明。

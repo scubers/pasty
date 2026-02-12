@@ -1,13 +1,13 @@
-// Pasty - Copyright (c) 2026. MIT License.
+#include "application/history/clipboard_service.h"
 
-#include "history/history.h"
-#include <settings/settings_api.h>
 #include <common/logger.h>
 
 #include <chrono>
 #include <cstdint>
 #include <iomanip>
 #include <sstream>
+
+namespace pasty {
 
 namespace {
 
@@ -71,22 +71,15 @@ std::string makeItemId(std::int64_t timestampMs, const std::string& sourceAppId,
     return toHex(hashed);
 }
 
-}
+} // namespace
 
-namespace pasty {
-
-ClipboardHistory::ClipboardHistory(std::unique_ptr<ClipboardHistoryStore> store)
+ClipboardService::ClipboardService(std::unique_ptr<ClipboardHistoryStore> store, SettingsStore& settingsStore)
     : m_store(std::move(store))
+    , m_settingsStore(settingsStore)
     , m_initialized(false) {
 }
 
-ClipboardHistory::~ClipboardHistory() {
-    if (m_initialized) {
-        shutdown();
-    }
-}
-
-bool ClipboardHistory::initialize(const std::string& baseDirectory) {
+bool ClipboardService::initialize(const std::string& baseDirectory) {
     if (m_initialized) {
         return true;
     }
@@ -100,10 +93,10 @@ bool ClipboardHistory::initialize(const std::string& baseDirectory) {
     }
 
     m_initialized = true;
-    return true;
+    return applyRetentionFromSettings();
 }
 
-void ClipboardHistory::shutdown() {
+void ClipboardService::shutdown() {
     if (!m_initialized || !m_store) {
         return;
     }
@@ -112,25 +105,23 @@ void ClipboardHistory::shutdown() {
     m_initialized = false;
 }
 
-bool ClipboardHistory::isInitialized() const {
+bool ClipboardService::isInitialized() const {
     return m_initialized;
 }
 
-bool ClipboardHistory::ingest(const ClipboardHistoryIngestEvent& event) {
+bool ClipboardService::ingest(const ClipboardHistoryIngestEvent& event) {
     if (!m_initialized || !m_store) {
         return false;
     }
 
     if (event.flags.isFileOrFolderReference || event.flags.isTransient || event.flags.isConcealed) {
-        PASTY_LOG_INFO("Core.History", "Skipped item. Flags: file=%d transient=%d concealed=%d", 
+        PASTY_LOG_INFO("Core.History", "Skipped item. Flags: file=%d transient=%d concealed=%d",
             event.flags.isFileOrFolderReference, event.flags.isTransient, event.flags.isConcealed);
         return true;
     }
 
     ClipboardHistoryItem item;
-    const std::int64_t eventTimeMs = event.timestampMs > 0
-        ? event.timestampMs
-        : currentTimeMs();
+    const std::int64_t eventTimeMs = event.timestampMs > 0 ? event.timestampMs : currentTimeMs();
 
     item.type = event.itemType;
     item.content = event.text;
@@ -147,29 +138,24 @@ bool ClipboardHistory::ingest(const ClipboardHistoryIngestEvent& event) {
         item.id = makeItemId(item.lastCopyTimeMs, item.sourceAppId, item.contentHash);
         const std::string id = m_store->upsertImageItem(item, event.image.bytes);
         const bool ok = !id.empty();
-        if (ok) {
-            PASTY_LOG_INFO("Core.History", "Stored image item. ID: %s, Size: %dx%d", item.id.c_str(), item.imageWidth, item.imageHeight);
-            m_store->enforceRetention(pasty_settings_get_max_history_count());
-        } else {
-            PASTY_LOG_ERROR("Core.History", "Failed to store image item. ID: %s", item.id.c_str());
+        if (!ok) {
+            return false;
         }
-        return ok;
+        return applyRetentionFromSettings();
     }
 
     item.contentHash = computeTextHash(event.text);
     item.id = makeItemId(item.lastCopyTimeMs, item.sourceAppId, item.contentHash);
     const std::string id = m_store->upsertTextItem(item);
     const bool ok = !id.empty();
-    if (ok) {
-        PASTY_LOG_INFO("Core.History", "Stored text item. ID: %s, Length: %zu", item.id.c_str(), item.content.size());
-        m_store->enforceRetention(pasty_settings_get_max_history_count());
-    } else {
-        PASTY_LOG_ERROR("Core.History", "Failed to store text item. ID: %s", item.id.c_str());
+    if (!ok) {
+        return false;
     }
-    return ok;
+
+    return applyRetentionFromSettings();
 }
 
-ClipboardHistoryListResult ClipboardHistory::list(std::int32_t limit, const std::string& cursor) const {
+ClipboardHistoryListResult ClipboardService::list(std::int32_t limit, const std::string& cursor) {
     if (!m_initialized || !m_store) {
         return ClipboardHistoryListResult{};
     }
@@ -177,7 +163,7 @@ ClipboardHistoryListResult ClipboardHistory::list(std::int32_t limit, const std:
     return m_store->listItems(limit, cursor);
 }
 
-std::vector<ClipboardHistoryItem> ClipboardHistory::search(const SearchOptions& options) {
+std::vector<ClipboardHistoryItem> ClipboardService::search(const SearchOptions& options) {
     if (!m_initialized || !m_store) {
         return {};
     }
@@ -185,7 +171,7 @@ std::vector<ClipboardHistoryItem> ClipboardHistory::search(const SearchOptions& 
     return m_store->search(options);
 }
 
-std::vector<OcrTask> ClipboardHistory::getPendingOcrImages(std::int32_t limit) const {
+std::vector<OcrTask> ClipboardService::getPendingOcrImages(std::int32_t limit) {
     if (!m_initialized || !m_store) {
         return {};
     }
@@ -193,7 +179,7 @@ std::vector<OcrTask> ClipboardHistory::getPendingOcrImages(std::int32_t limit) c
     return m_store->getPendingOcrImages(limit, currentTimeMs());
 }
 
-std::optional<OcrTask> ClipboardHistory::getNextOcrTask() const {
+std::optional<OcrTask> ClipboardService::getNextOcrTask() {
     if (!m_initialized || !m_store) {
         return std::nullopt;
     }
@@ -201,7 +187,7 @@ std::optional<OcrTask> ClipboardHistory::getNextOcrTask() const {
     return m_store->getNextOcrTask(currentTimeMs());
 }
 
-bool ClipboardHistory::markOcrProcessing(const std::string& id) {
+bool ClipboardService::markOcrProcessing(const std::string& id) {
     if (!m_initialized || !m_store) {
         return false;
     }
@@ -209,7 +195,7 @@ bool ClipboardHistory::markOcrProcessing(const std::string& id) {
     return m_store->markOcrProcessing(id);
 }
 
-bool ClipboardHistory::updateOcrSuccess(const std::string& id, const std::string& ocrText) {
+bool ClipboardService::updateOcrSuccess(const std::string& id, const std::string& ocrText) {
     if (!m_initialized || !m_store) {
         return false;
     }
@@ -217,7 +203,7 @@ bool ClipboardHistory::updateOcrSuccess(const std::string& id, const std::string
     return m_store->updateOcrSuccess(id, ocrText);
 }
 
-bool ClipboardHistory::updateOcrFailed(const std::string& id) {
+bool ClipboardService::updateOcrFailed(const std::string& id) {
     if (!m_initialized || !m_store) {
         return false;
     }
@@ -225,7 +211,7 @@ bool ClipboardHistory::updateOcrFailed(const std::string& id) {
     return m_store->updateOcrFailed(id, currentTimeMs());
 }
 
-std::optional<OcrTaskStatus> ClipboardHistory::getOcrStatus(const std::string& id) const {
+std::optional<OcrTaskStatus> ClipboardService::getOcrStatus(const std::string& id) {
     if (!m_initialized || !m_store) {
         return std::nullopt;
     }
@@ -233,7 +219,7 @@ std::optional<OcrTaskStatus> ClipboardHistory::getOcrStatus(const std::string& i
     return m_store->getOcrStatus(id);
 }
 
-std::optional<ClipboardHistoryItem> ClipboardHistory::getById(const std::string& id) {
+std::optional<ClipboardHistoryItem> ClipboardService::getById(const std::string& id) {
     if (!m_initialized || !m_store) {
         return std::nullopt;
     }
@@ -241,25 +227,24 @@ std::optional<ClipboardHistoryItem> ClipboardHistory::getById(const std::string&
     return m_store->getItem(id);
 }
 
-bool ClipboardHistory::deleteById(const std::string& id) {
+bool ClipboardService::deleteById(const std::string& id) {
     if (!m_initialized || !m_store) {
         return false;
     }
 
-    bool success = m_store->deleteItem(id);
-    if (success) {
-        PASTY_LOG_INFO("Core.History", "Deleted item. ID: %s", id.c_str());
-    } else {
-        PASTY_LOG_WARN("Core.History", "Failed to delete item. ID: %s", id.c_str());
-    }
-    return success;
+    return m_store->deleteItem(id);
 }
 
-bool ClipboardHistory::enforceRetention(std::int32_t maxCount) {
+bool ClipboardService::applyRetentionFromSettings() {
+    return enforceRetention(m_settingsStore.getMaxHistoryCount());
+}
+
+bool ClipboardService::enforceRetention(std::int32_t maxCount) {
     if (!m_initialized || !m_store) {
         return false;
     }
+
     return m_store->enforceRetention(maxCount);
 }
 
-}
+} // namespace pasty

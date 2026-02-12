@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import PastyCore
 
 final class AppCoordinator: ObservableObject {
     enum Event {
@@ -11,6 +12,7 @@ final class AppCoordinator: ObservableObject {
     @Published private(set) var appData: URL = AppPaths.appDataDirectory()
     @Published private(set) var clipboardData: URL = AppPaths.appDataDirectory().appendingPathComponent("ClipboardData")
     @Published private(set) var lastWarningMessage: String?
+    var coreRuntime: UnsafeMutableRawPointer?
 
     let events = PassthroughSubject<Event, Never>()
 
