@@ -168,6 +168,9 @@ final class MainPanelWindowController: NSWindowController, NSWindowDelegate, InA
 
     func handleInAppHotkey(_ event: NSEvent) -> Bool {
         let isCommandPressed = event.modifierFlags.contains(.command)
+        if shouldBypassForTextComposition(event) {
+            return false
+        }
 
         switch (event.keyCode, isCommandPressed) {
         case (53, _): // esc
@@ -191,6 +194,29 @@ final class MainPanelWindowController: NSWindowController, NSWindowDelegate, InA
         default:
             return false
         }
+    }
+
+    private func shouldBypassForTextComposition(_ event: NSEvent) -> Bool {
+        // While an IME candidate list is active, Enter/Esc/Arrow keys should be
+        // consumed by the input method instead of panel-level shortcuts.
+        let compositionSensitiveKeyCodes: Set<UInt16> = [36, 76, 53, 125, 126]
+        guard compositionSensitiveKeyCodes.contains(event.keyCode) else {
+            return false
+        }
+
+        guard let responder = window?.firstResponder else {
+            return false
+        }
+
+        if let inputClient = responder as? NSTextInputClient {
+            return inputClient.hasMarkedText()
+        }
+
+        if let textView = responder as? NSTextView {
+            return textView.hasMarkedText()
+        }
+
+        return false
     }
 
     private func calculateDefaultPosition(screen: NSScreen?) -> NSPoint {
