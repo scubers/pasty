@@ -140,12 +140,16 @@ public:
         }
 
         bool inserted = true;
+        std::string existingId;
         {
             sqlite3_stmt* existing = nullptr;
             const char* existingSql = "SELECT id FROM items WHERE type='text' AND content_hash = ?1 LIMIT 1;";
             if (sqlite3_prepare_v2(m_db, existingSql, -1, &existing, nullptr) == SQLITE_OK) {
                 sqlite3_bind_text(existing, 1, item.contentHash.c_str(), -1, SQLITE_TRANSIENT);
-                inserted = (sqlite3_step(existing) != SQLITE_ROW);
+                if (sqlite3_step(existing) == SQLITE_ROW) {
+                    inserted = false;
+                    existingId = readTextColumn(existing, 0);
+                }
                 sqlite3_finalize(existing);
             } else {
                 return {};
@@ -181,8 +185,9 @@ public:
         }
 
         enforceRetentionUnlocked(m_itemsLimit);
-        PASTY_LOG_DEBUG("Core.Store", "Upsert text succeeded. ID: %s", item.id.c_str());
-        return ClipboardHistoryUpsertResult{item.id, inserted};
+        const std::string resultId = inserted ? item.id : existingId;
+        PASTY_LOG_DEBUG("Core.Store", "Upsert text succeeded. ID: %s", resultId.c_str());
+        return ClipboardHistoryUpsertResult{resultId, inserted};
     }
 
     ClipboardHistoryUpsertResult upsertImageItem(const ClipboardHistoryItem& item, const std::vector<std::uint8_t>& imageBytes) override {
