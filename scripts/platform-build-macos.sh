@@ -20,10 +20,12 @@ echo "App name: $APP_NAME"
 
 cd "$MACOS_DIR"
 
-if [ ! -f "Pasty.xcodeproj/project.pbxproj" ]; then
-    echo "Generating Xcode project..."
-    xcodegen generate
+echo "Generating Xcode project..."
+if ! command -v xcodegen >/dev/null 2>&1; then
+    echo "Error: xcodegen not found. Please install xcodegen first."
+    exit 1
 fi
+xcodegen generate
 
 echo "Building with xcodebuild..."
 xcodebuild -project Pasty.xcodeproj \

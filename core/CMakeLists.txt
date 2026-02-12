@@ -32,6 +32,7 @@ target_include_directories(PastyCore
         ${PASTY_CORE_INCLUDE_DIR}
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/third_party
 )
 
 target_link_libraries(PastyCore

@@ -9,8 +9,9 @@
 #include <cstring>
 #include <memory>
 #include <optional>
-#include <sstream>
 #include <vector>
+
+#include <nlohmann/json.hpp>
 
 namespace pasty {
 
@@ -28,22 +29,6 @@ static std::string fromCString(const char* text) {
     return text == nullptr ? std::string() : std::string(text);
 }
 
-static std::string escapeJson(const std::string& value) {
-    std::string escaped;
-    escaped.reserve(value.size());
-    for (char character : value) {
-        switch (character) {
-            case '\\': escaped += "\\\\"; break;
-            case '"': escaped += "\\\""; break;
-            case '\n': escaped += "\\n"; break;
-            case '\r': escaped += "\\r"; break;
-            case '\t': escaped += "\\t"; break;
-            default: escaped.push_back(character); break;
-        }
-    }
-    return escaped;
-}
-
 static const char* ocrStatusToString(pasty::OcrStatus status) {
     switch (status) {
         case pasty::OcrStatus::Pending: return "pending";
@@ -54,83 +39,74 @@ static const char* ocrStatusToString(pasty::OcrStatus status) {
     return "pending";
 }
 
-static std::string serializeItemsToJson(const std::vector<ClipboardHistoryItem>& items) {
-    std::ostringstream stream;
-    stream << "[";
-    for (std::size_t index = 0; index < items.size(); ++index) {
-        const auto& item = items[index];
-        if (index > 0) {
-            stream << ",";
+using Json = nlohmann::json;
+
+static Json itemToJson(const ClipboardHistoryItem& item) {
+    Json value = {
+        {"id", item.id},
+        {"type", item.type == pasty::ClipboardItemType::Image ? "image" : "text"},
+        {"content", item.content},
+        {"imagePath", item.imagePath},
+        {"imageWidth", item.imageWidth},
+        {"imageHeight", item.imageHeight},
+        {"imageFormat", item.imageFormat},
+        {"createTimeMs", item.createTimeMs},
+        {"updateTimeMs", item.updateTimeMs},
+        {"lastCopyTimeMs", item.lastCopyTimeMs},
+        {"sourceAppId", item.sourceAppId},
+        {"contentHash", item.contentHash},
+        {"metadata", item.metadata},
+        {"ocrStatus", nullptr},
+        {"ocrText", nullptr},
+    };
+
+    if (item.type == pasty::ClipboardItemType::Image) {
+        value["ocrStatus"] = ocrStatusToString(item.ocrStatus);
+        if (!item.ocrText.empty()) {
+            value["ocrText"] = item.ocrText;
         }
-        stream << "{";
-        stream << "\"id\":\"" << pasty::escapeJson(item.id) << "\",";
-        stream << "\"type\":\"" << (item.type == pasty::ClipboardItemType::Image ? "image" : "text") << "\",";
-        stream << "\"content\":\"" << pasty::escapeJson(item.content) << "\",";
-        stream << "\"imagePath\":\"" << pasty::escapeJson(item.imagePath) << "\",";
-        stream << "\"imageWidth\":" << item.imageWidth << ",";
-        stream << "\"imageHeight\":" << item.imageHeight << ",";
-        stream << "\"imageFormat\":\"" << pasty::escapeJson(item.imageFormat) << "\",";
-        stream << "\"createTimeMs\":" << item.createTimeMs << ",";
-        stream << "\"updateTimeMs\":" << item.updateTimeMs << ",";
-        stream << "\"lastCopyTimeMs\":" << item.lastCopyTimeMs << ",";
-        stream << "\"sourceAppId\":\"" << pasty::escapeJson(item.sourceAppId) << "\",";
-        stream << "\"contentHash\":\"" << pasty::escapeJson(item.contentHash) << "\",";
-        stream << "\"metadata\":\"" << pasty::escapeJson(item.metadata) << "\",";
-        stream << "\"ocrStatus\":";
-        if (item.type == pasty::ClipboardItemType::Image) {
-            stream << "\"" << ocrStatusToString(item.ocrStatus) << "\"";
-        } else {
-            stream << "null";
-        }
-        stream << ",";
-        stream << "\"ocrText\":";
-        if (item.type != pasty::ClipboardItemType::Image || item.ocrText.empty()) {
-            stream << "null";
-        } else {
-            stream << "\"" << pasty::escapeJson(item.ocrText) << "\"";
-        }
-        stream << "}";
     }
-    stream << "]";
-    return stream.str();
+
+    return value;
+}
+
+static std::string serializeItemsToJson(const std::vector<ClipboardHistoryItem>& items) {
+    Json payload = Json::array();
+    for (const auto& item : items) {
+        payload.push_back(itemToJson(item));
+    }
+    return payload.dump();
 }
 
 static std::string serializeOcrTask(const pasty::OcrTask& task) {
-    std::ostringstream stream;
-    stream << "{";
-    stream << "\"id\":\"" << pasty::escapeJson(task.id) << "\",";
-    stream << "\"imagePath\":\"" << pasty::escapeJson(task.imagePath) << "\",";
-    stream << "\"retryCount\":" << task.retryCount << ",";
-    stream << "\"lastCopyTimeMs\":" << task.lastCopyTimeMs;
-    stream << "}";
-    return stream.str();
+    Json value = {
+        {"id", task.id},
+        {"imagePath", task.imagePath},
+        {"retryCount", task.retryCount},
+        {"lastCopyTimeMs", task.lastCopyTimeMs},
+    };
+    return value.dump();
 }
 
 static std::string serializeOcrTasks(const std::vector<pasty::OcrTask>& tasks) {
-    std::ostringstream stream;
-    stream << "[";
-    for (std::size_t index = 0; index < tasks.size(); ++index) {
-        if (index > 0) {
-            stream << ",";
-        }
-        stream << serializeOcrTask(tasks[index]);
+    Json payload = Json::array();
+    for (const auto& task : tasks) {
+        payload.push_back(Json{
+            {"id", task.id},
+            {"imagePath", task.imagePath},
+            {"retryCount", task.retryCount},
+            {"lastCopyTimeMs", task.lastCopyTimeMs},
+        });
     }
-    stream << "]";
-    return stream.str();
+    return payload.dump();
 }
 
 static std::string serializeOcrStatus(const pasty::OcrTaskStatus& status) {
-    std::ostringstream stream;
-    stream << "{";
-    stream << "\"ocrStatus\":\"" << ocrStatusToString(status.status) << "\",";
-    stream << "\"ocrText\":";
-    if (status.text.empty()) {
-        stream << "null";
-    } else {
-        stream << "\"" << pasty::escapeJson(status.text) << "\"";
-    }
-    stream << "}";
-    return stream.str();
+    Json value = {
+        {"ocrStatus", ocrStatusToString(status.status)},
+        {"ocrText", status.text.empty() ? Json(nullptr) : Json(status.text)},
+    };
+    return value.dump();
 }
 
 static char* copyString(const std::string& str) {
@@ -332,37 +308,7 @@ char* pasty_history_get_json(const char* id) {
         return nullptr;
     }
 
-    std::ostringstream stream;
-    stream << "{";
-    stream << "\"id\":\"" << pasty::escapeJson(item->id) << "\",";
-    stream << "\"type\":\"" << (item->type == pasty::ClipboardItemType::Image ? "image" : "text") << "\",";
-    stream << "\"content\":\"" << pasty::escapeJson(item->content) << "\",";
-    stream << "\"imagePath\":\"" << pasty::escapeJson(item->imagePath) << "\",";
-    stream << "\"imageWidth\":" << item->imageWidth << ",";
-    stream << "\"imageHeight\":" << item->imageHeight << ",";
-    stream << "\"imageFormat\":\"" << pasty::escapeJson(item->imageFormat) << "\",";
-    stream << "\"createTimeMs\":" << item->createTimeMs << ",";
-    stream << "\"updateTimeMs\":" << item->updateTimeMs << ",";
-    stream << "\"lastCopyTimeMs\":" << item->lastCopyTimeMs << ",";
-    stream << "\"sourceAppId\":\"" << pasty::escapeJson(item->sourceAppId) << "\",";
-    stream << "\"contentHash\":\"" << pasty::escapeJson(item->contentHash) << "\",";
-    stream << "\"metadata\":\"" << pasty::escapeJson(item->metadata) << "\",";
-    stream << "\"ocrStatus\":";
-    if (item->type == pasty::ClipboardItemType::Image) {
-        stream << "\"" << pasty::ocrStatusToString(item->ocrStatus) << "\"";
-    } else {
-        stream << "null";
-    }
-    stream << ",";
-    stream << "\"ocrText\":";
-    if (item->type != pasty::ClipboardItemType::Image || item->ocrText.empty()) {
-        stream << "null";
-    } else {
-        stream << "\"" << pasty::escapeJson(item->ocrText) << "\"";
-    }
-    stream << "}";
-
-    return pasty::copyString(stream.str());
+    return pasty::copyString(pasty::itemToJson(*item).dump());
 }
 
 void pasty_free_string(char* str) {

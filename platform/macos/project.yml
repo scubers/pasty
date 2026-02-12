@@ -49,6 +49,7 @@ targets:
     settings:
       HEADER_SEARCH_PATHS:
         - $(SRCROOT)/../../core/include
+        - $(SRCROOT)/../../core/third_party
       PRODUCT_NAME: PastyCore
       SKIP_INSTALL: YES
       DEFINES_MODULE: YES
