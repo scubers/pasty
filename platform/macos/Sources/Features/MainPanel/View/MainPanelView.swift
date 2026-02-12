@@ -9,8 +9,8 @@ struct MainPanelView: View {
             MainPanelSearchBar(text: Binding(
                 get: { viewModel.state.searchQuery },
                 set: { viewModel.send(.searchChanged($0)) }
-            ), focusRequest: Binding(
-                get: { viewModel.state.shouldFocusSearch },
+            ), focusToken: Binding(
+                get: { viewModel.state.searchFocusToken },
                 set: { _ in }
             ), filterType: Binding(
                 get: { viewModel.state.filterType },
@@ -49,6 +49,5 @@ struct MainPanelView: View {
             x: MainPanelTokens.Effects.panelShadow.x,
             y: MainPanelTokens.Effects.panelShadow.y
         )
-//        .frame(minWidth: 800, minHeight: 600)
     }
 }

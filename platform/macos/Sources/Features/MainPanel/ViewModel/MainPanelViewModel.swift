@@ -1,5 +1,5 @@
-import Combine
 import AppKit
+import Combine
 import Foundation
 import KeyboardShortcuts
 
@@ -8,28 +8,39 @@ final class MainPanelViewModel: ObservableObject {
     struct State: Equatable {
         var isVisible = false
         var items: [ClipboardItemRow] = []
-        var selectedItem: ClipboardItemRow? = nil
-        var selectionIndex: Int? = nil
-        var pendingDeleteItem: ClipboardItemRow? = nil
+        var selectedItemID: String? = nil
+        var pendingDeleteItemID: String? = nil
         var previousFrontmostApp: FrontmostAppTracker? = nil
-        var shouldFocusSearch = false
+        var searchFocusToken = 0
         var searchQuery = ""
         var isLoading = false
         var errorMessage: String? = nil
         var filterType: ClipboardItemRow.ItemType? = nil
+
+        var selectedItem: ClipboardItemRow? {
+            guard let selectedItemID else {
+                return nil
+            }
+            return items.first(where: { $0.id == selectedItemID })
+        }
+
+        var pendingDeleteItem: ClipboardItemRow? {
+            guard let pendingDeleteItemID else {
+                return nil
+            }
+            return items.first(where: { $0.id == pendingDeleteItemID })
+        }
     }
 
     enum Action {
         case togglePanel
         case showPanel
         case hidePanel
-        case panelShown
-        case panelHidden
+        case panelInteracted
         case searchChanged(String)
         case itemSelected(ClipboardItemRow)
         case moveSelectionUp
         case moveSelectionDown
-        case selectFirstIfNeeded
         case deleteSelectedConfirmed
         case copySelected
         case pasteSelectedAndClose
@@ -48,7 +59,13 @@ final class MainPanelViewModel: ObservableObject {
     private let historyService: ClipboardHistoryService
     private let hotkeyService: HotkeyService
     private let interactionService: MainPanelInteractionService
-    private var pendingSelectionIndexAfterRefresh: Int?
+    private let listStore = MainPanelListStore()
+    private let selectionStore = MainPanelSelectionStore()
+    private let searchStore = MainPanelSearchStore()
+
+    private var activeSearchRequestID = UUID()
+    private var searchRequestCancellable: AnyCancellable?
+    private var itemDetailCancellable: AnyCancellable?
 
     init(
         historyService: ClipboardHistoryService,
@@ -67,94 +84,141 @@ final class MainPanelViewModel: ObservableObject {
         switch action {
         case .togglePanel:
             send(state.isVisible ? .hidePanel : .showPanel)
+
         case .showPanel:
+            prepareForPanelShow()
             state.isVisible = true
-            send(.panelShown)
+            requestSearchFocus()
+            refreshListFromDatabase(selectFirst: true)
+
         case .hidePanel:
             state.isVisible = false
-            send(.panelHidden)
-        case .panelShown:
+            state.pendingDeleteItemID = nil
+            state.selectedItemID = nil
+            clearSearchInputForNextShow()
+
+        case .panelInteracted:
+            guard state.isVisible else {
+                return
+            }
             requestSearchFocus()
-            historyService.invalidateSearchCache()
-            refreshList(selectFirst: true)
-        case .panelHidden:
-            state.searchQuery = ""
-            state.filterType = nil
-            state.pendingDeleteItem = nil
-            state.selectionIndex = nil
-            state.selectedItem = nil
-            requestSearchFocus()
-            historyService.invalidateSearchCache()
-            refreshList(selectFirst: true)
+
         case let .searchChanged(query):
-            search(query: query)
+            state.searchQuery = query
+            requestSearchFocus()
+
         case let .itemSelected(item):
             selectItem(item)
+
         case .moveSelectionUp:
-            moveSelection(delta: -1)
+            state.selectedItemID = selectionStore.movedSelection(
+                currentSelectionID: state.selectedItemID,
+                in: state.items,
+                delta: -1
+            )
+            requestSearchFocus()
+
         case .moveSelectionDown:
-            moveSelection(delta: 1)
-        case .selectFirstIfNeeded:
-            selectFirstIfNeeded()
+            state.selectedItemID = selectionStore.movedSelection(
+                currentSelectionID: state.selectedItemID,
+                in: state.items,
+                delta: 1
+            )
+            requestSearchFocus()
+
         case .deleteSelectedConfirmed:
             LoggerService.info("Action: deleteSelectedConfirmed")
             deleteSelectedConfirmed()
+
         case .copySelected:
             LoggerService.info("Action: copySelected")
             copySelected()
+
         case .pasteSelectedAndClose:
             LoggerService.info("Action: pasteSelectedAndClose")
             pasteSelectedAndClose()
+
         case .prepareDeleteSelected:
-            state.pendingDeleteItem = state.selectedItem
+            state.pendingDeleteItemID = state.selectedItemID
             requestSearchFocus()
+
         case .cancelDelete:
-            state.pendingDeleteItem = nil
+            state.pendingDeleteItemID = nil
             requestSearchFocus()
+
         case let .frontmostApplicationTracked(tracker):
             state.previousFrontmostApp = tracker
-        case let .filterChanged(newFilter):
-            state.filterType = newFilter
-            historyService.invalidateSearchCache()
-            requestSearchFocus()
-            performSearch(query: state.searchQuery, filterType: newFilter)
+
         case .clipboardContentChanged:
             historyService.invalidateSearchCache()
-            refreshList(selectFirst: true)
+            refreshListFromDatabase(selectFirst: state.isVisible)
+
+        case let .filterChanged(newFilter):
+            state.filterType = newFilter
+            requestSearchFocus()
         }
     }
 
-    private func search(query: String) {
-        state.searchQuery = query
-    }
-
     private func setupSearchPipeline() {
-        $state
+        let queryPublisher = $state
             .map(\.searchQuery)
-            .removeDuplicates()
-            .debounce(for: .milliseconds(200), scheduler: DispatchQueue.main)
-            .sink { [weak self] query in
-                self?.performSearch(query: query, filterType: self?.state.filterType)
-            }
-            .store(in: &cancellables)
-
-        $state
+            .eraseToAnyPublisher()
+        let filterPublisher = $state
             .map(\.filterType)
-            .removeDuplicates()
-            .sink { [weak self] filterType in
-                self?.historyService.invalidateSearchCache()
-                self?.performSearch(query: self?.state.searchQuery ?? "", filterType: filterType)
+            .eraseToAnyPublisher()
+
+        searchStore.makeDebouncedQueryPublisher(
+            searchQueryPublisher: queryPublisher,
+            filterTypePublisher: filterPublisher
+        )
+            .sink { [weak self] query in
+                guard let self else {
+                    return
+                }
+                guard state.isVisible else {
+                    return
+                }
+                refreshListFromDatabase(query: query.text, filterType: query.filterType, selectFirst: true)
             }
             .store(in: &cancellables)
     }
 
-    private func performSearch(query: String, filterType: ClipboardItemRow.ItemType?) {
+    private func prepareForPanelShow() {
+        state.pendingDeleteItemID = nil
+        state.selectedItemID = nil
+        clearSearchInputForNextShow()
+    }
+
+    private func clearSearchInputForNextShow() {
+        guard !state.searchQuery.isEmpty else {
+            return
+        }
+        state.searchQuery = ""
+    }
+
+    private func refreshListFromDatabase(
+        query: String? = nil,
+        filterType: ClipboardItemRow.ItemType? = nil,
+        selectFirst: Bool
+    ) {
+        let effectiveQuery = query ?? state.searchQuery
+        let effectiveFilterType = filterType ?? state.filterType
+
         state.isLoading = true
-        historyService.search(query: query, limit: 100, filterType: filterType)
+        state.errorMessage = nil
+
+        let requestID = UUID()
+        activeSearchRequestID = requestID
+
+        searchRequestCancellable?.cancel()
+        searchRequestCancellable = historyService.search(query: effectiveQuery, limit: 100, filterType: effectiveFilterType)
             .receive(on: DispatchQueue.main)
             .sink(
                 receiveCompletion: { [weak self] completion in
                     guard let self else {
+                        return
+                    }
+                    guard self.activeSearchRequestID == requestID else {
                         return
                     }
                     self.state.isLoading = false
@@ -167,30 +231,23 @@ final class MainPanelViewModel: ObservableObject {
                     guard let self else {
                         return
                     }
+                    guard self.activeSearchRequestID == requestID else {
+                        return
+                    }
                     self.state.items = items
-                    if let preferredIndex = self.pendingSelectionIndexAfterRefresh {
-                        self.pendingSelectionIndexAfterRefresh = nil
-                        self.selectAfterDeletion(preferredIndex: preferredIndex)
-                    } else {
-                        send(.selectFirstIfNeeded)
+                    if selectFirst {
+                        self.state.selectedItemID = self.selectionStore.defaultSelectionID(in: items)
                     }
                 }
             )
-            .store(in: &cancellables)
-    }
-
-    private func refreshList(selectFirst: Bool) {
-        performSearch(query: state.searchQuery, filterType: state.filterType)
-        if selectFirst {
-            send(.selectFirstIfNeeded)
-        }
     }
 
     private func selectItem(_ item: ClipboardItemRow) {
-        state.selectedItem = item
-        state.selectionIndex = state.items.firstIndex(where: { $0.id == item.id })
+        state.selectedItemID = item.id
         requestSearchFocus()
-        historyService.get(id: item.id)
+
+        itemDetailCancellable?.cancel()
+        itemDetailCancellable = historyService.get(id: item.id)
             .receive(on: DispatchQueue.main)
             .sink(
                 receiveCompletion: { [weak self] completion in
@@ -203,58 +260,24 @@ final class MainPanelViewModel: ObservableObject {
                     guard let self, let fullItem else {
                         return
                     }
-                    if self.state.selectedItem?.id == fullItem.id {
-                        self.state.selectedItem = fullItem
-                        self.state.selectionIndex = self.state.items.firstIndex(where: { $0.id == fullItem.id })
+                    guard self.state.selectedItemID == fullItem.id,
+                          self.state.items.contains(where: { $0.id == fullItem.id }) else {
+                        return
                     }
+
+                    self.state.items = self.listStore.replacingItem(fullItem, in: self.state.items)
                 }
             )
-            .store(in: &cancellables)
-    }
-
-    private func moveSelection(delta: Int) {
-        guard !state.items.isEmpty else {
-            state.selectionIndex = nil
-            state.selectedItem = nil
-            requestSearchFocus()
-            return
-        }
-
-        let currentIndex = state.selectionIndex
-            ?? state.items.firstIndex(where: { $0.id == state.selectedItem?.id })
-            ?? 0
-        let count = state.items.count
-        let nextIndex = (currentIndex + delta + count) % count
-        state.selectionIndex = nextIndex
-        state.selectedItem = state.items[nextIndex]
-        requestSearchFocus()
-    }
-
-    private func selectFirstIfNeeded() {
-        guard !state.items.isEmpty else {
-            state.selectedItem = nil
-            state.selectionIndex = nil
-            return
-        }
-
-        if let selectedItem = state.selectedItem,
-           let existingIndex = state.items.firstIndex(where: { $0.id == selectedItem.id }) {
-            state.selectionIndex = existingIndex
-            state.selectedItem = state.items[existingIndex]
-            return
-        }
-
-        state.selectionIndex = 0
-        state.selectedItem = state.items[0]
     }
 
     private func deleteSelectedConfirmed() {
-        guard let pendingDeleteItem = state.pendingDeleteItem else {
+        guard let pendingDeleteItemID = state.pendingDeleteItemID else {
             return
         }
 
-        let previousIndex = state.selectionIndex ?? 0
-        historyService.delete(id: pendingDeleteItem.id)
+        let previousItems = state.items
+
+        historyService.delete(id: pendingDeleteItemID)
             .receive(on: DispatchQueue.main)
             .sink(
                 receiveCompletion: { [weak self] completion in
@@ -269,25 +292,20 @@ final class MainPanelViewModel: ObservableObject {
                     guard let self else {
                         return
                     }
-                    self.state.pendingDeleteItem = nil
-                    self.pendingSelectionIndexAfterRefresh = previousIndex
-                    self.refreshList(selectFirst: false)
+
+                    self.state.pendingDeleteItemID = nil
+                    let updatedItems = self.listStore.removingItem(withID: pendingDeleteItemID, from: self.state.items)
+                    self.state.items = updatedItems
+                    self.state.selectedItemID = self.selectionStore.selectionAfterDeletion(
+                        deletedID: pendingDeleteItemID,
+                        previousItems: previousItems,
+                        updatedItems: updatedItems,
+                        currentSelectionID: self.state.selectedItemID
+                    )
                     self.requestSearchFocus()
                 }
             )
             .store(in: &cancellables)
-    }
-
-    private func selectAfterDeletion(preferredIndex: Int) {
-        guard !state.items.isEmpty else {
-            state.selectedItem = nil
-            state.selectionIndex = nil
-            return
-        }
-
-        let adjustedIndex = min(preferredIndex, state.items.count - 1)
-        state.selectionIndex = adjustedIndex
-        state.selectedItem = state.items[adjustedIndex]
     }
 
     private func copySelected() {
@@ -332,7 +350,7 @@ final class MainPanelViewModel: ObservableObject {
     }
 
     private func requestSearchFocus() {
-        state.shouldFocusSearch.toggle()
+        state.searchFocusToken &+= 1
     }
 
     private func setupHotkey() {

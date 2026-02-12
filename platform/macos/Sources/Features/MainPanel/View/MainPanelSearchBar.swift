@@ -2,7 +2,7 @@ import SwiftUI
 
 struct MainPanelSearchBar: View {
     @Binding var text: String
-    @Binding var focusRequest: Bool
+    @Binding var focusToken: Int
     @Binding var filterType: ClipboardItemRow.ItemType?
     @FocusState private var focused: Bool
 
@@ -25,7 +25,6 @@ struct MainPanelSearchBar: View {
                 .buttonStyle(.plain)
             }
 
-            // Filter buttons
             HStack(spacing: 8) {
                 FilterPillButton(
                     title: "All",
@@ -61,7 +60,7 @@ struct MainPanelSearchBar: View {
             y: 0
         )
         .padding(MainPanelTokens.Layout.padding)
-        .onChange(of: focusRequest) { _, _ in
+        .onChange(of: focusToken) { _, _ in
             focused = true
         }
         .onAppear {

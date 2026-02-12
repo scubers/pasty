@@ -8,6 +8,17 @@ private final class MainPanelWindow: NSPanel {
     override var canBecomeMain: Bool { true }
 
     var onWindowDidMove: ((NSPoint) -> Void)?
+    var onMouseInteraction: (() -> Void)?
+
+    override func sendEvent(_ event: NSEvent) {
+        super.sendEvent(event)
+        switch event.type {
+        case .leftMouseUp, .rightMouseUp, .otherMouseUp:
+            onMouseInteraction?()
+        default:
+            break
+        }
+    }
 }
 
 final class MainPanelWindowController: NSWindowController, NSWindowDelegate, InAppHotkeyOwner {
@@ -42,6 +53,9 @@ final class MainPanelWindowController: NSWindowController, NSWindowDelegate, InA
 
         super.init(window: panel)
         panel.delegate = self
+        panel.onMouseInteraction = { [weak self] in
+            self?.viewModel.send(.panelInteracted)
+        }
         setupLayout()
         
         SettingsManager.shared.$settings
