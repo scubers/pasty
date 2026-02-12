@@ -94,6 +94,12 @@ Font Family: System Font (`SF Pro Text` / `SF Pro Display`)
         - Strings: Green (`#4ADE80`)
         - Functions: Yellow (`#FDE047`)
     - **Image**: Fit to container, rounded corners.
+- **OCR Text Block (Image only)**:
+    - Show only when OCR result is non-empty.
+    - Position: directly below image preview.
+    - Style: tinted glass block (`teal/8%` background + `teal/25%` border), 8-12px radius.
+    - Text: 11-12pt body, multiline (max ~6 lines before inner scroll), selectable and copyable.
+    - Header: `OCR Text` label + status badge (`Non-empty`).
 - **Footer**: Edit / Delete buttons.
 
 ### 3.5 Buttons
@@ -143,4 +149,3 @@ The prototype uses a custom thin scrollbar.
 - **Icons**: SF Symbols 5.0+
 - **Colors**: Define in `Assets.xcassets` as named colors (e.g., `AccentColor`, `GlassBackground`).
 - **Fonts**: Standard macOS System Fonts.
-

@@ -6,7 +6,6 @@ struct MainPanelPreviewPanel: View {
     let item: ClipboardItemRow?
     @EnvironmentObject var appCoordinator: AppCoordinator
     @StateObject private var imageLoader: MainPanelImageLoader
-    @State private var isShowingOcrText = false
 
     init(item: ClipboardItemRow?) {
         self.item = item
@@ -76,14 +75,13 @@ struct MainPanelPreviewPanel: View {
                     }
                 }
 
-                if isShowingOcrText, let ocrText = item.ocrText, !ocrText.isEmpty {
-                    ScrollView {
-                        Text(ocrText)
-                            .font(MainPanelTokens.Typography.small)
-                            .foregroundStyle(MainPanelTokens.Colors.textPrimary)
-                            .textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
+                if let ocrText = nonEmptyOcrText(for: item) {
+                    Text("OCR Text")
+                        .font(MainPanelTokens.Typography.smallBold)
+                        .foregroundStyle(MainPanelTokens.Colors.textSecondary)
+                        .textCase(.uppercase)
+
+                    MainPanelLongTextRepresentable(itemId: "\(item.id)-ocr", text: ocrText)
                     .frame(maxHeight: 140)
                     .padding(8)
                     .background(MainPanelTokens.Colors.card)
@@ -102,12 +100,10 @@ struct MainPanelPreviewPanel: View {
         .clipShape(RoundedRectangle(cornerRadius: MainPanelTokens.Layout.cornerRadiusSmall))
         .onAppear {
             imageLoader.bindCoordinatorIfNeeded(appCoordinator)
-            isShowingOcrText = false
             imageLoader.load(path: item.type == .image ? item.imagePath : nil)
         }
         .onChange(of: item.id) { _, _ in
             imageLoader.bindCoordinatorIfNeeded(appCoordinator)
-            isShowingOcrText = false
             imageLoader.load(path: item.type == .image ? item.imagePath : nil)
         }
         .onDisappear {
@@ -128,21 +124,13 @@ struct MainPanelPreviewPanel: View {
                     .background(Color.white.opacity(0.1))
                     .clipShape(Capsule())
             case .completed:
-                Button {
-                    if let text = item.ocrText, !text.isEmpty {
-                        isShowingOcrText.toggle()
-                    }
-                } label: {
-                    Text("OCR")
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(MainPanelTokens.Colors.accentPrimary(theme: appCoordinator.settings.appearance.themeColor))
-                        .clipShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .disabled(item.ocrText?.isEmpty ?? true)
+                Text("OCR")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(MainPanelTokens.Colors.accentPrimary(theme: appCoordinator.settings.appearance.themeColor))
+                    .clipShape(Capsule())
             case .failed:
                 Text("OCR FAILED")
                     .font(.system(size: 9, weight: .bold))
@@ -205,5 +193,12 @@ struct MainPanelPreviewPanel: View {
     private func metadataDivider() -> some View {
         Text("•")
             .foregroundStyle(MainPanelTokens.Colors.textMuted)
+    }
+
+    private func nonEmptyOcrText(for item: ClipboardItemRow) -> String? {
+        guard let text = item.ocrText?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else {
+            return nil
+        }
+        return text
     }
 }

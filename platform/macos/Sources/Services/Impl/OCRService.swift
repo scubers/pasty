@@ -92,7 +92,7 @@ final class OCRService {
             self.queue.async {
                 switch result {
                 case let .success(text):
-                    LoggerService.info("OCRService: Task \(task.id) completed")
+                    LoggerService.info("OCRService: Task \(task.id) completed: \(text)")
                     _ = self.reportSuccess(id: task.id, text: text)
                 case let .failure(error):
                     LoggerService.error("OCRService: Task \(task.id) failed: \(error.localizedDescription)")
