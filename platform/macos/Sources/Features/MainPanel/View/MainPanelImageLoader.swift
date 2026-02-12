@@ -9,8 +9,19 @@ final class MainPanelImageLoader: ObservableObject {
 
     private let queue = DispatchQueue(label: "com.pasty.main-panel.image-loader", qos: .userInitiated)
     private let cache = NSCache<NSString, NSImage>()
+    private var coordinator: AppCoordinator?
     private var workItem: DispatchWorkItem?
     private var currentPath: String?
+
+    init(coordinator: AppCoordinator? = nil) {
+        self.coordinator = coordinator
+    }
+
+    func bindCoordinatorIfNeeded(_ coordinator: AppCoordinator) {
+        if self.coordinator == nil {
+            self.coordinator = coordinator
+        }
+    }
 
     func load(path: String?) {
         guard path != currentPath else {
@@ -39,7 +50,13 @@ final class MainPanelImageLoader: ObservableObject {
             guard let self else { return }
             guard !item.isCancelled else { return }
 
-            let baseDir = SettingsManager.shared.clipboardData
+            guard let baseDir = self.coordinator?.clipboardData else {
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                    self.image = nil
+                }
+                return
+            }
             let absolutePath = baseDir.appendingPathComponent(path).path
             let loaded = NSImage(contentsOfFile: absolutePath).flatMap { self.makeThumbnailIfNeeded($0) }
 

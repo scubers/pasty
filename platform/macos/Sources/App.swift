@@ -18,8 +18,11 @@ class App: NSObject, NSApplicationDelegate {
 
     // Core Components
     private var clipboardManager = pasty.ClipboardManager()
-    private let clipboardWatcher = ClipboardWatcher()
-    private let ocrService = OCRService.shared
+    private var clipboardWatcher: ClipboardWatcher!
+    private var ocrService: OCRService!
+    private let appCoordinator = AppCoordinator()
+    private var settingsStore: SettingsStore!
+    private var settingsViewModel: SettingsViewModel!
     
     // UI Components
     private var statusItem: NSStatusItem!
@@ -40,17 +43,25 @@ class App: NSObject, NSApplicationDelegate {
         // Initialize Core
         let version = pasty.ClipboardManager.getVersion()
         LoggerService.info("Pasty Core v\(String(version))")
-        
-        let settingsManager = SettingsManager.shared
-        let clipboardDataPath = settingsManager.clipboardData.path
 
-        if let message = settingsManager.lastWarningMessage {
+        settingsStore = SettingsStore(coordinator: appCoordinator)
+        settingsViewModel = SettingsViewModel(coordinator: appCoordinator, settingsStore: settingsStore)
+        clipboardWatcher = ClipboardWatcher(coordinator: appCoordinator)
+        ocrService = OCRService(coordinator: appCoordinator)
+
+        let clipboardDataPath = appCoordinator.clipboardData.path
+
+        if let message = appCoordinator.lastWarningMessage {
             showSettingsWarningIfNeeded(message)
         }
 
-        NotificationCenter.default
-            .publisher(for: .pastySettingsWarning)
-            .compactMap { $0.userInfo?["message"] as? String }
+        appCoordinator.events
+            .compactMap { event -> String? in
+                if case let .settingsWarning(message) = event {
+                    return message
+                }
+                return nil
+            }
             .sink { [weak self] message in
                 Task { @MainActor in
                     self?.showSettingsWarningIfNeeded(message)
@@ -127,7 +138,7 @@ class App: NSObject, NSApplicationDelegate {
 
     @MainActor
     private func setupDependencies() {
-        let historyService = ClipboardHistoryServiceImpl()
+        let historyService = ClipboardHistoryServiceImpl(coordinator: appCoordinator)
         let hotkeyService = HotkeyServiceImpl()
         let interactionService = MainPanelInteractionServiceImpl()
         self.interactionService = interactionService
@@ -135,10 +146,11 @@ class App: NSObject, NSApplicationDelegate {
         viewModel = MainPanelViewModel(
             historyService: historyService,
             hotkeyService: hotkeyService,
-            interactionService: interactionService
+            interactionService: interactionService,
+            coordinator: appCoordinator
         )
         
-        windowController = MainPanelWindowController(viewModel: viewModel)
+        windowController = MainPanelWindowController(viewModel: viewModel, coordinator: appCoordinator)
     }
 
     @MainActor
@@ -221,7 +233,7 @@ class App: NSObject, NSApplicationDelegate {
     
     @MainActor
     @objc private func openSettings() {
-        SettingsWindowController.show()
+        SettingsWindowController.show(settingsViewModel: settingsViewModel, coordinator: appCoordinator)
     }
     
     @MainActor

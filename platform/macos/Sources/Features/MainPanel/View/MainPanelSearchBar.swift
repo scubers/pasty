@@ -4,6 +4,7 @@ struct MainPanelSearchBar: View {
     @Binding var text: String
     @Binding var focusToken: Int
     @Binding var filterType: ClipboardItemRow.ItemType?
+    @EnvironmentObject var appCoordinator: AppCoordinator
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -50,11 +51,14 @@ struct MainPanelSearchBar: View {
         .background(focused ? Color.black.opacity(0.40) : Color.black.opacity(0.30))
         .overlay {
             RoundedRectangle(cornerRadius: MainPanelTokens.Layout.cornerRadius)
-                .stroke(focused ? MainPanelTokens.Colors.accentPrimary : Color.white.opacity(0.10), lineWidth: 1)
+                .stroke(
+                    focused ? MainPanelTokens.Colors.accentPrimary(theme: appCoordinator.settings.appearance.themeColor) : Color.white.opacity(0.10),
+                    lineWidth: 1
+                )
         }
         .clipShape(RoundedRectangle(cornerRadius: MainPanelTokens.Layout.cornerRadius))
         .shadow(
-            color: focused ? MainPanelTokens.Colors.accentPrimary.opacity(0.20) : .clear,
+            color: focused ? MainPanelTokens.Colors.accentPrimary(theme: appCoordinator.settings.appearance.themeColor).opacity(0.20) : .clear,
             radius: focused ? 6 : 0,
             x: 0,
             y: 0
@@ -73,6 +77,7 @@ private struct FilterPillButton: View {
     let title: String
     let isSelected: Bool
     let action: () -> Void
+    @EnvironmentObject var appCoordinator: AppCoordinator
     @State private var isHovering = false
 
     var body: some View {
@@ -84,7 +89,11 @@ private struct FilterPillButton: View {
                 .padding(.vertical, 4)
                 .background {
                     Capsule()
-                        .fill(isSelected ? MainPanelTokens.Colors.accentPrimary : (isHovering ? Color.white.opacity(0.1) : Color.clear))
+                        .fill(
+                            isSelected
+                                ? MainPanelTokens.Colors.accentPrimary(theme: appCoordinator.settings.appearance.themeColor)
+                                : (isHovering ? Color.white.opacity(0.1) : Color.clear)
+                        )
                 }
                 .overlay {
                     if !isSelected {

@@ -1,7 +1,8 @@
 import SwiftUI
 
 struct AppearanceSettingsView: View {
-    @ObservedObject var settingsManager = SettingsManager.shared
+    @EnvironmentObject var viewModel: SettingsViewModel
+    private var themeColor: Color { viewModel.settings.appearance.themeColor.toColor() }
     
     let accentColors: [(Color, String)] = [
         (Color(hex: "2DD4BF"), "system"), // Default/Teal
@@ -21,9 +22,9 @@ struct AppearanceSettingsView: View {
                     SettingsRow(title: "Accent Color", icon: "paintpalette") {
                         HStack(spacing: 8) {
                             ForEach(accentColors, id: \.1) { color, name in
-                                ColorOption(color: color, isSelected: settingsManager.settings.appearance.themeColor == name)
+                                ColorOption(color: color, isSelected: viewModel.settings.appearance.themeColor == name)
                                     .onTapGesture {
-                                        settingsManager.settings.appearance.themeColor = name
+                                        viewModel.updateSettings { $0.appearance.themeColor = name }
                                     }
                             }
                         }
@@ -31,15 +32,18 @@ struct AppearanceSettingsView: View {
                     
                     SettingsRow(title: "Window Blur", icon: "drop.triangle") {
                          VStack(alignment: .trailing) {
-                            Text("\(Int(settingsManager.settings.appearance.blurIntensity * 100))%")
+                            Text("\(Int(viewModel.settings.appearance.blurIntensity * 100))%")
                                 .font(DesignSystem.Typography.caption)
                                 .foregroundColor(DesignSystem.Colors.textSecondary)
                             
                             PastySlider(
                                 value: Binding(
-                                    get: { settingsManager.settings.appearance.blurIntensity },
-                                    set: { settingsManager.settings.appearance.blurIntensity = $0 }
+                                    get: { viewModel.settings.appearance.blurIntensity },
+                                    set: { newValue in
+                                        viewModel.updateSettings { $0.appearance.blurIntensity = newValue }
+                                    }
                                 ),
+                                accentColor: themeColor,
                                 range: 0.0...1.0
                             )
                         }

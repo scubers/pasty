@@ -5,8 +5,6 @@ import Vision
 import Combine
 
 final class OCRService {
-    static let shared = OCRService()
-
     private struct TaskPayload: Decodable {
         let id: String
         let imagePath: String
@@ -15,11 +13,12 @@ final class OCRService {
     private let queue = DispatchQueue(label: "OCRService", qos: .background)
     private var isProcessing = false
     private var started = false
-    private var imageCaptureObserver: NSObjectProtocol?
     private var cancellables = Set<AnyCancellable>()
+    private let coordinator: AppCoordinator
 
-    private init() {
-        SettingsManager.shared.$settings
+    init(coordinator: AppCoordinator) {
+        self.coordinator = coordinator
+        coordinator.$settings
             .map(\.ocr.enabled)
             .removeDuplicates()
             .sink { [weak self] enabled in
@@ -36,7 +35,7 @@ final class OCRService {
                 return
             }
             // Check if enabled
-            if !SettingsManager.shared.settings.ocr.enabled {
+            if !self.coordinator.settings.ocr.enabled {
                 return
             }
             self.started = true
@@ -45,26 +44,21 @@ final class OCRService {
         }
     }
 
-    deinit {
-        if let imageCaptureObserver {
-            NotificationCenter.default.removeObserver(imageCaptureObserver)
-        }
-    }
-
     private func observeImageCapturedNotification() {
-        imageCaptureObserver = NotificationCenter.default.addObserver(
-            forName: .clipboardImageCaptured,
-            object: nil,
-            queue: nil
-        ) { [weak self] _ in
-            self?.queue.async {
-                self?.processNext(force: true)
+        coordinator.events
+            .sink { [weak self] event in
+                guard case .clipboardImageCaptured = event else {
+                    return
+                }
+                self?.queue.async {
+                    self?.processNext(force: true)
+                }
             }
-        }
+            .store(in: &cancellables)
     }
 
     private func processNext(force: Bool = false) {
-        if !SettingsManager.shared.settings.ocr.enabled {
+        if !coordinator.settings.ocr.enabled {
             scheduleNextCheck(after: 10)
             return
         }
@@ -156,7 +150,7 @@ final class OCRService {
 
     private func performOCR(imagePath: String, completion: @escaping (Result<String, Error>) -> Void) {
         let startTime = CFAbsoluteTimeGetCurrent()
-        let absolutePath = SettingsManager.shared.clipboardData.appendingPathComponent(imagePath).path
+        let absolutePath = coordinator.clipboardData.appendingPathComponent(imagePath).path
         guard let image = NSImage(contentsOfFile: absolutePath) else {
             completion(.failure(NSError(domain: "OCRService", code: -10)))
             return
@@ -203,7 +197,7 @@ final class OCRService {
             }
 
             let averageConfidence = confidenceCount == 0 ? 0 : confidenceSum / confidenceCount
-            let threshold = SettingsManager.shared.settings.ocr.confidenceThreshold
+            let threshold = self.coordinator.settings.ocr.confidenceThreshold
             if averageConfidence < threshold {
                 completion(.success(""))
                 return
@@ -216,7 +210,7 @@ final class OCRService {
             completion(.success(text))
         }
         
-        let settings = SettingsManager.shared.settings.ocr
+        let settings = coordinator.settings.ocr
         request.recognitionLevel = settings.recognitionLevel == "fast" ? .fast : .accurate
         request.usesLanguageCorrection = true
         request.recognitionLanguages = settings.languages

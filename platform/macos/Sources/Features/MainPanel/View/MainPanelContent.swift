@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct MainPanelContent: View {
+    @EnvironmentObject var appCoordinator: AppCoordinator
     let items: [ClipboardItemRow]
     let selectedItem: ClipboardItemRow?
     let onSelect: (ClipboardItemRow) -> Void
@@ -12,6 +13,7 @@ struct MainPanelContent: View {
                 MainPanelItemTableRepresentable(
                     items: items,
                     selectedId: selectedItem?.id,
+                    appCoordinator: appCoordinator,
                     onSelect: onSelect
                 )
                 .frame(width: leftWidth)

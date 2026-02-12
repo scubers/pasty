@@ -13,9 +13,14 @@ final class ClipboardHistoryServiceImpl: ClipboardHistoryService {
     private let cacheLimit = 50
     private let previewLength = 200
     private let workQueue = DispatchQueue(label: "ClipboardHistoryServiceImpl.queue", qos: .userInitiated)
+    private let coordinator: AppCoordinator
     private var searchCache: [CacheKey: [ClipboardItemRow]] = [:]
     private var cacheOrder: [CacheKey] = []
     private let cacheLock = NSLock()
+
+    init(coordinator: AppCoordinator) {
+        self.coordinator = coordinator
+    }
 
     func search(query: String, limit: Int, filterType: ClipboardItemRow.ItemType?) -> AnyPublisher<[ClipboardItemRow], Error> {
         let cacheKey = CacheKey(query: query, limit: limit, previewLength: previewLength, filterType: filterType?.rawValue)
@@ -29,7 +34,7 @@ final class ClipboardHistoryServiceImpl: ClipboardHistoryService {
             self.workQueue.async {
                 var outJson: UnsafeMutablePointer<CChar>? = nil
                 let contentType = filterType?.rawValue ?? ""
-                let includeOcr = SettingsManager.shared.settings.ocr.includeInSearch
+                let includeOcr = self.coordinator.settings.ocr.includeInSearch
                 let success = pasty_history_search(query, Int32(limit), Int32(self.previewLength), contentType, includeOcr, &outJson)
 
                 if !success {

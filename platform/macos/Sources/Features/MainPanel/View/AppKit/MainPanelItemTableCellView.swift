@@ -3,6 +3,7 @@ import SnapKit
 import Combine
 
 final class MainPanelItemTableCellView: NSTableCellView {
+    private let coordinator: AppCoordinator
     private let markerView = NSView()
     private let iconView = NSImageView()
     private let titleLabel = NSTextField(labelWithString: "")
@@ -10,7 +11,8 @@ final class MainPanelItemTableCellView: NSTableCellView {
     private let subtitleLabel = NSTextField(labelWithString: "")
     private var cancellables = Set<AnyCancellable>()
 
-    override init(frame frameRect: NSRect) {
+    init(frame frameRect: NSRect, coordinator: AppCoordinator) {
+        self.coordinator = coordinator
         super.init(frame: frameRect)
         setupViews()
         subscribeToSettingsChanges()
@@ -21,7 +23,7 @@ final class MainPanelItemTableCellView: NSTableCellView {
     }
 
     func configure(item: ClipboardItemRow, selected: Bool, hovered: Bool, focused: Bool) {
-        let themeColor = SettingsManager.shared.settings.appearance.themeColor.toColor()
+        let themeColor = coordinator.settings.appearance.themeColor.toColor()
         let nsColor = NSColor(themeColor)
 
         iconView.image = NSImage(systemSymbolName: item.type == .image ? "photo" : "text.alignleft", accessibilityDescription: nil)
@@ -70,7 +72,7 @@ final class MainPanelItemTableCellView: NSTableCellView {
         wantsLayer = true
         layer?.cornerRadius = 8
 
-        let themeColor = SettingsManager.shared.settings.appearance.themeColor.toColor()
+        let themeColor = coordinator.settings.appearance.themeColor.toColor()
         let nsColor = NSColor(themeColor)
 
         markerView.wantsLayer = true
@@ -141,7 +143,7 @@ final class MainPanelItemTableCellView: NSTableCellView {
     }
 
     private func subscribeToSettingsChanges() {
-        SettingsManager.shared.$settings
+        coordinator.$settings
             .map { $0.appearance.themeColor }
             .removeDuplicates()
             .sink { [weak self] newThemeColor in

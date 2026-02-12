@@ -5,13 +5,11 @@ import PastyCore
 
 import Combine
 
-extension Notification.Name {
-    static let clipboardImageCaptured = Notification.Name("clipboardImageCaptured")
-}
-
 final class ClipboardWatcher {
+    private let coordinator: AppCoordinator
+
     private var maxPayloadBytes: Int {
-        SettingsManager.shared.settings.clipboard.maxContentSizeBytes
+        coordinator.settings.clipboard.maxContentSizeBytes
     }
 
     typealias TextIngest = (_ text: String, _ sourceAppID: String) -> Bool
@@ -26,16 +24,18 @@ final class ClipboardWatcher {
     private var cancellables = Set<AnyCancellable>()
 
     init(
+        coordinator: AppCoordinator,
         pasteboard: NSPasteboard = .general,
         ingestText: @escaping TextIngest = ClipboardWatcher.defaultIngestText,
         ingestImage: @escaping ImageIngest = ClipboardWatcher.defaultIngestImage
     ) {
+        self.coordinator = coordinator
         self.pasteboard = pasteboard
         self.ingestText = ingestText
         self.ingestImage = ingestImage
         self.lastChangeCount = pasteboard.changeCount
         
-        SettingsManager.shared.$settings
+        coordinator.$settings
             .map(\.clipboard.pollingIntervalMs)
             .removeDuplicates()
             .sink { [weak self] intervalMs in
@@ -51,7 +51,7 @@ final class ClipboardWatcher {
     func start(onChange: (() -> Void)? = nil) {
         stop()
         self.onChange = onChange
-        let intervalMs = SettingsManager.shared.settings.clipboard.pollingIntervalMs
+        let intervalMs = coordinator.settings.clipboard.pollingIntervalMs
         startTimer(interval: TimeInterval(intervalMs) / 1000.0)
     }
     
@@ -117,7 +117,7 @@ final class ClipboardWatcher {
             let stored = ingestImage(pngData, width, height, "png", sourceAppID)
             log(stored ? "capture_image_success" : "capture_image_failed")
             if stored {
-                NotificationCenter.default.post(name: .clipboardImageCaptured, object: nil)
+                coordinator.dispatch(.clipboardImageCaptured)
             }
             return stored
         }

@@ -66,15 +66,18 @@ final class MainPanelViewModel: ObservableObject {
     private var activeSearchRequestID = UUID()
     private var searchRequestCancellable: AnyCancellable?
     private var itemDetailCancellable: AnyCancellable?
+    private let coordinator: AppCoordinator
 
     init(
         historyService: ClipboardHistoryService,
         hotkeyService: HotkeyService,
-        interactionService: MainPanelInteractionService
+        interactionService: MainPanelInteractionService,
+        coordinator: AppCoordinator
     ) {
         self.historyService = historyService
         self.hotkeyService = hotkeyService
         self.interactionService = interactionService
+        self.coordinator = coordinator
 
         setupSearchPipeline()
         setupHotkey()
@@ -341,7 +344,7 @@ final class MainPanelViewModel: ObservableObject {
             guard let imagePath = item.imagePath else {
                 return false
             }
-            let absolutePath = SettingsManager.shared.clipboardData.appendingPathComponent(imagePath).path
+            let absolutePath = coordinator.clipboardData.appendingPathComponent(imagePath).path
             guard let image = NSImage(contentsOfFile: absolutePath) else {
                 return false
             }

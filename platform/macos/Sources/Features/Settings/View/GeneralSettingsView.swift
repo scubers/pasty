@@ -3,8 +3,9 @@ import ServiceManagement
 import KeyboardShortcuts
 
 struct GeneralSettingsView: View {
-    @ObservedObject var settingsManager = SettingsManager.shared
+    @EnvironmentObject var viewModel: SettingsViewModel
     @State private var showingRestoreConfirm = false
+    private var themeColor: Color { viewModel.settings.appearance.themeColor.toColor() }
     
     var body: some View {
         ScrollView {
@@ -12,18 +13,17 @@ struct GeneralSettingsView: View {
                 SettingsSection(title: "Startup") {
                     SettingsRow(title: "Launch at Login", icon: "power") {
                         PastyToggle(isOn: Binding(
-                            get: { settingsManager.settings.general.launchAtLogin },
+                            get: { viewModel.settings.general.launchAtLogin },
                             set: { newValue in
-                                settingsManager.settings.general.launchAtLogin = newValue
+                                viewModel.updateSettings { $0.general.launchAtLogin = newValue }
                                 setLaunchAtLogin(newValue)
                             }
-                        ))
+                        ), activeColor: themeColor)
                     }
                 }
 
                 SettingsSection(title: "Storage") {
                     StorageLocationSettingsView()
-                        .environmentObject(settingsManager)
                 }
 
                 SettingsSection(title: "Shortcuts") {
@@ -43,8 +43,7 @@ struct GeneralSettingsView: View {
                 .alert("Confirm Restore Default Settings", isPresented: $showingRestoreConfirm) {
                     Button("Cancel", role: .cancel) {}
                     Button("Restore", role: .destructive) {
-                        settingsManager.settings = .default
-                        settingsManager.saveSettings()
+                        viewModel.restoreDefaults()
                     }
                 } message: {
                     Text("This will reset all settings to default values and cannot be undone.")

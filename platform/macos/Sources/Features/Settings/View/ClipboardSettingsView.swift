@@ -1,8 +1,9 @@
 import SwiftUI
 
 struct ClipboardSettingsView: View {
-    @ObservedObject var settingsManager = SettingsManager.shared
+    @EnvironmentObject var viewModel: SettingsViewModel
     @State private var showingClearConfirm = false
+    private var themeColor: Color { viewModel.settings.appearance.themeColor.toColor() }
     
     var body: some View {
         ScrollView {
@@ -10,15 +11,18 @@ struct ClipboardSettingsView: View {
                 SettingsSection(title: "History") {
                     SettingsRow(title: "Max History Items", icon: "list.bullet") {
                         VStack(alignment: .trailing) {
-                            Text("\(settingsManager.settings.history.maxCount) items")
+                            Text("\(viewModel.settings.history.maxCount) items")
                                 .font(DesignSystem.Typography.caption)
                                 .foregroundColor(DesignSystem.Colors.textSecondary)
                             
                             PastySlider(
                                 value: Binding(
-                                    get: { Double(settingsManager.settings.history.maxCount) },
-                                    set: { settingsManager.settings.history.maxCount = Int($0) }
+                                    get: { Double(viewModel.settings.history.maxCount) },
+                                    set: { newValue in
+                                        viewModel.updateSettings { $0.history.maxCount = Int(newValue) }
+                                    }
                                 ),
+                                accentColor: themeColor,
                                 range: 50...5000
                             )
                         }
@@ -28,15 +32,18 @@ struct ClipboardSettingsView: View {
                 SettingsSection(title: "Performance") {
                      SettingsRow(title: "Polling Interval", icon: "timer") {
                         VStack(alignment: .trailing) {
-                            Text("\(settingsManager.settings.clipboard.pollingIntervalMs) ms")
+                            Text("\(viewModel.settings.clipboard.pollingIntervalMs) ms")
                                 .font(DesignSystem.Typography.caption)
                                 .foregroundColor(DesignSystem.Colors.textSecondary)
                             
                             PastySlider(
                                 value: Binding(
-                                    get: { Double(settingsManager.settings.clipboard.pollingIntervalMs) },
-                                    set: { settingsManager.settings.clipboard.pollingIntervalMs = Int($0) }
+                                    get: { Double(viewModel.settings.clipboard.pollingIntervalMs) },
+                                    set: { newValue in
+                                        viewModel.updateSettings { $0.clipboard.pollingIntervalMs = Int(newValue) }
+                                    }
                                 ),
+                                accentColor: themeColor,
                                 range: 100...2000
                             )
                         }
@@ -44,15 +51,18 @@ struct ClipboardSettingsView: View {
                     
                     SettingsRow(title: "Max Content Size", icon: "arrow.up.arrow.down.square") {
                         VStack(alignment: .trailing) {
-                            Text("\(settingsManager.settings.clipboard.maxContentSizeBytes / 1024 / 1024) MB")
+                            Text("\(viewModel.settings.clipboard.maxContentSizeBytes / 1024 / 1024) MB")
                                 .font(DesignSystem.Typography.caption)
                                 .foregroundColor(DesignSystem.Colors.textSecondary)
                             
                             PastySlider(
                                 value: Binding(
-                                    get: { Double(settingsManager.settings.clipboard.maxContentSizeBytes) },
-                                    set: { settingsManager.settings.clipboard.maxContentSizeBytes = Int($0) }
+                                    get: { Double(viewModel.settings.clipboard.maxContentSizeBytes) },
+                                    set: { newValue in
+                                        viewModel.updateSettings { $0.clipboard.maxContentSizeBytes = Int(newValue) }
+                                    }
                                 ),
+                                accentColor: themeColor,
                                 range: 1024*1024...100*1024*1024
                             )
                         }

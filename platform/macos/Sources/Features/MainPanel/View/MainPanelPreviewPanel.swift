@@ -4,8 +4,14 @@ import Foundation
 
 struct MainPanelPreviewPanel: View {
     let item: ClipboardItemRow?
-    @StateObject private var imageLoader = MainPanelImageLoader()
+    @EnvironmentObject var appCoordinator: AppCoordinator
+    @StateObject private var imageLoader: MainPanelImageLoader
     @State private var isShowingOcrText = false
+
+    init(item: ClipboardItemRow?) {
+        self.item = item
+        _imageLoader = StateObject(wrappedValue: MainPanelImageLoader())
+    }
 
     var body: some View {
         Group {
@@ -61,7 +67,7 @@ struct MainPanelPreviewPanel: View {
                     } else if imageLoader.isLoading {
                         ProgressView()
                             .controlSize(.small)
-                            .tint(MainPanelTokens.Colors.accentPrimary)
+                            .tint(MainPanelTokens.Colors.accentPrimary(theme: appCoordinator.settings.appearance.themeColor))
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     } else {
                         Text("Image not found")
@@ -95,10 +101,12 @@ struct MainPanelPreviewPanel: View {
 //        .background(MainPanelTokens.Effects.materialRegular.opacity(0.2))
         .clipShape(RoundedRectangle(cornerRadius: MainPanelTokens.Layout.cornerRadiusSmall))
         .onAppear {
+            imageLoader.bindCoordinatorIfNeeded(appCoordinator)
             isShowingOcrText = false
             imageLoader.load(path: item.type == .image ? item.imagePath : nil)
         }
         .onChange(of: item.id) { _, _ in
+            imageLoader.bindCoordinatorIfNeeded(appCoordinator)
             isShowingOcrText = false
             imageLoader.load(path: item.type == .image ? item.imagePath : nil)
         }
@@ -130,7 +138,7 @@ struct MainPanelPreviewPanel: View {
                         .foregroundStyle(.white)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(MainPanelTokens.Colors.accentPrimary)
+                        .background(MainPanelTokens.Colors.accentPrimary(theme: appCoordinator.settings.appearance.themeColor))
                         .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
@@ -161,7 +169,7 @@ struct MainPanelPreviewPanel: View {
         .padding(.vertical, 4)
         .background {
             if primary {
-                MainPanelTokens.Colors.accentGradient
+                MainPanelTokens.Colors.accentGradient(theme: appCoordinator.settings.appearance.themeColor)
             } else {
                 Color.white.opacity(0.08)
             }

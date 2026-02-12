@@ -3,10 +3,11 @@ import SwiftUI
 struct MainPanelItemTableRepresentable: NSViewRepresentable {
     let items: [ClipboardItemRow]
     let selectedId: String?
+    let appCoordinator: AppCoordinator
     let onSelect: (ClipboardItemRow) -> Void
 
     func makeNSView(context: Context) -> MainPanelItemTableView {
-        let view = MainPanelItemTableView(frame: .zero)
+        let view = MainPanelItemTableView(frame: .zero, coordinator: appCoordinator)
         view.onSelect = { item in
             context.coordinator.onSelect(item)
         }
