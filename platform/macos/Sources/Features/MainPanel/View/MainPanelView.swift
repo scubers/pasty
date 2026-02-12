@@ -31,7 +31,7 @@ struct MainPanelView: View {
                 .fill(MainPanelTokens.Colors.border)
                 .frame(height: 1)
 
-            MainPanelFooterView()
+            MainPanelFooterView(totalItemCount: viewModel.state.totalItemCount)
         }
         .background {
             MainPanelTokens.Colors.backgroundGradient

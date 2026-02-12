@@ -78,6 +78,13 @@ final class ClipboardHistoryServiceImpl: ClipboardHistoryService {
         .eraseToAnyPublisher()
     }
 
+    func totalCount() -> AnyPublisher<Int, Error> {
+        let totalLimit = max(coordinator.settings.history.maxCount, 1)
+        return search(query: "", limit: totalLimit, filterType: nil)
+            .map(\.count)
+            .eraseToAnyPublisher()
+    }
+
     func get(id: String) -> AnyPublisher<ClipboardItemRow?, Error> {
         return Future { promise in
             self.workQueue.async {

@@ -110,14 +110,18 @@ bool ClipboardService::isInitialized() const {
 }
 
 bool ClipboardService::ingest(const ClipboardHistoryIngestEvent& event) {
+    return ingestWithResult(event).ok;
+}
+
+ClipboardIngestResult ClipboardService::ingestWithResult(const ClipboardHistoryIngestEvent& event) {
     if (!m_initialized || !m_store) {
-        return false;
+        return {};
     }
 
     if (event.flags.isFileOrFolderReference || event.flags.isTransient || event.flags.isConcealed) {
         PASTY_LOG_INFO("Core.History", "Skipped item. Flags: file=%d transient=%d concealed=%d",
             event.flags.isFileOrFolderReference, event.flags.isTransient, event.flags.isConcealed);
-        return true;
+        return ClipboardIngestResult{true, false};
     }
 
     ClipboardHistoryItem item;
@@ -136,23 +140,23 @@ bool ClipboardService::ingest(const ClipboardHistoryIngestEvent& event) {
     if (event.itemType == ClipboardItemType::Image) {
         item.contentHash = computeImageHash(event.image.bytes);
         item.id = makeItemId(item.lastCopyTimeMs, item.sourceAppId, item.contentHash);
-        const std::string id = m_store->upsertImageItem(item, event.image.bytes);
-        const bool ok = !id.empty();
-        if (!ok) {
-            return false;
+        const ClipboardHistoryUpsertResult upsertResult = m_store->upsertImageItem(item, event.image.bytes);
+        if (upsertResult.id.empty()) {
+            return {};
         }
-        return applyRetentionFromSettings();
+        const bool retentionOk = applyRetentionFromSettings();
+        return ClipboardIngestResult{retentionOk, retentionOk && upsertResult.inserted};
     }
 
     item.contentHash = computeTextHash(event.text);
     item.id = makeItemId(item.lastCopyTimeMs, item.sourceAppId, item.contentHash);
-    const std::string id = m_store->upsertTextItem(item);
-    const bool ok = !id.empty();
-    if (!ok) {
-        return false;
+    const ClipboardHistoryUpsertResult upsertResult = m_store->upsertTextItem(item);
+    if (upsertResult.id.empty()) {
+        return {};
     }
 
-    return applyRetentionFromSettings();
+    const bool retentionOk = applyRetentionFromSettings();
+    return ClipboardIngestResult{retentionOk, retentionOk && upsertResult.inserted};
 }
 
 ClipboardHistoryListResult ClipboardService::list(std::int32_t limit, const std::string& cursor) {

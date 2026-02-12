@@ -121,9 +121,9 @@ class App: NSObject, NSApplicationDelegate {
         }
 
         // Start Clipboard Watcher
-        clipboardWatcher.start(onChange: { [weak self] in
+        clipboardWatcher.start(onChange: { [weak self] inserted in
             Task { @MainActor in
-                self?.viewModel.send(.clipboardContentChanged)
+                self?.viewModel.send(.clipboardContentChanged(inserted: inserted))
             }
         })
 

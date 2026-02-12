@@ -10,6 +10,11 @@
 
 namespace pasty {
 
+struct ClipboardIngestResult {
+    bool ok = false;
+    bool inserted = false;
+};
+
 class ClipboardService {
 public:
     ClipboardService(std::unique_ptr<ClipboardHistoryStore> store, SettingsStore& settingsStore);
@@ -19,6 +24,7 @@ public:
     bool isInitialized() const;
 
     bool ingest(const ClipboardHistoryIngestEvent& event);
+    ClipboardIngestResult ingestWithResult(const ClipboardHistoryIngestEvent& event);
     ClipboardHistoryListResult list(std::int32_t limit, const std::string& cursor);
     std::vector<ClipboardHistoryItem> search(const SearchOptions& options);
     std::vector<OcrTask> getPendingOcrImages(std::int32_t limit);

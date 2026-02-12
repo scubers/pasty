@@ -28,6 +28,7 @@ void pasty_settings_update(pasty_runtime_ref runtime, const char* key, const cha
 int pasty_settings_get_max_history_count(pasty_runtime_ref runtime);
 
 bool pasty_history_ingest_text(pasty_runtime_ref runtime, const char* text, const char* source_app_id);
+bool pasty_history_ingest_text_with_result(pasty_runtime_ref runtime, const char* text, const char* source_app_id, bool* out_inserted);
 
 bool pasty_history_ingest_image(
     pasty_runtime_ref runtime,
@@ -37,6 +38,16 @@ bool pasty_history_ingest_image(
     int height,
     const char* format_hint,
     const char* source_app_id
+);
+bool pasty_history_ingest_image_with_result(
+    pasty_runtime_ref runtime,
+    const unsigned char* bytes,
+    unsigned long byte_count,
+    int width,
+    int height,
+    const char* format_hint,
+    const char* source_app_id,
+    bool* out_inserted
 );
 
 bool pasty_history_list_json(pasty_runtime_ref runtime, int limit, char** out_json);

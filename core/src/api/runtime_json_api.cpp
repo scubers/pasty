@@ -176,6 +176,15 @@ int pasty_settings_get_max_history_count(pasty_runtime_ref runtime_ref) {
 }
 
 bool pasty_history_ingest_text(pasty_runtime_ref runtime_ref, const char* text, const char* source_app_id) {
+    return pasty_history_ingest_text_with_result(runtime_ref, text, source_app_id, nullptr);
+}
+
+bool pasty_history_ingest_text_with_result(
+    pasty_runtime_ref runtime_ref,
+    const char* text,
+    const char* source_app_id,
+    bool* out_inserted
+) {
     PastyRuntime* runtime = castRuntime(runtime_ref);
     if (runtime == nullptr) {
         return false;
@@ -192,7 +201,11 @@ bool pasty_history_ingest_text(pasty_runtime_ref runtime_ref, const char* text, 
     event.sourceAppId = pasty::runtime_json_utils::fromCString(source_app_id);
     event.itemType = pasty::ClipboardItemType::Text;
     event.text = pasty::runtime_json_utils::fromCString(text);
-    return service->ingest(event);
+    const pasty::ClipboardIngestResult result = service->ingestWithResult(event);
+    if (out_inserted != nullptr) {
+        *out_inserted = result.inserted;
+    }
+    return result.ok;
 }
 
 bool pasty_history_ingest_image(
@@ -203,6 +216,28 @@ bool pasty_history_ingest_image(
     int height,
     const char* format_hint,
     const char* source_app_id
+) {
+    return pasty_history_ingest_image_with_result(
+        runtime_ref,
+        bytes,
+        byte_count,
+        width,
+        height,
+        format_hint,
+        source_app_id,
+        nullptr
+    );
+}
+
+bool pasty_history_ingest_image_with_result(
+    pasty_runtime_ref runtime_ref,
+    const unsigned char* bytes,
+    unsigned long byte_count,
+    int width,
+    int height,
+    const char* format_hint,
+    const char* source_app_id,
+    bool* out_inserted
 ) {
     PastyRuntime* runtime = castRuntime(runtime_ref);
     if (runtime == nullptr || bytes == nullptr || byte_count == 0) {
@@ -223,7 +258,11 @@ bool pasty_history_ingest_image(
     event.image.height = height;
     event.image.formatHint = pasty::runtime_json_utils::fromCString(format_hint);
     event.image.bytes.assign(bytes, bytes + byte_count);
-    return service->ingest(event);
+    const pasty::ClipboardIngestResult result = service->ingestWithResult(event);
+    if (out_inserted != nullptr) {
+        *out_inserted = result.inserted;
+    }
+    return result.ok;
 }
 
 bool pasty_history_list_json(pasty_runtime_ref runtime_ref, int limit, char** out_json) {

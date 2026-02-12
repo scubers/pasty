@@ -13,6 +13,11 @@
 
 namespace pasty {
 
+struct ClipboardHistoryUpsertResult {
+    std::string id;
+    bool inserted = false;
+};
+
 class ClipboardHistoryStore {
 public:
     virtual ~ClipboardHistoryStore() = default;
@@ -20,8 +25,8 @@ public:
     virtual bool open(const std::string& baseDirectory) = 0;
     virtual void close() = 0;
 
-    virtual std::string upsertTextItem(const ClipboardHistoryItem& item) = 0;
-    virtual std::string upsertImageItem(const ClipboardHistoryItem& item, const std::vector<std::uint8_t>& imageBytes) = 0;
+    virtual ClipboardHistoryUpsertResult upsertTextItem(const ClipboardHistoryItem& item) = 0;
+    virtual ClipboardHistoryUpsertResult upsertImageItem(const ClipboardHistoryItem& item, const std::vector<std::uint8_t>& imageBytes) = 0;
     virtual std::optional<ClipboardHistoryItem> getItem(const std::string& id) = 0;
     virtual ClipboardHistoryListResult listItems(std::int32_t limit, const std::string& cursor) = 0;
     virtual std::vector<ClipboardHistoryItem> search(const SearchOptions& options) = 0;

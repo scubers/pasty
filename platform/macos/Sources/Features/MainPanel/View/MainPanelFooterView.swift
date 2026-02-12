@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct MainPanelFooterView: View {
+    let totalItemCount: Int
+
     var body: some View {
         HStack(spacing: MainPanelTokens.Layout.paddingCompact) {
             Text("↑↓ select ·")
@@ -9,7 +11,7 @@ struct MainPanelFooterView: View {
             Text("↩ paste ·")
             Text("Esc close")
             Spacer()
-//            Text("⌘+⇧+v toggle panel")
+            Text("Total \(totalItemCount)")
         }
         .font(MainPanelTokens.Typography.small)
         .foregroundStyle(MainPanelTokens.Colors.textMuted)

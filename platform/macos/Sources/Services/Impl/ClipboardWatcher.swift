@@ -12,15 +12,16 @@ final class ClipboardWatcher {
         coordinator.settings.clipboard.maxContentSizeBytes
     }
 
-    typealias TextIngest = (_ runtime: UnsafeMutableRawPointer?, _ text: String, _ sourceAppID: String) -> Bool
-    typealias ImageIngest = (_ runtime: UnsafeMutableRawPointer?, _ bytes: Data, _ width: Int, _ height: Int, _ formatHint: String, _ sourceAppID: String) -> Bool
+    typealias IngestOutcome = (ok: Bool, inserted: Bool)
+    typealias TextIngest = (_ runtime: UnsafeMutableRawPointer?, _ text: String, _ sourceAppID: String) -> IngestOutcome
+    typealias ImageIngest = (_ runtime: UnsafeMutableRawPointer?, _ bytes: Data, _ width: Int, _ height: Int, _ formatHint: String, _ sourceAppID: String) -> IngestOutcome
 
     private var timer: Timer?
     private var lastChangeCount: Int
     private let pasteboard: NSPasteboard
     private let ingestText: TextIngest
     private let ingestImage: ImageIngest
-    private var onChange: (() -> Void)?
+    private var onChange: ((Bool) -> Void)?
     private var cancellables = Set<AnyCancellable>()
 
     init(
@@ -47,8 +48,9 @@ final class ClipboardWatcher {
 
     /// Starts polling clipboard changes.
     /// - Parameters:
-    ///   - onChange: Optional callback triggered after a clipboard change is successfully persisted.
-    func start(onChange: (() -> Void)? = nil) {
+    ///   - onChange: Optional callback triggered after a clipboard change is persisted.
+    ///               `inserted=true` indicates a new row was inserted; false means dedupe/update.
+    func start(onChange: ((Bool) -> Void)? = nil) {
         stop()
         self.onChange = onChange
         let intervalMs = coordinator.settings.clipboard.pollingIntervalMs
@@ -72,21 +74,22 @@ final class ClipboardWatcher {
         let current = pasteboard.changeCount
         if current != lastChangeCount {
             lastChangeCount = current
-            if captureCurrentClipboard() {
-                onChange?()
+            let outcome = captureCurrentClipboard()
+            if outcome.ok {
+                onChange?(outcome.inserted)
             }
         }
     }
 
-    private func captureCurrentClipboard() -> Bool {
+    private func captureCurrentClipboard() -> IngestOutcome {
         if hasFileURLPayload() {
             log("ignore_file_or_folder_reference")
-            return false
+            return (false, false)
         }
 
         if hasTransientOrConcealedMarkers() {
             log("skip_transient_or_concealed")
-            return false
+            return (false, false)
         }
 
         let sourceAppID = ClipboardSourceAttribution.detectSourceAppID(from: pasteboard)
@@ -95,12 +98,12 @@ final class ClipboardWatcher {
             let utf8Count = text.utf8.count
             if utf8Count > maxPayloadBytes {
                 log("skip_large_text bytes=\(utf8Count)")
-                return false
+                return (false, false)
             }
 
-            let stored = ingestText(coordinator.coreRuntime, text, sourceAppID)
-            log(stored ? "capture_text_success" : "capture_text_failed")
-            return stored
+            let outcome = ingestText(coordinator.coreRuntime, text, sourceAppID)
+            log(outcome.ok ? "capture_text_success inserted=\(outcome.inserted)" : "capture_text_failed")
+            return outcome
         }
 
         if let image = readImagePayload(),
@@ -109,20 +112,20 @@ final class ClipboardWatcher {
            let pngData = bitmap.representation(using: .png, properties: [:]) {
             if pngData.count > maxPayloadBytes {
                 log("skip_large_image bytes=\(pngData.count)")
-                return false
+                return (false, false)
             }
 
             let width = Int(bitmap.pixelsWide)
             let height = Int(bitmap.pixelsHigh)
-            let stored = ingestImage(coordinator.coreRuntime, pngData, width, height, "png", sourceAppID)
-            log(stored ? "capture_image_success" : "capture_image_failed")
-            if stored {
+            let outcome = ingestImage(coordinator.coreRuntime, pngData, width, height, "png", sourceAppID)
+            log(outcome.ok ? "capture_image_success inserted=\(outcome.inserted)" : "capture_image_failed")
+            if outcome.ok {
                 coordinator.dispatch(.clipboardImageCaptured)
             }
-            return stored
+            return outcome
         }
 
-        return false
+        return (false, false)
     }
 
     private func readTextPayload() -> String? {
@@ -158,30 +161,43 @@ final class ClipboardWatcher {
         LoggerService.debug("[watcher] \(message)")
     }
 
-    private static func defaultIngestText(_ runtime: UnsafeMutableRawPointer?, _ text: String, _ sourceAppID: String) -> Bool {
+    private static func defaultIngestText(_ runtime: UnsafeMutableRawPointer?, _ text: String, _ sourceAppID: String) -> IngestOutcome {
         guard let runtime else {
-            return false
+            return (false, false)
         }
-        return text.withCString { textPointer in
+        var inserted = false
+        let ok = text.withCString { textPointer in
             sourceAppID.withCString { sourcePointer in
-                pasty_history_ingest_text(runtime, textPointer, sourcePointer)
+                pasty_history_ingest_text_with_result(runtime, textPointer, sourcePointer, &inserted)
             }
         }
+        return (ok, inserted)
     }
 
-    private static func defaultIngestImage(_ runtime: UnsafeMutableRawPointer?, _ bytes: Data, _ width: Int, _ height: Int, _ formatHint: String, _ sourceAppID: String) -> Bool {
+    private static func defaultIngestImage(_ runtime: UnsafeMutableRawPointer?, _ bytes: Data, _ width: Int, _ height: Int, _ formatHint: String, _ sourceAppID: String) -> IngestOutcome {
         guard let runtime else {
-            return false
+            return (false, false)
         }
-        return bytes.withUnsafeBytes { rawBuffer in
+        var inserted = false
+        let ok = bytes.withUnsafeBytes { rawBuffer in
             guard let rawPointer = rawBuffer.baseAddress?.assumingMemoryBound(to: UInt8.self) else {
                 return false
             }
             return sourceAppID.withCString { sourcePointer in
                 formatHint.withCString { formatPointer in
-                    pasty_history_ingest_image(runtime, rawPointer, numericCast(bytes.count), numericCast(width), numericCast(height), formatPointer, sourcePointer)
+                    pasty_history_ingest_image_with_result(
+                        runtime,
+                        rawPointer,
+                        numericCast(bytes.count),
+                        numericCast(width),
+                        numericCast(height),
+                        formatPointer,
+                        sourcePointer,
+                        &inserted
+                    )
                 }
             }
         }
+        return (ok, inserted)
     }
 }

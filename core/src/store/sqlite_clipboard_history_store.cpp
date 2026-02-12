@@ -133,10 +133,23 @@ public:
         closeUnlocked();
     }
 
-    std::string upsertTextItem(const ClipboardHistoryItem& item) override {
+    ClipboardHistoryUpsertResult upsertTextItem(const ClipboardHistoryItem& item) override {
         std::lock_guard<std::mutex> lock(m_mutex);
         if (m_db == nullptr || item.id.empty()) {
-            return std::string();
+            return {};
+        }
+
+        bool inserted = true;
+        {
+            sqlite3_stmt* existing = nullptr;
+            const char* existingSql = "SELECT id FROM items WHERE type='text' AND content_hash = ?1 LIMIT 1;";
+            if (sqlite3_prepare_v2(m_db, existingSql, -1, &existing, nullptr) == SQLITE_OK) {
+                sqlite3_bind_text(existing, 1, item.contentHash.c_str(), -1, SQLITE_TRANSIENT);
+                inserted = (sqlite3_step(existing) != SQLITE_ROW);
+                sqlite3_finalize(existing);
+            } else {
+                return {};
+            }
         }
 
         sqlite3_stmt* statement = nullptr;
@@ -154,7 +167,7 @@ public:
             "metadata=excluded.metadata;";
 
         if (sqlite3_prepare_v2(m_db, sql, -1, &statement, nullptr) != SQLITE_OK) {
-            return std::string();
+            return {};
         }
 
         bindCommonItemFields(statement, item, false);
@@ -164,18 +177,18 @@ public:
 
         if (!ok) {
             PASTY_LOG_ERROR("Core.Store", "Upsert text failed");
-            return std::string();
+            return {};
         }
 
         enforceRetentionUnlocked(m_itemsLimit);
         PASTY_LOG_DEBUG("Core.Store", "Upsert text succeeded. ID: %s", item.id.c_str());
-        return item.id;
+        return ClipboardHistoryUpsertResult{item.id, inserted};
     }
 
-    std::string upsertImageItem(const ClipboardHistoryItem& item, const std::vector<std::uint8_t>& imageBytes) override {
+    ClipboardHistoryUpsertResult upsertImageItem(const ClipboardHistoryItem& item, const std::vector<std::uint8_t>& imageBytes) override {
         std::lock_guard<std::mutex> lock(m_mutex);
         if (m_db == nullptr || item.id.empty() || imageBytes.empty()) {
-            return std::string();
+            return {};
         }
 
         {
@@ -194,7 +207,7 @@ public:
                         "WHERE id = ?4;";
                     if (sqlite3_prepare_v2(m_db, updateSql, -1, &update, nullptr) != SQLITE_OK) {
                         PASTY_LOG_ERROR("Core.Store", "Upsert image dedupe update prepare failed");
-                        return std::string();
+                        return {};
                     }
                     sqlite3_bind_int64(update, 1, item.updateTimeMs);
                     sqlite3_bind_int64(update, 2, item.lastCopyTimeMs);
@@ -205,11 +218,11 @@ public:
                     sqlite3_finalize(update);
                     if (!updated) {
                         PASTY_LOG_ERROR("Core.Store", "Upsert image dedupe update failed. ID: %s", existingId.c_str());
-                        return std::string();
+                        return {};
                     }
                     enforceRetentionUnlocked(m_itemsLimit);
                     PASTY_LOG_DEBUG("Core.Store", "Upsert image dedupe hit. ID: %s", existingId.c_str());
-                    return existingId;
+                    return ClipboardHistoryUpsertResult{existingId, false};
                 }
                 sqlite3_finalize(existing);
             }
@@ -218,7 +231,7 @@ public:
         const std::string extension = normalizeImageExtension(item.imageFormat);
         const std::string relativePath = writeAssetAtomically(item.id, extension, imageBytes);
         if (relativePath.empty()) {
-            return std::string();
+            return {};
         }
 
         sqlite3_stmt* statement = nullptr;
@@ -231,7 +244,7 @@ public:
 
         if (sqlite3_prepare_v2(m_db, sql, -1, &statement, nullptr) != SQLITE_OK) {
             deleteAsset(relativePath);
-            return std::string();
+            return {};
         }
 
         bindCommonItemFields(statement, item, true, relativePath);
@@ -242,12 +255,12 @@ public:
         if (!ok) {
             deleteAsset(relativePath);
             PASTY_LOG_ERROR("Core.Store", "Upsert image insert failed");
-            return std::string();
+            return {};
         }
 
         enforceRetentionUnlocked(m_itemsLimit);
         PASTY_LOG_DEBUG("Core.Store", "Upsert image inserted. ID: %s", item.id.c_str());
-        return item.id;
+        return ClipboardHistoryUpsertResult{item.id, true};
     }
 
     std::optional<ClipboardHistoryItem> getItem(const std::string& id) override {

@@ -16,6 +16,7 @@ final class MainPanelViewModel: ObservableObject {
         var isLoading = false
         var errorMessage: String? = nil
         var filterType: ClipboardItemRow.ItemType? = nil
+        var totalItemCount = 0
 
         var selectedItem: ClipboardItemRow? {
             guard let selectedItemID else {
@@ -47,7 +48,7 @@ final class MainPanelViewModel: ObservableObject {
         case prepareDeleteSelected
         case cancelDelete
         case frontmostApplicationTracked(FrontmostAppTracker?)
-        case clipboardContentChanged
+        case clipboardContentChanged(inserted: Bool)
         case filterChanged(ClipboardItemRow.ItemType?)
         case copyOCRText(String)
     }
@@ -66,6 +67,8 @@ final class MainPanelViewModel: ObservableObject {
 
     private var activeSearchRequestID = UUID()
     private var searchRequestCancellable: AnyCancellable?
+    private var activeTotalCountRequestID = UUID()
+    private var totalCountRequestCancellable: AnyCancellable?
     private var itemDetailCancellable: AnyCancellable?
     private let coordinator: AppCoordinator
 
@@ -93,6 +96,7 @@ final class MainPanelViewModel: ObservableObject {
             prepareForPanelShow()
             state.isVisible = true
             requestSearchFocus()
+            loadTotalCountSnapshot()
             refreshListFromDatabase(selectFirst: true)
 
         case .hidePanel:
@@ -153,8 +157,11 @@ final class MainPanelViewModel: ObservableObject {
         case let .frontmostApplicationTracked(tracker):
             state.previousFrontmostApp = tracker
 
-        case .clipboardContentChanged:
+        case let .clipboardContentChanged(inserted):
             historyService.invalidateSearchCache()
+            if inserted {
+                incrementTotalCountForClipboardInsert()
+            }
             refreshListFromDatabase(selectFirst: state.isVisible)
 
         case let .filterChanged(newFilter):
@@ -250,6 +257,46 @@ final class MainPanelViewModel: ObservableObject {
             )
     }
 
+    private func loadTotalCountSnapshot() {
+        let requestID = UUID()
+        activeTotalCountRequestID = requestID
+
+        totalCountRequestCancellable?.cancel()
+        totalCountRequestCancellable = historyService.totalCount()
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { [weak self] completion in
+                    guard let self else {
+                        return
+                    }
+                    guard self.activeTotalCountRequestID == requestID else {
+                        return
+                    }
+                    if case let .failure(error) = completion {
+                        LoggerService.error("Total count fetch failed: \(error.localizedDescription)")
+                    }
+                },
+                receiveValue: { [weak self] totalCount in
+                    guard let self else {
+                        return
+                    }
+                    guard self.activeTotalCountRequestID == requestID else {
+                        return
+                    }
+                    self.state.totalItemCount = totalCount
+                }
+            )
+    }
+
+    private func incrementTotalCountForClipboardInsert() {
+        let maxCount = max(coordinator.settings.history.maxCount, 0)
+        if maxCount == 0 {
+            state.totalItemCount = 0
+            return
+        }
+        state.totalItemCount = min(state.totalItemCount + 1, maxCount)
+    }
+
     private func selectItem(_ item: ClipboardItemRow) {
         state.selectedItemID = item.id
         requestSearchFocus()
@@ -304,6 +351,7 @@ final class MainPanelViewModel: ObservableObject {
                     self.state.pendingDeleteItemID = nil
                     let updatedItems = self.listStore.removingItem(withID: pendingDeleteItemID, from: self.state.items)
                     self.state.items = updatedItems
+                    self.state.totalItemCount = max(self.state.totalItemCount - 1, 0)
                     self.state.selectedItemID = self.selectionStore.selectionAfterDeletion(
                         deletedID: pendingDeleteItemID,
                         previousItems: previousItems,
