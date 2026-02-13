@@ -238,14 +238,6 @@ final class SettingsViewModel: ObservableObject {
         settingsStore.replaceSettings(.default)
     }
 
-    func setClipboardDataDirectory(_ url: URL) {
-        settingsStore.setClipboardDataDirectory(url)
-    }
-
-    func restoreDefaultClipboardDataDirectory() {
-        settingsStore.restoreDefaultClipboardDataDirectory()
-    }
-
     func toggleOCRLanguage(_ code: String) {
         settingsStore.updateSettings { settings in
             var languages = settings.ocr.languages
