@@ -3,8 +3,6 @@ import PastyCore
 
 final class SettingsStore {
     private let coordinator: AppCoordinator
-    private let userDefaults = UserDefaults.standard
-    private let clipboardDataKey = "PastyClipboardDataDirectory"
 
     private var fileMonitor: DispatchSourceFileSystemObject?
     private var pendingReloadWorkItem: DispatchWorkItem?
@@ -95,21 +93,6 @@ final class SettingsStore {
         syncToCore()
     }
 
-    func setClipboardDataDirectory(_ url: URL) {
-        userDefaults.set(url.path, forKey: clipboardDataKey)
-
-        coordinator.setClipboardData(url)
-        resolveAndValidateSettingsDirectory()
-        loadSettings()
-        setupFileMonitor()
-    }
-
-    func restoreDefaultClipboardDataDirectory() {
-        let defaultPath = Self.defaultClipboardDataDirectory(appData: coordinator.appData)
-        setClipboardDataDirectory(defaultPath)
-        userDefaults.removeObject(forKey: clipboardDataKey)
-    }
-
     private func setupFileMonitor() {
         fileMonitor?.cancel()
         fileMonitor = nil
@@ -165,25 +148,8 @@ final class SettingsStore {
 
     private func resolveAndValidateSettingsDirectory() {
         let defaultDir = Self.defaultClipboardDataDirectory(appData: coordinator.appData)
-        if let path = userDefaults.string(forKey: clipboardDataKey) {
-            coordinator.setClipboardData(URL(fileURLWithPath: path))
-        } else {
-            coordinator.setClipboardData(defaultDir)
-        }
-
-        if validateDirectory(coordinator.clipboardData) {
-            return
-        }
-
-        if coordinator.clipboardData.path != defaultDir.path {
-            let message = "设置目录不可访问，已回退到默认目录：\(defaultDir.path)"
-            coordinator.setWarningMessage(message)
-            coordinator.dispatch(.settingsWarning(message))
-
-            coordinator.setClipboardData(defaultDir)
-            userDefaults.removeObject(forKey: clipboardDataKey)
-            _ = validateDirectory(defaultDir)
-        }
+        coordinator.setClipboardData(defaultDir)
+        _ = validateDirectory(defaultDir)
     }
 
     private func validateDirectory(_ url: URL) -> Bool {
