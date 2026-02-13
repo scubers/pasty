@@ -4,6 +4,7 @@
 #include <common/logger.h>
 
 #include <chrono>
+#include <algorithm>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -44,6 +45,59 @@ bool encodeBase64(const std::vector<unsigned char>& input, std::string& output) 
                       sodium_base64_VARIANT_ORIGINAL);
     output.assign(dynamicBuffer.data());
     return true;
+}
+
+std::vector<std::string> readRecentNonEmptyLines(const std::string& path, std::size_t maxLines) {
+    std::vector<std::string> lines;
+    if (maxLines == 0) {
+        return lines;
+    }
+
+    std::ifstream file(path, std::ios::binary);
+    if (!file.is_open()) {
+        return lines;
+    }
+
+    file.seekg(0, std::ios::end);
+    const std::streamoff endPos = file.tellg();
+    if (endPos <= 0) {
+        return lines;
+    }
+
+    constexpr std::streamoff kMaxTailBytes = 65536;
+    const std::streamoff bytesToRead = std::min(endPos, kMaxTailBytes);
+    file.seekg(endPos - bytesToRead, std::ios::beg);
+
+    std::string buffer(static_cast<std::size_t>(bytesToRead), '\0');
+    file.read(buffer.data(), bytesToRead);
+    const std::streamsize readCount = file.gcount();
+    if (readCount <= 0) {
+        return lines;
+    }
+    buffer.resize(static_cast<std::size_t>(readCount));
+
+    std::size_t start = 0;
+    while (start < buffer.size()) {
+        const std::size_t end = buffer.find('\n', start);
+        const std::size_t length = (end == std::string::npos) ? (buffer.size() - start) : (end - start);
+        std::string line = buffer.substr(start, length);
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
+        if (!line.empty()) {
+            lines.push_back(std::move(line));
+            if (lines.size() > maxLines) {
+                lines.erase(lines.begin());
+            }
+        }
+
+        if (end == std::string::npos) {
+            break;
+        }
+        start = end + 1;
+    }
+
+    return lines;
 }
 
 }
@@ -109,10 +163,105 @@ bool CloudDriveSyncExporter::initialize(const std::string& syncRootPath, const s
         return false;
     }
 
+    if (detectDeviceIdConflict()) {
+        const std::string previousDeviceId = m_stateManager->deviceId();
+        if (!m_stateManager->regenerateDeviceId()) {
+            PASTY_LOG_ERROR("Core.SyncExporter", "Detected device_id conflict but failed to regenerate device_id");
+            return false;
+        }
+
+        m_deviceLogsPath = m_logsPath + "/" + m_stateManager->deviceId();
+        if (!ensureDirectoryStructure()) {
+            PASTY_LOG_ERROR("Core.SyncExporter", "Failed to create directory structure after device_id regeneration");
+            return false;
+        }
+
+        PASTY_LOG_WARN("Core.SyncExporter", "Regenerated device_id after conflict: old_id=%s, new_id=%s",
+                       previousDeviceId.c_str(), m_stateManager->deviceId().c_str());
+    }
+
     m_initialized = true;
     PASTY_LOG_INFO("Core.SyncExporter", "Initialized with sync_root=%s, device_id=%s", 
                    syncRootPath.c_str(), m_stateManager->deviceId().c_str());
     return true;
+}
+
+bool CloudDriveSyncExporter::detectDeviceIdConflict() const {
+    if (!m_stateManager) {
+        return false;
+    }
+
+    const std::string localDeviceId = m_stateManager->deviceId();
+    if (localDeviceId.empty()) {
+        return false;
+    }
+
+    std::error_code ec;
+    if (!std::filesystem::exists(m_deviceLogsPath, ec) || ec) {
+        return false;
+    }
+
+    std::vector<std::string> files;
+    for (const auto& entry : std::filesystem::directory_iterator(m_deviceLogsPath, ec)) {
+        if (ec) {
+            break;
+        }
+        if (!entry.is_regular_file(ec) || ec) {
+            continue;
+        }
+
+        const std::string filename = entry.path().filename().string();
+        if (filename.size() >= 13 && filename.rfind("events-", 0) == 0 &&
+            filename.substr(filename.size() - 6) == ".jsonl") {
+            files.push_back(entry.path().string());
+        }
+    }
+
+    if (files.empty()) {
+        return false;
+    }
+
+    std::sort(files.begin(), files.end(), std::greater<std::string>());
+
+    constexpr std::size_t kMaxFilesToScan = 3;
+    constexpr std::size_t kRecentLinesPerFile = 10;
+    const std::size_t filesToScan = std::min(files.size(), kMaxFilesToScan);
+
+    using Json = nlohmann::json;
+    for (std::size_t fileIndex = 0; fileIndex < filesToScan; ++fileIndex) {
+        const auto recentLines = readRecentNonEmptyLines(files[fileIndex], kRecentLinesPerFile);
+        for (const auto& line : recentLines) {
+            Json json;
+            try {
+                json = Json::parse(line, nullptr, false);
+            } catch (...) {
+                continue;
+            }
+
+            if (json.is_discarded() || !json.is_object()) {
+                continue;
+            }
+
+            const std::string eventDeviceId = json.value("device_id", std::string());
+            if (!eventDeviceId.empty() && eventDeviceId != localDeviceId) {
+                PASTY_LOG_ERROR("Core.SyncExporter", "Detected device_id conflict in %s: local=%s, event=%s",
+                                files[fileIndex].c_str(), localDeviceId.c_str(), eventDeviceId.c_str());
+                return true;
+            }
+
+            const std::string sourceAppId = json.value("source_app_id", std::string());
+            if (sourceAppId.rfind(kLoopPrefix, 0) == 0) {
+                const std::string forwardedDeviceId = sourceAppId.substr(std::strlen(kLoopPrefix));
+                if (!forwardedDeviceId.empty() && forwardedDeviceId != localDeviceId) {
+                    PASTY_LOG_ERROR("Core.SyncExporter", "Detected source_app_id conflict in %s: local=%s, source=%s",
+                                    files[fileIndex].c_str(), localDeviceId.c_str(), sourceAppId.c_str());
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
 }
 
 bool CloudDriveSyncExporter::ensureDirectoryStructure() {
@@ -492,8 +641,58 @@ CloudDriveSyncExporter::ExportResult CloudDriveSyncExporter::exportDeleteTombsto
     json["seq"] = seq;
     json["ts_ms"] = nowMs;
     json["op"] = "delete";
-    json["item_type"] = itemTypeStr;
-    json["content_hash"] = contentHash;
+
+    if (m_e2eeMasterKey.has_value() && !m_e2eeKeyId.empty()) {
+        using Json = nlohmann::json;
+        Json payload;
+        payload["item_type"] = itemTypeStr;
+        payload["content_hash"] = contentHash;
+        const std::string payloadStr = payload.dump();
+
+        EncryptionManager::Bytes plaintext(payloadStr.begin(), payloadStr.end());
+        EncryptionManager::Bytes aad(eventId.begin(), eventId.end());
+        EncryptionManager::EncryptedPayload encryptedPayload;
+
+        const bool encrypted = EncryptionManager::encrypt(*m_e2eeMasterKey, plaintext, aad, encryptedPayload);
+
+        if (!plaintext.empty()) {
+            sodium_memzero(plaintext.data(), plaintext.size());
+        }
+        if (!aad.empty()) {
+            sodium_memzero(aad.data(), aad.size());
+        }
+
+        if (!encrypted) {
+            PASTY_LOG_ERROR("Core.SyncExporter", "Failed to encrypt delete tombstone event: %s", eventId.c_str());
+            return ExportResult::ExportFailed;
+        }
+
+        std::string nonceB64;
+        std::string ciphertextB64;
+        const bool nonceEncoded = encodeBase64(encryptedPayload.nonce, nonceB64);
+        const bool ciphertextEncoded = encodeBase64(encryptedPayload.ciphertext, ciphertextB64);
+
+        if (!encryptedPayload.nonce.empty()) {
+            sodium_memzero(encryptedPayload.nonce.data(), encryptedPayload.nonce.size());
+        }
+        if (!encryptedPayload.ciphertext.empty()) {
+            sodium_memzero(encryptedPayload.ciphertext.data(), encryptedPayload.ciphertext.size());
+        }
+
+        if (!nonceEncoded || !ciphertextEncoded) {
+            PASTY_LOG_ERROR("Core.SyncExporter", "Failed to encode encrypted delete tombstone payload for event: %s", eventId.c_str());
+            return ExportResult::ExportFailed;
+        }
+
+        json["encryption"] = "e2ee";
+        json["key_id"] = m_e2eeKeyId;
+        json["nonce"] = nonceB64;
+        json["ciphertext"] = ciphertextB64;
+    } else {
+        json["item_type"] = itemTypeStr;
+        json["content_hash"] = contentHash;
+        json["encryption"] = "none";
+    }
 
     const std::string jsonLine = json.dump();
     return writeJsonlEvent(jsonLine);

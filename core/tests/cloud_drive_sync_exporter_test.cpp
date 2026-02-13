@@ -241,6 +241,107 @@ void testDeleteTombstoneExport() {
     cleanupTempDirectory(tempDir);
 }
 
+void testE2eeDeleteExport() {
+    std::cout << "Running testE2eeDeleteExport..." << std::endl;
+
+    configureMigrationDirectoryForTests();
+    const std::string tempDir = createTempDirectory("cloud-sync-export-e2ee-delete");
+    const std::string syncRoot = tempDir + "/sync";
+    const std::string baseDir = tempDir + "/base";
+
+    std::vector<std::uint8_t> key(32);
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<int> dist(0, 255);
+    for (auto& b : key) b = static_cast<std::uint8_t>(dist(gen));
+
+    pasty::EncryptionManager::Key e2eeKey;
+    std::copy(key.begin(), key.end(), e2eeKey.data());
+
+    auto exporter = pasty::CloudDriveSyncExporter::Create(syncRoot, baseDir, e2eeKey, "test-key-id");
+    assert(exporter.has_value());
+
+    const std::string contentHash = "e2eedeletehash";
+    const auto result = exporter->exportDeleteTombstone(pasty::ClipboardItemType::Text, contentHash);
+    assert(result == pasty::CloudDriveSyncExporter::ExportResult::Success);
+
+    const std::filesystem::path deviceLogsDir = getSingleDeviceLogsDir(syncRoot);
+    const std::filesystem::path log1 = deviceLogsDir / "events-0001.jsonl";
+    const std::string lastLine = readLastLine(log1);
+    const nlohmann::json eventJson = nlohmann::json::parse(lastLine, nullptr, false);
+
+    assert(eventJson.value("encryption", std::string()) == "e2ee");
+    assert(eventJson.contains("key_id"));
+    assert(eventJson.contains("nonce"));
+    assert(eventJson.contains("ciphertext"));
+    assert(!eventJson.contains("item_type"));
+    assert(!eventJson.contains("content_hash"));
+
+    cleanupTempDirectory(tempDir);
+}
+
+void testDeviceIdConflictDetection() {
+    std::cout << "Running testDeviceIdConflictDetection..." << std::endl;
+
+    configureMigrationDirectoryForTests();
+    const std::string tempDir = createTempDirectory("cloud-sync-export-device-conflict");
+    const std::string syncRoot = tempDir + "/sync";
+    const std::string baseDir = tempDir + "/base";
+    std::filesystem::create_directories(syncRoot);
+    std::filesystem::create_directories(baseDir);
+
+    std::string deviceA;
+    {
+        auto state = pasty::CloudDriveSyncState::LoadOrCreate(baseDir);
+        deviceA = state->deviceId();
+    }
+
+    const std::string logsA = syncRoot + "/logs/" + deviceA;
+    std::filesystem::create_directories(logsA);
+
+    const std::string deviceB = "bbbbbbbbbbbbbbbb";
+    nlohmann::json event;
+    event["schema_version"] = 1;
+    event["event_id"] = deviceB + ":1";
+    event["device_id"] = deviceB;
+    event["seq"] = 1;
+    event["ts_ms"] = 1739414406000;
+    event["op"] = "upsert_text";
+    event["item_type"] = "text";
+    event["content_hash"] = "hash-b";
+    event["text"] = "stolen-log-dir";
+
+    {
+        std::ofstream file(logsA + "/events-0001.jsonl");
+        file << event.dump() << "\n";
+    }
+
+    auto exporter = pasty::CloudDriveSyncExporter::Create(syncRoot, baseDir);
+    assert(exporter.has_value());
+
+    auto item = makeTextItem("new-device-content", "newhash", "com.test.app");
+    assert(exporter->exportTextItem(item) == pasty::CloudDriveSyncExporter::ExportResult::Success);
+
+    const std::filesystem::path logsRoot = std::filesystem::path(syncRoot) / "logs";
+    int dirCount = 0;
+    std::string finalDeviceId;
+    for (const auto& entry : std::filesystem::directory_iterator(logsRoot)) {
+        if (entry.is_directory()) {
+            dirCount++;
+            if (entry.path().filename().string() != deviceA) {
+                finalDeviceId = entry.path().filename().string();
+            }
+        }
+    }
+
+    assert(dirCount >= 2);
+    assert(!finalDeviceId.empty());
+    assert(finalDeviceId != deviceA);
+    assert(finalDeviceId != deviceB);
+
+    cleanupTempDirectory(tempDir);
+}
+
 }
 
 int main() {
@@ -252,6 +353,8 @@ int main() {
         testLogFileRotation();
         testAtomicWrite();
         testDeleteTombstoneExport();
+        testE2eeDeleteExport();
+        testDeviceIdConflictDetection();
         std::cout << "=== All tests PASSED ===" << std::endl;
         return 0;
     } catch (const std::exception& e) {

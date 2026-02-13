@@ -113,6 +113,7 @@ private:
     
     // Internal helpers
     bool initialize(const std::string& syncRootPath, const std::string& baseDirectory);
+    bool detectDeviceIdConflict() const;
     ExportResult writeJsonlEvent(const std::string& jsonLine);
     bool ensureDirectoryStructure();
     std::string getCurrentLogFilePath() const;
@@ -155,6 +156,13 @@ private:
                 return state->reserveNextSeq();
             }
             return 0;
+        }
+
+        bool regenerateDeviceId() {
+            if (state) {
+                return state->regenerateDeviceId();
+            }
+            return false;
         }
 
         bool incrementFileErrorCount(const std::string& filePath) {
