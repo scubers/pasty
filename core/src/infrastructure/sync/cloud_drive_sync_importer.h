@@ -217,6 +217,13 @@ private:
             }
             return false;
         }
+
+        bool pruneForGc(std::int64_t nowMs, std::int64_t retentionMs, std::size_t maxTombstones) {
+            if (state) {
+                return state->pruneForGc(nowMs, retentionMs, maxTombstones);
+            }
+            return false;
+        }
     };
     std::unique_ptr<StateManager> m_stateManager;
 

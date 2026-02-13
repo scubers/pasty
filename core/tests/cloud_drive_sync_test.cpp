@@ -8,6 +8,7 @@
 #include <thirdparty/nlohmann/json.hpp>
 
 #include <cassert>
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -85,12 +86,18 @@ void testTombstoneAntiResurrection() {
     auto service = makeService(settings);
     assert(service.initialize(baseDir + "/history"));
 
+    const auto now = std::chrono::system_clock::now();
+    const auto baseTs = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+    const std::int64_t t500 = baseTs - 1000000;
+    const std::int64_t t1000 = baseTs - 500000;
+    const std::int64_t t2000 = baseTs - 100000;
+
     // 3. Ingest local text to get actual content hash
     pasty::ClipboardHistoryIngestEvent ingest;
     ingest.itemType = pasty::ClipboardItemType::Text;
     ingest.text = "Hello world";
     ingest.sourceAppId = "test";
-    ingest.timestampMs = 500;
+    ingest.timestampMs = t500;
     auto ingestResult = service.ingestWithResult(ingest);
     assert(ingestResult.ok);
 
@@ -106,12 +113,13 @@ void testTombstoneAntiResurrection() {
 
     // 6. PASS 1: Import upsert then delete events
     // Event 1: Upsert text at t=1000 (will fail if hash doesn't match)
-    std::string upsertEvent1 = R"({"schema_version": 1, "event_id": "cccccccccccccccc:1", "device_id": "cccccccccccccccc", "seq": 1, "ts_ms": 1000, "op": "upsert_text", "item_type": "text", "content_hash": ")" + contentHash + R"(", "text": "Hello world", "content_type": "text/plain"})";
+    std::string upsertEvent1 = R"({"schema_version": 1, "event_id": "cccccccccccccccc:1", "device_id": "cccccccccccccccc", "seq": 1, "ts_ms": )" + std::to_string(t1000) + R"(, "op": "upsert_text", "item_type": "text", "content_hash": ")" + contentHash + R"(", "text": "Hello world", "content_type": "text/plain"})";
     // Event 2: Delete text at t=2000
-    std::string deleteEvent = R"({"schema_version": 1, "event_id": "cccccccccccccccc:2", "device_id": "cccccccccccccccc", "seq": 2, "ts_ms": 2000, "op": "delete", "item_type": "text", "content_hash": ")" + contentHash + R"("})";
+    std::string deleteEvent = R"({"schema_version": 1, "event_id": "cccccccccccccccc:2", "device_id": "cccccccccccccccc", "seq": 2, "ts_ms": )" + std::to_string(t2000) + R"(, "op": "delete", "item_type": "text", "content_hash": ")" + contentHash + R"("})";
 
     writeJsonlFile(remoteLogsDir + "/events-0001.jsonl", upsertEvent1);
     writeJsonlFile(remoteLogsDir + "/events-0001.jsonl", deleteEvent);
+
 
     // 7. Run importer once (PASS 1)
     auto importer = pasty::CloudDriveSyncImporter::Create(syncRoot, baseDir);
@@ -134,7 +142,7 @@ void testTombstoneAntiResurrection() {
     }
 
     // 10. PASS 2: Present an older upsert (t=500) for same key
-    std::string olderUpsertEvent = R"({"schema_version": 1, "event_id": "cccccccccccccccc:3", "device_id": "cccccccccccccccc", "seq": 3, "ts_ms": 500, "op": "upsert_text", "item_type": "text", "content_hash": ")" + contentHash + R"(", "text": "Hello world", "content_type": "text/plain"})";
+    std::string olderUpsertEvent = R"({"schema_version": 1, "event_id": "cccccccccccccccc:3", "device_id": "cccccccccccccccc", "seq": 3, "ts_ms": )" + std::to_string(t500) + R"(, "op": "upsert_text", "item_type": "text", "content_hash": ")" + contentHash + R"(", "text": "Hello world", "content_type": "text/plain"})";
 
     writeJsonlFile(remoteLogsDir + "/events-0001.jsonl", olderUpsertEvent);
 
@@ -349,6 +357,122 @@ void testE2eeImageRoundTrip() {
     cleanupTempDirectory(tempDir);
 }
 
+void testStateGc() {
+    std::cout << "Running testStateGc..." << std::endl;
+
+    configureMigrationDirectoryForTests();
+    const std::string tempDir = createTempDirectory("cloud-sync-gc");
+    std::string syncRoot = tempDir + "/sync";
+    std::string baseDir = tempDir + "/base";
+    std::filesystem::create_directories(syncRoot);
+    std::filesystem::create_directories(baseDir);
+
+    const auto now = std::chrono::system_clock::now();
+    const std::int64_t nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+    const std::int64_t retentionMs = 180LL * 24 * 60 * 60 * 1000;
+    const std::int64_t oldTs = nowMs - retentionMs - 1000;
+    const std::int64_t newTs = nowMs - 1000;
+
+    {
+        nlohmann::json state;
+        state["schema_version"] = 1;
+        state["device_id"] = "test-device";
+        state["next_seq"] = 1;
+        state["devices"] = nlohmann::json::object();
+        state["files"] = {
+            {"/non/existent/path.jsonl", {{"last_offset", 100}, {"error_count", 0}}}
+        };
+        state["tombstones"] = nlohmann::json::array({
+            {{"item_type", "text"}, {"content_hash", "aaaaaaaaaaaaaaaa"}, {"ts_ms", oldTs}},
+            {{"item_type", "text"}, {"content_hash", "bbbbbbbbbbbbbbbb"}, {"ts_ms", newTs}}
+        });
+
+        std::ofstream stateFile(baseDir + "/sync_state.json");
+        stateFile << state.dump() << std::endl;
+    }
+
+    pasty::InMemorySettingsStore settings(1000);
+    auto service = makeService(settings);
+    assert(service.initialize(baseDir + "/history"));
+
+    auto importer = pasty::CloudDriveSyncImporter::Create(syncRoot, baseDir);
+    assert(importer.has_value());
+
+    auto result = importer->importChanges(service);
+    assert(result.success);
+
+    {
+        std::ifstream stateFile(baseDir + "/sync_state.json");
+        nlohmann::json state = nlohmann::json::parse(stateFile);
+        
+        auto tombstones = state["tombstones"];
+        assert(tombstones.size() == 1);
+        assert(tombstones[0]["content_hash"] == "bbbbbbbbbbbbbbbb");
+
+        auto files = state["files"];
+        assert(files.find("/non/existent/path.jsonl") == files.end());
+    }
+
+    service.shutdown();
+    cleanupTempDirectory(tempDir);
+}
+
+void testImporterOffsetRecovery() {
+    std::cout << "Running testImporterOffsetRecovery..." << std::endl;
+
+    configureMigrationDirectoryForTests();
+    const std::string tempDir = createTempDirectory("cloud-sync-offset-recovery");
+    std::string syncRoot = tempDir + "/sync";
+    std::string baseDir = tempDir + "/base";
+    std::filesystem::create_directories(syncRoot);
+    std::filesystem::create_directories(baseDir);
+
+    const std::string remoteDeviceId = "rrrrrrrrrrrrrrrr";
+    const std::string remoteLogsDir = syncRoot + "/logs/" + remoteDeviceId;
+    std::filesystem::create_directories(remoteLogsDir);
+    const std::string eventFilePath = std::filesystem::absolute(remoteLogsDir + "/events-0001.jsonl").string();
+
+    {
+        std::ofstream eventFile(eventFilePath);
+        eventFile << "{\"invalid\": true" << "\n";
+        eventFile << R"({"schema_version": 1, "event_id": "rrrrrrrrrrrrrrrr:1", "device_id": "rrrrrrrrrrrrrrrr", "seq": 1, "ts_ms": 1000, "op": "upsert_text", "item_type": "text", "content_hash": "cccccccccccccccc", "text": "Recovered", "content_type": "text/plain"})" << "\n";
+        eventFile.flush();
+    }
+
+    {
+        nlohmann::json state;
+        state["schema_version"] = 1;
+        state["device_id"] = "local-device";
+        state["next_seq"] = 1;
+        state["devices"] = nlohmann::json::object();
+        state["files"] = {
+            {eventFilePath, {{"last_offset", 999999}, {"error_count", 0}}}
+        };
+        state["tombstones"] = nlohmann::json::array();
+
+        std::ofstream stateFile(baseDir + "/sync_state.json");
+        stateFile << state.dump() << std::endl;
+    }
+
+    pasty::InMemorySettingsStore settings(1000);
+    auto service = makeService(settings);
+    assert(service.initialize(baseDir + "/history"));
+
+    auto importer = pasty::CloudDriveSyncImporter::Create(syncRoot, baseDir);
+    assert(importer.has_value());
+
+    auto result = importer->importChanges(service);
+    assert(result.success);
+    assert(result.eventsApplied >= 1);
+
+    auto items = service.list(10, "").items;
+    assert(!items.empty());
+    assert(items[0].content == "Recovered");
+
+    service.shutdown();
+    cleanupTempDirectory(tempDir);
+}
+
 }
 
 int main() {
@@ -358,6 +482,8 @@ int main() {
         testTombstoneAntiResurrection();
         testE2eeTextRoundTrip();
         testE2eeImageRoundTrip();
+        testStateGc();
+        testImporterOffsetRecovery();
         std::cout << "=== All tests PASSED ===" << std::endl;
         return 0;
     } catch (const std::exception& e) {

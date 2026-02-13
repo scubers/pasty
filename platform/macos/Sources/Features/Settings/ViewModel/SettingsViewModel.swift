@@ -29,12 +29,13 @@ final class SettingsViewModel: ObservableObject {
         coordinator.$settings
             .map(\.cloudSync)
             .removeDuplicates()
-            .sink { [weak self] _ in
-                self?.updateCloudSyncDirectoryValidation()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] cloudSync in
+                self?.updateCloudSyncDirectoryValidation(cloudSync)
             }
             .store(in: &cancellables)
 
-        updateCloudSyncDirectoryValidation()
+        updateCloudSyncDirectoryValidation(coordinator.settings.cloudSync)
     }
 
     var settings: PastySettings {
@@ -157,8 +158,9 @@ final class SettingsViewModel: ObservableObject {
     }
 
     @discardableResult
-    private func updateCloudSyncDirectoryValidation() -> Bool {
-        let isValid = isCloudSyncDirectoryValid(settings.cloudSync)
+    private func updateCloudSyncDirectoryValidation(_ cloudSync: CloudSyncSettings? = nil) -> Bool {
+        let targetSettings = cloudSync ?? settings.cloudSync
+        let isValid = isCloudSyncDirectoryValid(targetSettings)
         cloudSyncIsDirectoryValid = isValid
         return isValid
     }
@@ -173,14 +175,24 @@ final class SettingsViewModel: ObservableObject {
             return false
         }
 
+        let url = URL(fileURLWithPath: normalizedPath)
         let fileManager = FileManager.default
-        var isDirectory: ObjCBool = false
-        guard fileManager.fileExists(atPath: normalizedPath, isDirectory: &isDirectory), isDirectory.boolValue else {
+        
+        do {
+            try fileManager.createDirectory(at: url, withIntermediateDirectories: true)
+        } catch {
             return false
         }
 
-        return fileManager.isReadableFile(atPath: normalizedPath)
-            && fileManager.isWritableFile(atPath: normalizedPath)
+        let probeURL = url.appendingPathComponent("pasty_write_probe_\(UUID().uuidString).tmp")
+        do {
+            try Data("ok".utf8).write(to: probeURL)
+            try? fileManager.removeItem(at: probeURL)
+            return true
+        } catch {
+            try? fileManager.removeItem(at: probeURL)
+            return false
+        }
     }
 
     func selectCloudSyncDirectory() {

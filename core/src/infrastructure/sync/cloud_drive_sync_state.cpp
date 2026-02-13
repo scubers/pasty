@@ -388,4 +388,47 @@ bool CloudDriveSyncState::shouldSkipUpsertDueToTombstone(const std::string& item
     return false;
 }
 
+bool CloudDriveSyncState::pruneForGc(std::int64_t nowMs, std::int64_t retentionMs, std::size_t maxTombstones) {
+    std::lock_guard<std::mutex> lock(*m_mutex);
+    bool changed = false;
+
+    // 1. Prune tombstones by time
+    const std::int64_t cutoffMs = nowMs - retentionMs;
+    auto it = std::remove_if(m_tombstones.begin(), m_tombstones.end(), [cutoffMs](const Tombstone& t) {
+        return t.ts_ms < cutoffMs;
+    });
+    if (it != m_tombstones.end()) {
+        m_tombstones.erase(it, m_tombstones.end());
+        changed = true;
+    }
+
+    // 2. Prune tombstones by count (keep newest)
+    if (m_tombstones.size() > maxTombstones) {
+        std::sort(m_tombstones.begin(), m_tombstones.end(), [](const Tombstone& a, const Tombstone& b) {
+            return a.ts_ms > b.ts_ms; // Newest first
+        });
+        m_tombstones.erase(m_tombstones.begin() + maxTombstones, m_tombstones.end());
+        changed = true;
+    }
+
+    // 3. Prune file cursors for missing files
+    for (auto fileIt = m_fileCursors.begin(); fileIt != m_fileCursors.end(); ) {
+        const std::string& path = fileIt->first;
+        std::error_code ec;
+        if (!std::filesystem::exists(path, ec) || ec) {
+            fileIt = m_fileCursors.erase(fileIt);
+            changed = true;
+        } else {
+            ++fileIt;
+        }
+    }
+
+    if (changed) {
+        PASTY_LOG_INFO("Core.SyncState", "State GC performed: %zu tombstones remaining", m_tombstones.size());
+        return saveState();
+    }
+
+    return false;
+}
+
 } // namespace pasty

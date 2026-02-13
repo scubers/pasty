@@ -145,6 +145,18 @@ public:
      */
     bool shouldSkipUpsertDueToTombstone(const std::string& itemType, const std::string& contentHash, std::int64_t eventTsMs) const;
 
+    /**
+     * Prune old state entries (GC)
+     *
+     * Removes stale file cursors for missing files and caps tombstones.
+     *
+     * @param nowMs Current timestamp in milliseconds
+     * @param retentionMs Retention window in milliseconds
+     * @param maxTombstones Maximum number of tombstones to retain
+     * @return true if something was pruned and persisted successfully, false if no changes or persist failed
+     */
+    bool pruneForGc(std::int64_t nowMs, std::int64_t retentionMs, std::size_t maxTombstones);
+
 private:
     CloudDriveSyncState();
 

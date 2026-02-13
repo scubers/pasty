@@ -5,6 +5,8 @@
 #include "../infrastructure/sync/cloud_drive_sync_importer.h"
 #include "../infrastructure/sync/cloud_drive_sync_protocol_info.h"
 #include "../infrastructure/sync/cloud_drive_sync_state.h"
+#include "../infrastructure/sync/cloud_drive_sync_pruner.h"
+#include "../utils/runtime_json_utils.h"
 #include "../store/sqlite_clipboard_history_store.h"
 
 #include <algorithm>
@@ -243,6 +245,14 @@ bool CoreRuntime::runCloudSyncImport() {
 
     if (m_syncDeviceId.empty()) {
         m_syncDeviceId = loadSyncDeviceId();
+    }
+
+    const std::int64_t nowMs = runtime_json_utils::nowMs();
+    constexpr std::int64_t kPruneIntervalMs = 24LL * 60 * 60 * 1000;
+    if (m_lastCloudSyncPruneMs == 0 || (nowMs - m_lastCloudSyncPruneMs) >= kPruneIntervalMs) {
+        CloudDriveSyncPruner pruner;
+        pruner.prune(m_config.cloudSyncRootPath, nowMs);
+        m_lastCloudSyncPruneMs = nowMs;
     }
 
     return importResult.success;

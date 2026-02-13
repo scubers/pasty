@@ -1,0 +1,1 @@
+- Hardened JSONL importer to handle invalid 'last_offset'. If offset is past EOF or seek fails, it now falls back to 0. This ensures robustness when log files are pruned or rewritten.

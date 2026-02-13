@@ -81,6 +81,7 @@ private:
     std::unique_ptr<ClipboardService> m_clipboardService;
     std::optional<CloudSyncImportStatus> m_lastImportStatus;
     std::string m_syncDeviceId;
+    std::int64_t m_lastCloudSyncPruneMs = 0;
 
     std::optional<CloudDriveSyncExporter> m_syncExporter;
     std::optional<EncryptionManager::Key> m_cloudSyncE2eeMasterKey;

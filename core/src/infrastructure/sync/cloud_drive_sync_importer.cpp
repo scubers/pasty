@@ -3,6 +3,8 @@
 #include "infrastructure/sync/cloud_drive_sync_importer.h"
 #include "application/history/clipboard_service.h"
 #include "infrastructure/sync/cloud_drive_sync_protocol_info.h"
+#include "infrastructure/sync/cloud_drive_sync_pruner.h"
+#include "utils/runtime_json_utils.h"
 #include <common/logger.h>
 
 #include <algorithm>
@@ -193,17 +195,24 @@ CloudDriveSyncImporter::ImportResult CloudDriveSyncImporter::importChanges(Clipb
     }
 
     result.eventsProcessed = static_cast<int>(allEvents.size());
+    const std::int64_t nowMs = runtime_json_utils::nowMs();
     
     if (allEvents.empty()) {
         PASTY_LOG_INFO("Core.SyncImporter", "No new events to import");
         result.success = true;
-        return result;
+    } else {
+        std::sort(allEvents.begin(), allEvents.end());
+        
+        PASTY_LOG_INFO("Core.SyncImporter", "Applying %zu events in deterministic order", allEvents.size());
+        result = applyEvents(allEvents, clipboardService);
     }
 
-    std::sort(allEvents.begin(), allEvents.end());
-    
-    PASTY_LOG_INFO("Core.SyncImporter", "Applying %zu events in deterministic order", allEvents.size());
-    result = applyEvents(allEvents, clipboardService);
+    // Perform state GC to prune tombstones and stale file cursors
+    m_stateManager->pruneForGc(
+        nowMs,
+        CloudDriveSyncPruner::kDefaultRetentionMs,
+        CloudDriveSyncPruner::kDefaultMaxEventsPerDevice
+    );
 
     return result;
 }
@@ -270,19 +279,38 @@ bool CloudDriveSyncImporter::parseJsonlFile(const std::string& filePath, const s
     }
 
     CloudDriveSyncState::FileCursor cursor = m_stateManager->getFileCursor(filePath);
-    file.seekg(cursor.last_offset);
+    
+    file.seekg(0, std::ios::end);
+    const std::uint64_t fileSize = static_cast<std::uint64_t>(file.tellg());
+    file.clear();
+
+    std::uint64_t seekOffset = cursor.last_offset;
+    if (seekOffset > fileSize) {
+        PASTY_LOG_WARN("Core.SyncImporter", "Last offset %lu past EOF %lu for %s. Resetting to 0.",
+                        static_cast<unsigned long>(seekOffset), static_cast<unsigned long>(fileSize), filePath.c_str());
+        seekOffset = 0;
+    }
+
+    file.seekg(seekOffset);
 
     if (!file.good()) {
-        PASTY_LOG_ERROR("Core.SyncImporter", "Cannot seek to offset %lu in file: %s",
-                        static_cast<unsigned long>(cursor.last_offset), filePath.c_str());
-        return false;
+        PASTY_LOG_WARN("Core.SyncImporter", "Cannot seek to offset %lu in file: %s. Falling back to 0.",
+                        static_cast<unsigned long>(seekOffset), filePath.c_str());
+        file.clear();
+        file.seekg(0);
+        seekOffset = 0;
+        
+        if (!file.good()) {
+            PASTY_LOG_ERROR("Core.SyncImporter", "Critical failure seeking to start of file: %s", filePath.c_str());
+            return false;
+        }
     }
 
     CloudDriveSyncState::RemoteDeviceState deviceState = m_stateManager->getRemoteDeviceState(remoteDeviceId);
     const std::uint64_t maxAppliedSeq = deviceState.max_applied_seq;
 
     std::string line;
-    std::uint64_t currentOffset = cursor.last_offset;
+    std::uint64_t currentOffset = seekOffset;
 
     while (std::getline(file, line)) {
         const std::uint64_t lineStartOffset = currentOffset;
