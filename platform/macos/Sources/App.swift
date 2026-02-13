@@ -256,6 +256,13 @@ class App: NSObject, NSApplicationDelegate {
                 return nil
             }
 
+            // Handle Cmd+q to quit
+            if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
+               event.charactersIgnoringModifiers == "q" {
+                NSApp.terminate(nil)
+                return nil
+            }
+
             if InAppHotkeyPermissionManager.shared.handle(event: event) {
                 return nil
             }
