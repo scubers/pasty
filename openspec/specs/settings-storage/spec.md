@@ -12,17 +12,10 @@
 
 #### Scenario: 初始化默认设置路径
 
-- **WHEN** 应用首次启动且用户未自定义路径
+- **WHEN** 应用首次启动
 - **THEN** 系统 MUST 将 settingsFileURL 设置为 `${clipboardData}/settings.json`
 - **AND** 系统 MUST 确保 clipboardData 默认为 `${appData}/ClipboardData`
 - **AND** 系统 MUST 在文件不存在时创建默认设置文件
-
-#### Scenario: 加载自定义路径的设置
-
-- **WHEN** 应用启动且用户已自定义 clipboardData 路径
-- **THEN** 系统 MUST 将 settingsFileURL 设置为 `${自定义路径}/settings.json`
-- **AND** 系统 MUST 从该路径加载设置文件
-- **AND** 系统 MUST 验证 JSON 格式有效性
 
 ### Requirement: 设置文件监控
 
@@ -92,38 +85,15 @@
 
 ### Requirement: 设置目录管理
 
-系统必须将设置目录从单一 settingsDirectory 迁移到 appData 和 clipboardData 双目录结构。
+系统必须将设置目录存储在 appData 下的 clipboardData 目录中。
 
 #### Scenario: 初始化双目录
 
 - **WHEN** SettingsManager 初始化
 - **THEN** 系统 MUST 设置 `appData` 为固定路径 `~/Application Support/Pasty`
-- **AND** 系统 MUST 从 UserDefaults 读取 "PastyClipboardDataDirectory" key
-- **AND** 系统 MUST 设置 `clipboardData` 为读取值或默认值 `${appData}/ClipboardData`
+- **AND** 系统 MUST 设置 `clipboardData` 为 `${appData}/ClipboardData`
 - **AND** 系统 MUST 确保 `appData` 不是 `@Published` 属性（固定不变）
-- **AND** 系统 MUST 确保 `clipboardData` 是 `@Published` 属性（支持 UI 更新）
-
-#### Scenario: 用户切换数据目录
-
-- **WHEN** 用户调用 `setClipboardDataDirectory(_ url:)`
-- **THEN** 系统 MUST 验证新目录可读写
-- **AND** 系统 MUST 保存新路径到 UserDefaults（key: "PastyClipboardDataDirectory"）
-- **AND** 系统 MUST 更新 `clipboardData` 属性触发 UI 刷新
-- **AND** 系统 MUST 显示重启提示要求用户重启应用
-- **AND** 系统 MUST 清除文件监控以避免无效访问
-- **AND** 系统 MUST 在重启后重新建立文件监控
-
-### Requirement: 文件监控建立
-
-系统必须在正确的目录上建立文件监控。
-
-#### Scenario: 重新建立监控
-
-- **WHEN** 用户切换 clipboardData 目录
-- **THEN** 系统 MUST 在新目录上建立 settings.json 文件监控
-- **AND** 系统 MUST 使用新的 settingsFileURL 路径
-- **AND** 系统 MUST 监控 write、rename、delete 事件
-- **AND** 系统 MUST 在检测到变更时触发重新加载
+- **AND** 系统 MUST 确保 `clipboardData` 不是 `@Published` 属性（固定不变）
 
 ### Requirement: 设置文件路径计算
 
@@ -135,3 +105,4 @@
 - **THEN** 系统 MUST 通过 `SettingsManager.settingsFileURL` 计算属性获取
 - **AND** 系统 MUST 返回 `clipboardData/settings.json`
 - **AND** 系统 MUST 不依赖其他全局或缓存路径
+
