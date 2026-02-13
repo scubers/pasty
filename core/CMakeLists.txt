@@ -12,14 +12,20 @@ add_compile_options(-Wall -Wextra -Wpedantic)
 # 查找 SQLite3
 find_package(SQLite3 REQUIRED)
 
+# 查找 libsodium
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(LIBSODIUM REQUIRED libsodium)
+
 # 源文件
 set(PASTY_CORE_SOURCES
     src/api/runtime_json_api.cpp
     src/application/history/clipboard_service.cpp
     src/common/logger.cpp
+    src/infrastructure/crypto/encryption_manager.cpp
     src/infrastructure/settings/in_memory_settings_store.cpp
     src/infrastructure/sync/cloud_drive_sync_exporter.cpp
     src/infrastructure/sync/cloud_drive_sync_importer.cpp
+    src/infrastructure/sync/cloud_drive_sync_protocol_info.cpp
     src/infrastructure/sync/cloud_drive_sync_pruner.cpp
     src/infrastructure/sync/cloud_drive_sync_state.cpp
     src/runtime/core_runtime.cpp
@@ -38,12 +44,20 @@ target_include_directories(PastyCore
     PUBLIC
         ${PASTY_CORE_PUBLIC_INCLUDE_DIR}
         ${PASTY_CORE_INCLUDE_DIR}
+        ${LIBSODIUM_INCLUDE_DIRS}
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${CMAKE_CURRENT_SOURCE_DIR}/src/thirdparty
 )
 
+target_link_directories(PastyCore
+    PUBLIC
+        ${LIBSODIUM_LIBRARY_DIRS}
+)
+
 target_link_libraries(PastyCore
+    PUBLIC
+        ${LIBSODIUM_LIBRARIES}
     PRIVATE
         SQLite::SQLite3
 )

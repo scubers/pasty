@@ -3,7 +3,9 @@
 #include <infrastructure/settings/in_memory_settings_store.h>
 #include <infrastructure/sync/cloud_drive_sync_exporter.h>
 #include <infrastructure/sync/cloud_drive_sync_importer.h>
+#include <runtime/core_runtime.h>
 #include <store/sqlite_clipboard_history_store.h>
+#include <thirdparty/nlohmann/json.hpp>
 
 #include <cassert>
 #include <filesystem>
@@ -155,6 +157,198 @@ void testTombstoneAntiResurrection() {
     cleanupTempDirectory(tempDir);
 }
 
+void testE2eeTextRoundTrip() {
+    std::cout << "Running testE2eeTextRoundTrip..." << std::endl;
+
+    configureMigrationDirectoryForTests();
+    const std::string tempDir = createTempDirectory("cloud-sync-e2ee-text");
+    const std::string syncRoot = tempDir + "/sync";
+    const std::string senderBase = tempDir + "/sender";
+    const std::string receiverBase = tempDir + "/receiver";
+    std::filesystem::create_directories(syncRoot);
+    std::filesystem::create_directories(senderBase);
+    std::filesystem::create_directories(receiverBase);
+
+    const std::string passphrase = "correct horse battery staple";
+    const std::string secretText = "Top secret text payload";
+
+    pasty::CoreRuntimeConfig senderConfig;
+    senderConfig.storageDirectory = senderBase;
+    senderConfig.cloudSyncEnabled = true;
+    senderConfig.cloudSyncRootPath = syncRoot;
+
+    pasty::CoreRuntime senderRuntime(senderConfig);
+    assert(senderRuntime.start());
+    assert(senderRuntime.initializeCloudSyncE2ee(passphrase));
+
+    pasty::ClipboardHistoryIngestEvent ingestEvent;
+    ingestEvent.timestampMs = 1000;
+    ingestEvent.sourceAppId = "com.test.sender";
+    ingestEvent.itemType = pasty::ClipboardItemType::Text;
+    ingestEvent.text = secretText;
+
+    auto ingestResult = senderRuntime.clipboardService()->ingestWithResult(ingestEvent);
+    assert(ingestResult.ok);
+    assert(senderRuntime.exportLocalTextIngest(ingestEvent, ingestResult.inserted));
+    senderRuntime.stop();
+
+    const std::filesystem::path logsRoot(syncRoot + "/logs");
+    assert(std::filesystem::exists(logsRoot));
+
+    std::filesystem::path eventFilePath;
+    for (const auto& deviceDir : std::filesystem::directory_iterator(logsRoot)) {
+        if (!deviceDir.is_directory()) {
+            continue;
+        }
+        for (const auto& entry : std::filesystem::directory_iterator(deviceDir.path())) {
+            if (entry.is_regular_file() && entry.path().extension() == ".jsonl") {
+                eventFilePath = entry.path();
+                break;
+            }
+        }
+        if (!eventFilePath.empty()) {
+            break;
+        }
+    }
+    assert(!eventFilePath.empty());
+
+    std::ifstream eventFile(eventFilePath);
+    assert(eventFile.is_open());
+    std::string eventLine;
+    std::getline(eventFile, eventLine);
+    assert(!eventLine.empty());
+    assert(eventLine.find(secretText) == std::string::npos);
+
+    nlohmann::json eventJson = nlohmann::json::parse(eventLine, nullptr, false);
+    assert(!eventJson.is_discarded());
+    assert(eventJson.value("encryption", std::string()) == "e2ee");
+    assert(eventJson.contains("key_id"));
+    assert(eventJson.contains("nonce"));
+    assert(eventJson.contains("ciphertext"));
+    assert(!eventJson.contains("text"));
+
+    pasty::CoreRuntimeConfig receiverConfig;
+    receiverConfig.storageDirectory = receiverBase;
+    receiverConfig.cloudSyncEnabled = true;
+    receiverConfig.cloudSyncRootPath = syncRoot;
+
+    pasty::CoreRuntime receiverRuntime(receiverConfig);
+    assert(receiverRuntime.start());
+    assert(receiverRuntime.initializeCloudSyncE2ee(passphrase));
+    assert(receiverRuntime.runCloudSyncImport());
+
+    auto importedItems = receiverRuntime.clipboardService()->list(10, "").items;
+    assert(!importedItems.empty());
+    assert(importedItems[0].type == pasty::ClipboardItemType::Text);
+    assert(importedItems[0].content == secretText);
+
+    receiverRuntime.stop();
+    cleanupTempDirectory(tempDir);
+}
+
+void testE2eeImageRoundTrip() {
+    std::cout << "Running testE2eeImageRoundTrip..." << std::endl;
+
+    configureMigrationDirectoryForTests();
+    const std::string tempDir = createTempDirectory("cloud-sync-e2ee-image");
+    const std::string syncRoot = tempDir + "/sync";
+    const std::string senderBase = tempDir + "/sender";
+    const std::string receiverBase = tempDir + "/receiver";
+    std::filesystem::create_directories(syncRoot);
+    std::filesystem::create_directories(senderBase);
+    std::filesystem::create_directories(receiverBase);
+
+    const std::string passphrase = "correct horse battery staple";
+    const std::vector<std::uint8_t> originalImageBytes = {
+        0x89, 0x50, 0x4E, 0x47, 0x42, 0x59, 0x54, 0x45, 0x53, 0x01, 0x02, 0x03, 0x04
+    };
+
+    pasty::CoreRuntimeConfig senderConfig;
+    senderConfig.storageDirectory = senderBase;
+    senderConfig.cloudSyncEnabled = true;
+    senderConfig.cloudSyncRootPath = syncRoot;
+
+    pasty::CoreRuntime senderRuntime(senderConfig);
+    assert(senderRuntime.start());
+    assert(senderRuntime.initializeCloudSyncE2ee(passphrase));
+
+    pasty::ClipboardHistoryIngestEvent ingestEvent;
+    ingestEvent.timestampMs = 1000;
+    ingestEvent.sourceAppId = "com.test.sender";
+    ingestEvent.itemType = pasty::ClipboardItemType::Image;
+    ingestEvent.image.bytes = originalImageBytes;
+    ingestEvent.image.width = 2;
+    ingestEvent.image.height = 2;
+    ingestEvent.image.formatHint = "png";
+
+    auto ingestResult = senderRuntime.clipboardService()->ingestWithResult(ingestEvent);
+    assert(ingestResult.ok);
+    assert(senderRuntime.exportLocalImageIngest(ingestEvent, ingestResult.inserted));
+    senderRuntime.stop();
+
+    const std::filesystem::path logsRoot(syncRoot + "/logs");
+    assert(std::filesystem::exists(logsRoot));
+
+    std::filesystem::path eventFilePath;
+    for (const auto& deviceDir : std::filesystem::directory_iterator(logsRoot)) {
+        if (!deviceDir.is_directory()) {
+            continue;
+        }
+        for (const auto& entry : std::filesystem::directory_iterator(deviceDir.path())) {
+            if (entry.is_regular_file() && entry.path().extension() == ".jsonl") {
+                eventFilePath = entry.path();
+                break;
+            }
+        }
+        if (!eventFilePath.empty()) {
+            break;
+        }
+    }
+    assert(!eventFilePath.empty());
+
+    std::ifstream eventFile(eventFilePath);
+    assert(eventFile.is_open());
+    std::string eventLine;
+    std::getline(eventFile, eventLine);
+    assert(!eventLine.empty());
+
+    nlohmann::json eventJson = nlohmann::json::parse(eventLine, nullptr, false);
+    assert(!eventJson.is_discarded());
+    assert(eventJson.value("op", std::string()) == "upsert_image");
+    assert(eventJson.value("encryption", std::string()) == "e2ee");
+    assert(eventJson.contains("key_id"));
+    assert(eventJson.contains("nonce"));
+    assert(eventJson.contains("asset_key"));
+
+    const std::string assetKey = eventJson["asset_key"].get<std::string>();
+    const std::filesystem::path assetPath = std::filesystem::path(syncRoot) / "assets" / assetKey;
+    assert(std::filesystem::exists(assetPath));
+
+    std::ifstream assetFile(assetPath, std::ios::binary);
+    assert(assetFile.is_open());
+    const std::vector<std::uint8_t> assetBytes((std::istreambuf_iterator<char>(assetFile)), std::istreambuf_iterator<char>());
+    assert(!assetBytes.empty());
+    assert(assetBytes != originalImageBytes);
+
+    pasty::CoreRuntimeConfig receiverConfig;
+    receiverConfig.storageDirectory = receiverBase;
+    receiverConfig.cloudSyncEnabled = true;
+    receiverConfig.cloudSyncRootPath = syncRoot;
+
+    pasty::CoreRuntime receiverRuntime(receiverConfig);
+    assert(receiverRuntime.start());
+    assert(receiverRuntime.initializeCloudSyncE2ee(passphrase));
+    assert(receiverRuntime.runCloudSyncImport());
+
+    auto importedItems = receiverRuntime.clipboardService()->list(10, "").items;
+    assert(!importedItems.empty());
+    assert(importedItems[0].type == pasty::ClipboardItemType::Image);
+    assert(importedItems[0].contentHash == eventJson.value("content_hash", std::string()));
+
+    receiverRuntime.stop();
+    cleanupTempDirectory(tempDir);
+}
+
 }
 
 int main() {
@@ -162,6 +356,8 @@ int main() {
 
     try {
         testTombstoneAntiResurrection();
+        testE2eeTextRoundTrip();
+        testE2eeImageRoundTrip();
         std::cout << "=== All tests PASSED ===" << std::endl;
         return 0;
     } catch (const std::exception& e) {

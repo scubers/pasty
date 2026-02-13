@@ -3,6 +3,7 @@
 #include "../history/clipboard_history_store.h"
 #include "../infrastructure/settings/in_memory_settings_store.h"
 #include "../infrastructure/sync/cloud_drive_sync_importer.h"
+#include "../infrastructure/sync/cloud_drive_sync_protocol_info.h"
 #include "../infrastructure/sync/cloud_drive_sync_state.h"
 #include "../store/sqlite_clipboard_history_store.h"
 
@@ -10,6 +11,8 @@
 #include <fstream>
 #include <iomanip>
 #include <sstream>
+
+#include <sodium.h>
 
 #include "../thirdparty/nlohmann/json.hpp"
 
@@ -104,6 +107,8 @@ void CoreRuntime::stop() {
         return;
     }
 
+    clearCloudSyncE2eeKey();
+
     if (m_clipboardService) {
         m_clipboardService->shutdown();
         m_clipboardService.reset();
@@ -185,7 +190,11 @@ bool CoreRuntime::ensureCloudSyncExporter() {
         return true;
     }
 
-    auto exporter = CloudDriveSyncExporter::Create(m_config.cloudSyncRootPath, m_config.storageDirectory);
+    auto exporter = CloudDriveSyncExporter::Create(
+        m_config.cloudSyncRootPath,
+        m_config.storageDirectory,
+        m_cloudSyncE2eeMasterKey,
+        m_cloudSyncE2eeKeyId);
     if (!exporter.has_value()) {
         return false;
     }
@@ -194,13 +203,30 @@ bool CoreRuntime::ensureCloudSyncExporter() {
     return true;
 }
 
+void CoreRuntime::applyCloudSyncE2eeToExporter() {
+    if (!m_syncExporter.has_value()) {
+        return;
+    }
+
+    if (m_cloudSyncE2eeMasterKey.has_value() && !m_cloudSyncE2eeKeyId.empty()) {
+        m_syncExporter->setE2eeKey(*m_cloudSyncE2eeMasterKey, m_cloudSyncE2eeKeyId);
+        return;
+    }
+
+    m_syncExporter->clearE2eeKey();
+}
+
 bool CoreRuntime::runCloudSyncImport() {
     if (!m_started || !m_clipboardService || !m_config.cloudSyncEnabled || m_config.cloudSyncRootPath.empty()) {
         m_lastImportStatus = CloudSyncImportStatus{};
         return false;
     }
 
-    auto importer = CloudDriveSyncImporter::Create(m_config.cloudSyncRootPath, m_config.storageDirectory);
+    auto importer = CloudDriveSyncImporter::Create(
+        m_config.cloudSyncRootPath,
+        m_config.storageDirectory,
+        m_cloudSyncE2eeMasterKey,
+        m_cloudSyncE2eeKeyId);
     if (!importer.has_value()) {
         m_lastImportStatus = CloudSyncImportStatus{};
         return false;
@@ -222,6 +248,57 @@ bool CoreRuntime::runCloudSyncImport() {
     return importResult.success;
 }
 
+bool CoreRuntime::initializeCloudSyncE2ee(const std::string& passphrase) {
+    if (!m_started || !m_config.cloudSyncEnabled || m_config.cloudSyncRootPath.empty() || passphrase.empty()) {
+        return false;
+    }
+
+    auto protocolInfo = CloudDriveSyncProtocolInfo::Load(m_config.cloudSyncRootPath);
+    if (!protocolInfo.has_value()) {
+        if (!CloudDriveSyncProtocolInfo::CreateE2EE(
+                m_config.cloudSyncRootPath,
+                crypto_pwhash_OPSLIMIT_INTERACTIVE,
+                crypto_pwhash_MEMLIMIT_INTERACTIVE
+            )) {
+            return false;
+        }
+        protocolInfo = CloudDriveSyncProtocolInfo::Load(m_config.cloudSyncRootPath);
+        if (!protocolInfo.has_value()) {
+            return false;
+        }
+    }
+
+    EncryptionManager::Key derivedKey{};
+    if (!EncryptionManager::deriveMasterKey(
+            passphrase,
+            protocolInfo->kdfSalt,
+            protocolInfo->kdfOpslimit,
+            protocolInfo->kdfMemlimit,
+            derivedKey
+        )) {
+        return false;
+    }
+
+    clearCloudSyncE2eeKey();
+    m_cloudSyncE2eeMasterKey = derivedKey;
+    m_cloudSyncE2eeKeyId = protocolInfo->keyId;
+    applyCloudSyncE2eeToExporter();
+    sodium_memzero(derivedKey.data(), derivedKey.size());
+    return true;
+}
+
+void CoreRuntime::clearCloudSyncE2eeKey() {
+    if (m_syncExporter.has_value()) {
+        m_syncExporter->clearE2eeKey();
+    }
+
+    if (m_cloudSyncE2eeMasterKey.has_value()) {
+        sodium_memzero(m_cloudSyncE2eeMasterKey->data(), m_cloudSyncE2eeMasterKey->size());
+        m_cloudSyncE2eeMasterKey.reset();
+    }
+    m_cloudSyncE2eeKeyId.clear();
+}
+
 CloudSyncStatus CoreRuntime::cloudSyncStatus() const {
     CloudSyncStatus status;
     status.enabled = m_config.cloudSyncEnabled;
@@ -232,6 +309,15 @@ CloudSyncStatus CoreRuntime::cloudSyncStatus() const {
         status.lastImport = *m_lastImportStatus;
     }
     status.stateFileErrorCount = loadSyncFileErrorCount();
+
+    if (status.enabled && !status.rootPath.empty()) {
+        auto protocolInfo = CloudDriveSyncProtocolInfo::Load(status.rootPath);
+        if (protocolInfo.has_value()) {
+            status.e2eeEnabled = true;
+            status.e2eeKeyId = protocolInfo->keyId;
+        }
+    }
+
     return status;
 }
 

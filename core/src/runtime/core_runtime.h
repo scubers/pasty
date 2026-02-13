@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../application/history/clipboard_service.h"
+#include "../infrastructure/crypto/encryption_manager.h"
 #include "../infrastructure/sync/cloud_drive_sync_exporter.h"
 #include "../ports/settings_store.h"
 
@@ -36,6 +37,8 @@ struct CloudSyncStatus {
     std::string deviceId;
     CloudSyncImportStatus lastImport;
     std::uint64_t stateFileErrorCount = 0;
+    bool e2eeEnabled = false;
+    std::string e2eeKeyId;
 };
 
 class CoreRuntime {
@@ -57,6 +60,8 @@ public:
     bool setCloudSyncIncludeSensitive(bool includeSensitive);
 
     bool runCloudSyncImport();
+    bool initializeCloudSyncE2ee(const std::string& passphrase);
+    void clearCloudSyncE2eeKey();
     CloudSyncStatus cloudSyncStatus() const;
 
     bool exportLocalTextIngest(const ClipboardHistoryIngestEvent& event, bool inserted);
@@ -66,6 +71,7 @@ public:
 private:
     bool syncExportConfigured() const;
     bool ensureCloudSyncExporter();
+    void applyCloudSyncE2eeToExporter();
     std::string loadSyncDeviceId() const;
     std::uint64_t loadSyncFileErrorCount() const;
     static std::string computeContentHash(const ClipboardHistoryIngestEvent& event);
@@ -77,6 +83,8 @@ private:
     std::string m_syncDeviceId;
 
     std::optional<CloudDriveSyncExporter> m_syncExporter;
+    std::optional<EncryptionManager::Key> m_cloudSyncE2eeMasterKey;
+    std::string m_cloudSyncE2eeKeyId;
 
     bool m_started;
 };

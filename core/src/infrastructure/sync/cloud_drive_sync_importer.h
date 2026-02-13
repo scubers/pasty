@@ -3,6 +3,7 @@
 #pragma once
 
 #include "history/clipboard_history_types.h"
+#include "infrastructure/crypto/encryption_manager.h"
 #include "infrastructure/sync/cloud_drive_sync_state.h"
 
 #include <cstdint>
@@ -21,7 +22,7 @@ class ClipboardService;
  *
  * This class reads clipboard history changes from sync_root directory as JSONL events
  * following the cloud drive sync protocol. It handles:
- * - Scanning logs/device_id/*.jsonl for remote devices
+ * - Scanning logs/<device_id>/events-*.jsonl for remote devices
  * - Incremental parsing using CloudDriveSyncState (max_applied_seq, file cursors)
  * - Deterministic merge ordering by (ts_ms, device_id, seq)
  * - Upsert text (inline content) to local history
@@ -34,6 +35,12 @@ class ClipboardService;
  */
 class CloudDriveSyncImporter {
 public:
+    CloudDriveSyncImporter(const CloudDriveSyncImporter&) = delete;
+    CloudDriveSyncImporter& operator=(const CloudDriveSyncImporter&) = delete;
+    CloudDriveSyncImporter(CloudDriveSyncImporter&&) noexcept = default;
+    CloudDriveSyncImporter& operator=(CloudDriveSyncImporter&&) noexcept = default;
+    ~CloudDriveSyncImporter();
+
     /**
      * Import result statistics
      */
@@ -52,12 +59,19 @@ public:
      * @param baseDirectory Local base directory for state file (sync_state.json)
      * @return Configured importer instance, or nullopt on failure
      */
-    static std::optional<CloudDriveSyncImporter> Create(const std::string& syncRootPath, const std::string& baseDirectory);
+    static std::optional<CloudDriveSyncImporter> Create(
+        const std::string& syncRootPath,
+        const std::string& baseDirectory,
+        const std::optional<EncryptionManager::Key>& e2eeMasterKey = std::nullopt,
+        const std::string& e2eeKeyId = std::string());
+
+    void setE2eeKey(const EncryptionManager::Key& masterKey, const std::string& keyId);
+    void clearE2eeKey();
 
     /**
      * Import changes from remote devices
      *
-     * Scans sync_root/logs/device_dir/*.jsonl for remote devices (excluding local device),
+     * Scans sync_root/logs/<device_dir>/events-*.jsonl for remote devices (excluding local device),
      * parses new events using state cursors, sorts deterministically, and applies
      * to local history via ClipboardService.
      *
@@ -95,6 +109,7 @@ private:
         // For upsert_text
         std::string text;
         std::string contentType;
+        bool skipDueToMissingKey = false;
         
         // For upsert_image
         std::string assetKey;
@@ -204,6 +219,11 @@ private:
         }
     };
     std::unique_ptr<StateManager> m_stateManager;
+
+    bool m_protocolE2eeEnabled;
+    std::string m_protocolE2eeKeyId;
+    std::optional<EncryptionManager::Key> m_e2eeMasterKey;
+    std::string m_e2eeKeyId;
     
     bool m_initialized;
 };

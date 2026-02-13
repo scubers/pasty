@@ -2,6 +2,7 @@ import SwiftUI
 
 struct CloudSyncSettingsView: View {
     @EnvironmentObject var viewModel: SettingsViewModel
+    @State private var isShowingPassphraseSheet = false
     
     private var themeColor: Color { viewModel.settings.appearance.themeColor.toColor() }
     
@@ -38,6 +39,55 @@ struct CloudSyncSettingsView: View {
                 
                 SettingsRow(title: "Include Sensitive Data", icon: "lock.open") {
                     PastyToggle(isOn: viewModel.binding(\.cloudSync.includeSensitive), activeColor: .red)
+                }
+
+                Divider()
+                    .padding(.vertical, 12)
+
+                SettingsRow(title: "End-to-End Encryption", icon: "key") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            if viewModel.e2eeUnlocked {
+                                Label("Encrypted", systemImage: "checkmark.shield.fill")
+                                    .foregroundColor(.green)
+                            } else {
+                                Label("Not Encrypted", systemImage: "exclamationmark.shield")
+                                    .foregroundColor(.orange)
+                            }
+                            
+                            Spacer()
+                            
+                            if viewModel.e2eeUnlocked {
+                                Menu {
+                                    Button("Change Passphrase...") {
+                                        isShowingPassphraseSheet = true
+                                    }
+                                    Button("Remove Passphrase", role: .destructive) {
+                                        viewModel.deletePassphrase()
+                                    }
+                                } label: {
+                                    Text("Manage")
+                                }
+                                .fixedSize()
+                            } else {
+                                Button("Set Passphrase...") {
+                                    isShowingPassphraseSheet = true
+                                }
+                            }
+                        }
+                        
+                        if let keyId = viewModel.e2eeKeyId {
+                            Text("Key ID: \(keyId)")
+                                .font(.caption2)
+                                .monospaced()
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+                .sheet(isPresented: $isShowingPassphraseSheet) {
+                    CloudSyncE2eePassphraseSheet { passphrase in
+                        viewModel.savePassphrase(passphrase)
+                    }
                 }
                 
                 Divider()

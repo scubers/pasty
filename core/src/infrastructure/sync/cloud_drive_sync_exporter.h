@@ -1,6 +1,7 @@
 #pragma once
 
 #include "history/clipboard_history_types.h"
+#include "infrastructure/crypto/encryption_manager.h"
 #include "infrastructure/sync/cloud_drive_sync_state.h"
 
 #include <cstdint>
@@ -28,6 +29,12 @@ namespace pasty {
  */
 class CloudDriveSyncExporter {
 public:
+    CloudDriveSyncExporter(const CloudDriveSyncExporter&) = delete;
+    CloudDriveSyncExporter& operator=(const CloudDriveSyncExporter&) = delete;
+    CloudDriveSyncExporter(CloudDriveSyncExporter&&) noexcept = default;
+    CloudDriveSyncExporter& operator=(CloudDriveSyncExporter&&) noexcept = default;
+    ~CloudDriveSyncExporter();
+
     /**
      * Export result status
      */
@@ -47,7 +54,14 @@ public:
      * @param baseDirectory Local base directory for state file (sync_state.json)
      * @return Configured exporter instance, or nullopt on failure
      */
-    static std::optional<CloudDriveSyncExporter> Create(const std::string& syncRootPath, const std::string& baseDirectory);
+    static std::optional<CloudDriveSyncExporter> Create(
+        const std::string& syncRootPath,
+        const std::string& baseDirectory,
+        const std::optional<EncryptionManager::Key>& e2eeMasterKey = std::nullopt,
+        const std::string& e2eeKeyId = std::string());
+
+    void setE2eeKey(const EncryptionManager::Key& masterKey, const std::string& keyId);
+    void clearE2eeKey();
 
     /**
      * Export a text clipboard item
@@ -152,6 +166,9 @@ private:
         }
     };
     std::unique_ptr<StateManager> m_stateManager;
+
+    std::optional<EncryptionManager::Key> m_e2eeMasterKey;
+    std::string m_e2eeKeyId;
     
     bool m_initialized;
 };

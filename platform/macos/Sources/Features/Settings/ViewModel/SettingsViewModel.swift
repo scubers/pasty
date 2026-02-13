@@ -6,6 +6,8 @@ import PastyCore
 private struct CloudSyncStatusPayload: Decodable {
     let deviceId: String?
     let stateFileErrorCount: Int?
+    let e2eeEnabled: Bool?
+    let e2eeKeyId: String?
 }
 
 @MainActor
@@ -55,6 +57,9 @@ final class SettingsViewModel: ObservableObject {
     @Published var deviceId: String? = nil
     @Published var cloudSyncLastSync: Date? = nil
     @Published var cloudSyncErrorCount: Int = 0
+    @Published var e2eeEnabled: Bool = false
+    @Published var e2eeUnlocked: Bool = false
+    @Published var e2eeKeyId: String? = nil
 
     func binding<Value>(_ keyPath: WritableKeyPath<PastySettings, Value>) -> Binding<Value> {
         Binding(
@@ -67,10 +72,14 @@ final class SettingsViewModel: ObservableObject {
 
     func refreshCloudSyncStatus() {
         let canRunImport = updateCloudSyncDirectoryValidation() && settings.cloudSync.enabled
+        let normalizedPath = settings.cloudSync.rootPath.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard let runtime = coordinator.coreRuntime else {
             deviceId = nil
             cloudSyncErrorCount = 0
+            e2eeEnabled = false
+            e2eeUnlocked = false
+            e2eeKeyId = nil
             return
         }
         let runtimeAddress = UInt(bitPattern: runtime)
@@ -79,9 +88,20 @@ final class SettingsViewModel: ObservableObject {
             guard let runtime = UnsafeMutableRawPointer(bitPattern: runtimeAddress) else {
                 return
             }
+
+            var hasPassphrase = false
+            if canRunImport && !normalizedPath.isEmpty {
+                if let passphrase = KeychainService.getPassphrase(account: normalizedPath) {
+                    pasty_cloud_sync_e2ee_initialize(runtime, passphrase)
+                    hasPassphrase = true
+                }
+            }
+
             let importSucceeded = canRunImport ? pasty_cloud_sync_import_now(runtime) : false
             var statusDeviceId: String?
             var statusErrorCount = 0
+            var statusE2eeEnabled = false
+            var statusE2eeKeyId: String?
 
             var outJson: UnsafeMutablePointer<CChar>? = nil
             if pasty_cloud_sync_get_status_json(runtime, &outJson), let outJson {
@@ -94,6 +114,8 @@ final class SettingsViewModel: ObservableObject {
                    let payload = try? JSONDecoder().decode(CloudSyncStatusPayload.self, from: data) {
                     statusDeviceId = payload.deviceId
                     statusErrorCount = payload.stateFileErrorCount ?? 0
+                    statusE2eeEnabled = payload.e2eeEnabled ?? false
+                    statusE2eeKeyId = payload.e2eeKeyId
                 }
             }
 
@@ -103,10 +125,34 @@ final class SettingsViewModel: ObservableObject {
                 }
                 self.deviceId = statusDeviceId
                 self.cloudSyncErrorCount = max(0, statusErrorCount)
+                self.e2eeEnabled = statusE2eeEnabled
+                self.e2eeUnlocked = hasPassphrase
+                self.e2eeKeyId = statusE2eeKeyId
                 if importSucceeded {
                     self.cloudSyncLastSync = Date()
                 }
             }
+        }
+    }
+
+    func savePassphrase(_ passphrase: String) {
+        let normalizedPath = settings.cloudSync.rootPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedPath.isEmpty else { return }
+
+        if KeychainService.setPassphrase(passphrase, account: normalizedPath) {
+            refreshCloudSyncStatus()
+        }
+    }
+
+    func deletePassphrase() {
+        let normalizedPath = settings.cloudSync.rootPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedPath.isEmpty else { return }
+
+        if KeychainService.deletePassphrase(account: normalizedPath) {
+            if let runtime = coordinator.coreRuntime {
+                pasty_cloud_sync_e2ee_clear(runtime)
+            }
+            refreshCloudSyncStatus()
         }
     }
 

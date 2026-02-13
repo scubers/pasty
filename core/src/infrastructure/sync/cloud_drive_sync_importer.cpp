@@ -2,6 +2,7 @@
 
 #include "infrastructure/sync/cloud_drive_sync_importer.h"
 #include "application/history/clipboard_service.h"
+#include "infrastructure/sync/cloud_drive_sync_protocol_info.h"
 #include <common/logger.h>
 
 #include <algorithm>
@@ -14,14 +15,11 @@
 #include <set>
 
 #include <nlohmann/json.hpp>
+#include <sodium.h>
 
 namespace pasty {
 
 namespace {
-
-constexpr int kSchemaVersion = 1;
-constexpr const char* kLoopPrefix = "pasty-sync:";
-constexpr std::uint64_t kMaxAssetBytes = 26214400;
 
 // Tombstone key for anti-resurrection
 struct TombstoneKey {
@@ -59,18 +57,77 @@ std::string extractExtensionFromAssetKey(const std::string& assetKey) {
     return ext;
 }
 
+bool ensureSodiumInitialized() {
+    static const bool initialized = []() {
+        return sodium_init() >= 0;
+    }();
+    return initialized;
+}
+
+bool decodeBase64(const std::string& encoded, EncryptionManager::Bytes& outBytes) {
+    if (!ensureSodiumInitialized()) {
+        return false;
+    }
+
+    outBytes.assign(encoded.size(), 0);
+    std::size_t decodedLength = 0;
+    const int rc = sodium_base642bin(outBytes.data(),
+                                     outBytes.size(),
+                                     encoded.c_str(),
+                                     encoded.size(),
+                                     nullptr,
+                                     &decodedLength,
+                                     nullptr,
+                                     sodium_base64_VARIANT_ORIGINAL);
+    if (rc != 0) {
+        if (!outBytes.empty()) {
+            sodium_memzero(outBytes.data(), outBytes.size());
+        }
+        outBytes.clear();
+        return false;
+    }
+
+    outBytes.resize(decodedLength);
+    return true;
+}
+
 } // namespace
 
 CloudDriveSyncImporter::CloudDriveSyncImporter()
-    : m_initialized(false) {
+    : m_protocolE2eeEnabled(false)
+    , m_initialized(false) {
 }
 
-std::optional<CloudDriveSyncImporter> CloudDriveSyncImporter::Create(const std::string& syncRootPath, const std::string& baseDirectory) {
+CloudDriveSyncImporter::~CloudDriveSyncImporter() {
+    clearE2eeKey();
+}
+
+std::optional<CloudDriveSyncImporter> CloudDriveSyncImporter::Create(const std::string& syncRootPath,
+                                                                     const std::string& baseDirectory,
+                                                                     const std::optional<EncryptionManager::Key>& e2eeMasterKey,
+                                                                     const std::string& e2eeKeyId) {
     CloudDriveSyncImporter importer;
     if (!importer.initialize(syncRootPath, baseDirectory)) {
         return std::nullopt;
     }
+    if (e2eeMasterKey.has_value() && !e2eeKeyId.empty()) {
+        importer.setE2eeKey(*e2eeMasterKey, e2eeKeyId);
+    }
     return std::make_optional<CloudDriveSyncImporter>(std::move(importer));
+}
+
+void CloudDriveSyncImporter::setE2eeKey(const EncryptionManager::Key& masterKey, const std::string& keyId) {
+    clearE2eeKey();
+    m_e2eeMasterKey = masterKey;
+    m_e2eeKeyId = keyId;
+}
+
+void CloudDriveSyncImporter::clearE2eeKey() {
+    if (m_e2eeMasterKey.has_value()) {
+        sodium_memzero(m_e2eeMasterKey->data(), m_e2eeMasterKey->size());
+        m_e2eeMasterKey.reset();
+    }
+    m_e2eeKeyId.clear();
 }
 
 bool CloudDriveSyncImporter::initialize(const std::string& syncRootPath, const std::string& baseDirectory) {
@@ -85,6 +142,11 @@ bool CloudDriveSyncImporter::initialize(const std::string& syncRootPath, const s
     }
 
     m_stateManager = std::make_unique<StateManager>(std::move(*state));
+
+    auto protocolInfo = CloudDriveSyncProtocolInfo::Load(syncRootPath);
+    m_protocolE2eeEnabled = protocolInfo.has_value();
+    m_protocolE2eeKeyId = protocolInfo.has_value() ? protocolInfo->keyId : std::string();
+
     m_initialized = true;
 
     PASTY_LOG_INFO("Core.SyncImporter", "Importer initialized. Local device: %s, sync_root: %s",
@@ -221,7 +283,6 @@ bool CloudDriveSyncImporter::parseJsonlFile(const std::string& filePath, const s
 
     std::string line;
     std::uint64_t currentOffset = cursor.last_offset;
-    bool anyNewEvent = false;
 
     while (std::getline(file, line)) {
         const std::uint64_t lineStartOffset = currentOffset;
@@ -248,7 +309,6 @@ bool CloudDriveSyncImporter::parseJsonlFile(const std::string& filePath, const s
         }
 
         events.push_back(event);
-        anyNewEvent = true;
     }
 
     std::uint64_t endOffset = currentOffset;
@@ -314,12 +374,71 @@ bool CloudDriveSyncImporter::parseEvent(const std::string& line, const std::stri
     }
 
     if (event.op == "upsert_text") {
-        if (!json.contains("text")) {
-            PASTY_LOG_ERROR("Core.SyncImporter", "Missing 'text' field for upsert_text at offset %lu",
-                            static_cast<unsigned long>(lineOffset));
+        const std::string encryptionMode = json.value("encryption", std::string("none"));
+        if (encryptionMode == "none") {
+            if (!json.contains("text")) {
+                PASTY_LOG_ERROR("Core.SyncImporter", "Missing 'text' field for upsert_text at offset %lu",
+                                static_cast<unsigned long>(lineOffset));
+                return false;
+            }
+            event.text = json["text"].get<std::string>();
+        } else if (encryptionMode == "e2ee") {
+            if (!json.contains("key_id") || !json["key_id"].is_string() ||
+                !json.contains("nonce") || !json["nonce"].is_string() ||
+                !json.contains("ciphertext") || !json["ciphertext"].is_string()) {
+                PASTY_LOG_ERROR("Core.SyncImporter", "Missing e2ee fields for upsert_text at offset %lu",
+                                static_cast<unsigned long>(lineOffset));
+                return false;
+            }
+
+            const std::string keyId = json["key_id"].get<std::string>();
+            if ((m_protocolE2eeEnabled && !m_e2eeMasterKey.has_value()) ||
+                m_e2eeKeyId.empty() ||
+                keyId != m_e2eeKeyId ||
+                (!m_protocolE2eeKeyId.empty() && keyId != m_protocolE2eeKeyId)) {
+                event.skipDueToMissingKey = true;
+                event.contentType = json.value("content_type", std::string());
+                event.sourceAppId = json.value("source_app_id", std::string());
+                return true;
+            }
+
+            EncryptionManager::Bytes nonce;
+            EncryptionManager::Bytes ciphertext;
+            if (!decodeBase64(json["nonce"].get<std::string>(), nonce) ||
+                !decodeBase64(json["ciphertext"].get<std::string>(), ciphertext)) {
+                PASTY_LOG_ERROR("Core.SyncImporter", "Invalid e2ee base64 payload at offset %lu in %s",
+                                static_cast<unsigned long>(lineOffset), filePath.c_str());
+                return false;
+            }
+
+            EncryptionManager::Bytes aad(event.eventId.begin(), event.eventId.end());
+            EncryptionManager::Bytes plaintext;
+            const bool decrypted = EncryptionManager::decrypt(*m_e2eeMasterKey, nonce, ciphertext, aad, plaintext);
+
+            if (!nonce.empty()) {
+                sodium_memzero(nonce.data(), nonce.size());
+            }
+            if (!ciphertext.empty()) {
+                sodium_memzero(ciphertext.data(), ciphertext.size());
+            }
+            if (!aad.empty()) {
+                sodium_memzero(aad.data(), aad.size());
+            }
+
+            if (!decrypted) {
+                PASTY_LOG_ERROR("Core.SyncImporter", "Failed to decrypt e2ee text event: %s", event.eventId.c_str());
+                return false;
+            }
+
+            event.text.assign(reinterpret_cast<const char*>(plaintext.data()), plaintext.size());
+            if (!plaintext.empty()) {
+                sodium_memzero(plaintext.data(), plaintext.size());
+            }
+        } else {
+            PASTY_LOG_WARN("Core.SyncImporter", "Unsupported encryption mode '%s' for event %s",
+                           encryptionMode.c_str(), event.eventId.c_str());
             return false;
         }
-        event.text = json["text"].get<std::string>();
         event.contentType = json.value("content_type", std::string());
     } else if (event.op == "upsert_image") {
         if (!json.contains("asset_key")) {
@@ -327,6 +446,41 @@ bool CloudDriveSyncImporter::parseEvent(const std::string& line, const std::stri
                             static_cast<unsigned long>(lineOffset));
             return false;
         }
+
+        const std::string encryptionMode = json.value("encryption", std::string("none"));
+        if (encryptionMode == "none") {
+            event.text.clear();
+        } else if (encryptionMode == "e2ee") {
+            if (!json.contains("key_id") || !json["key_id"].is_string() ||
+                !json.contains("nonce") || !json["nonce"].is_string()) {
+                PASTY_LOG_ERROR("Core.SyncImporter", "Missing e2ee fields for upsert_image at offset %lu",
+                                static_cast<unsigned long>(lineOffset));
+                return false;
+            }
+
+            const std::string keyId = json["key_id"].get<std::string>();
+            if ((m_protocolE2eeEnabled && !m_e2eeMasterKey.has_value()) ||
+                m_e2eeKeyId.empty() ||
+                keyId != m_e2eeKeyId ||
+                (!m_protocolE2eeKeyId.empty() && keyId != m_protocolE2eeKeyId)) {
+                event.skipDueToMissingKey = true;
+                event.contentType = json.value("content_type", std::string());
+                event.sourceAppId = json.value("source_app_id", std::string());
+                return true;
+            }
+
+            event.text = json["nonce"].get<std::string>();
+            if (event.text.empty()) {
+                PASTY_LOG_ERROR("Core.SyncImporter", "Empty nonce for encrypted image event at offset %lu",
+                                static_cast<unsigned long>(lineOffset));
+                return false;
+            }
+        } else {
+            PASTY_LOG_WARN("Core.SyncImporter", "Unsupported encryption mode '%s' for image event %s",
+                           encryptionMode.c_str(), event.eventId.c_str());
+            return false;
+        }
+
         event.assetKey = json["asset_key"].get<std::string>();
         event.imageWidth = json.value("width", 0);
         event.imageHeight = json.value("height", 0);
@@ -392,6 +546,13 @@ CloudDriveSyncImporter::ImportResult CloudDriveSyncImporter::applyEvents(std::ve
     std::uint64_t lastSeq = 0;
 
     for (const auto& event : events) {
+        if (event.skipDueToMissingKey) {
+            result.eventsSkipped++;
+            result.errors++;
+            PASTY_LOG_WARN("Core.SyncImporter", "Skipping encrypted event due to unavailable key: %s", event.eventId.c_str());
+            continue;
+        }
+
         bool applied = false;
 
         if (event.op == "delete") {
@@ -481,16 +642,74 @@ bool CloudDriveSyncImporter::applyUpsertImage(const ParsedEvent& event, Clipboar
         return false;
     }
 
+    EncryptionManager::Bytes decryptedBytes;
+    bool encryptedAsset = !event.text.empty();
+    if (encryptedAsset) {
+        if (!m_e2eeMasterKey.has_value()) {
+            if (!imageBytes->empty()) {
+                sodium_memzero(imageBytes->data(), imageBytes->size());
+            }
+            PASTY_LOG_WARN("Core.SyncImporter", "Missing key for encrypted image event: %s", event.eventId.c_str());
+            return false;
+        }
+
+        EncryptionManager::Bytes nonce;
+        if (!decodeBase64(event.text, nonce)) {
+            if (!imageBytes->empty()) {
+                sodium_memzero(imageBytes->data(), imageBytes->size());
+            }
+            PASTY_LOG_ERROR("Core.SyncImporter", "Invalid nonce for encrypted image event: %s", event.eventId.c_str());
+            return false;
+        }
+
+        EncryptionManager::Bytes ciphertext(imageBytes->begin(), imageBytes->end());
+        EncryptionManager::Bytes aad(event.eventId.begin(), event.eventId.end());
+        const bool decrypted = EncryptionManager::decrypt(*m_e2eeMasterKey, nonce, ciphertext, aad, decryptedBytes);
+
+        if (!nonce.empty()) {
+            sodium_memzero(nonce.data(), nonce.size());
+        }
+        if (!ciphertext.empty()) {
+            sodium_memzero(ciphertext.data(), ciphertext.size());
+        }
+        if (!aad.empty()) {
+            sodium_memzero(aad.data(), aad.size());
+        }
+        if (!imageBytes->empty()) {
+            sodium_memzero(imageBytes->data(), imageBytes->size());
+        }
+
+        if (!decrypted) {
+            PASTY_LOG_ERROR("Core.SyncImporter", "Failed to decrypt image event: %s", event.eventId.c_str());
+            return false;
+        }
+    }
+
     ClipboardHistoryIngestEvent ingestEvent;
     ingestEvent.timestampMs = event.tsMs;
     ingestEvent.sourceAppId = kLoopPrefix + event.deviceId;
     ingestEvent.itemType = ClipboardItemType::Image;
-    ingestEvent.image.bytes = *imageBytes;
+    if (encryptedAsset) {
+        ingestEvent.image.bytes.assign(decryptedBytes.begin(), decryptedBytes.end());
+    } else {
+        ingestEvent.image.bytes = *imageBytes;
+    }
     ingestEvent.image.width = event.imageWidth;
     ingestEvent.image.height = event.imageHeight;
     ingestEvent.image.formatHint = extractExtensionFromAssetKey(event.assetKey);
 
     ClipboardIngestResult result = clipboardService.ingestWithResult(ingestEvent);
+
+    if (!ingestEvent.image.bytes.empty()) {
+        sodium_memzero(ingestEvent.image.bytes.data(), ingestEvent.image.bytes.size());
+    }
+    if (!decryptedBytes.empty()) {
+        sodium_memzero(decryptedBytes.data(), decryptedBytes.size());
+    }
+    if (imageBytes.has_value() && !imageBytes->empty()) {
+        sodium_memzero(imageBytes->data(), imageBytes->size());
+    }
+
     if (!result.ok) {
         PASTY_LOG_ERROR("Core.SyncImporter", "Failed to ingest image from event %s", event.eventId.c_str());
         return false;

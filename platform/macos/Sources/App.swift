@@ -103,6 +103,9 @@ class App: NSObject, NSApplicationDelegate {
         if coreStarted {
             LoggerService.info("Core initialized successfully")
             settingsStore.syncCurrentSettingsToCore()
+            if let runtime = appCoordinator.coreRuntime {
+                initializeE2EEIfPossible(runtime: runtime, cloudSync: appCoordinator.settings.cloudSync)
+            }
         } else {
             LoggerService.error("Core initialization failed")
         }
@@ -325,12 +328,24 @@ class App: NSObject, NSApplicationDelegate {
             return
         }
         let runtimeAddress = UInt(bitPattern: runtime)
+        let cloudSync = appCoordinator.settings.cloudSync
 
         DispatchQueue.global(qos: .utility).async {
             guard let runtime = UnsafeMutableRawPointer(bitPattern: runtimeAddress) else {
                 return
             }
+            self.initializeE2EEIfPossible(runtime: runtime, cloudSync: cloudSync)
             _ = pasty_cloud_sync_import_now(runtime)
+        }
+    }
+
+    private func initializeE2EEIfPossible(runtime: UnsafeMutableRawPointer, cloudSync: CloudSyncSettings) {
+        guard cloudSync.enabled else { return }
+        let normalizedPath = cloudSync.rootPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedPath.isEmpty else { return }
+
+        if let passphrase = KeychainService.getPassphrase(account: normalizedPath), !passphrase.isEmpty {
+            pasty_cloud_sync_e2ee_initialize(runtime, passphrase)
         }
     }
 

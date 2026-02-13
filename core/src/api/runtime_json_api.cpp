@@ -11,6 +11,8 @@
 
 #include "../thirdparty/nlohmann/json.hpp"
 
+#include <sodium.h>
+
 namespace {
 
 struct PastyRuntime {
@@ -60,6 +62,8 @@ std::string serializeCloudSyncStatus(const pasty::CloudSyncStatus& status) {
     json["includeSensitive"] = status.includeSensitive;
     json["deviceId"] = status.deviceId;
     json["stateFileErrorCount"] = status.stateFileErrorCount;
+    json["e2eeEnabled"] = status.e2eeEnabled;
+    json["e2eeKeyId"] = status.e2eeKeyId;
 
     Json lastImport;
     lastImport["eventsProcessed"] = status.lastImport.eventsProcessed;
@@ -286,6 +290,41 @@ bool pasty_cloud_sync_get_status_json(pasty_runtime_ref runtime_ref, char** out_
         serializeCloudSyncStatus(runtime->runtime->cloudSyncStatus())
     );
     return true;
+}
+
+bool pasty_cloud_sync_e2ee_initialize(pasty_runtime_ref runtime_ref, const char* passphrase) {
+    PastyRuntime* runtime = castRuntime(runtime_ref);
+    if (runtime == nullptr || passphrase == nullptr || passphrase[0] == '\0') {
+        return false;
+    }
+
+    std::lock_guard<std::mutex> lock(runtime->mutex);
+    if (!runtime->runtime || !runtime->runtime->isStarted()) {
+        return false;
+    }
+
+    std::string passphraseBuffer(passphrase);
+    if (passphraseBuffer.empty()) {
+        return false;
+    }
+
+    const bool initialized = runtime->runtime->initializeCloudSyncE2ee(passphraseBuffer);
+    sodium_memzero(passphraseBuffer.data(), passphraseBuffer.size());
+    return initialized;
+}
+
+void pasty_cloud_sync_e2ee_clear(pasty_runtime_ref runtime_ref) {
+    PastyRuntime* runtime = castRuntime(runtime_ref);
+    if (runtime == nullptr) {
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock(runtime->mutex);
+    if (!runtime->runtime) {
+        return;
+    }
+
+    runtime->runtime->clearCloudSyncE2eeKey();
 }
 
 bool pasty_history_ingest_text(pasty_runtime_ref runtime_ref, const char* text, const char* source_app_id) {

@@ -56,6 +56,8 @@ targets:
         - $(SRCROOT)/../../core/include
         - $(SRCROOT)/../../core/src
         - $(SRCROOT)/../../core/src/thirdparty
+        - /opt/homebrew/include
+        - /usr/local/include
       PRODUCT_NAME: PastyCore
       SKIP_INSTALL: YES
       DEFINES_MODULE: YES
@@ -87,6 +89,13 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         SWIFT_OBJC_INTEROP_MODE: objcxx
         SWIFT_EMIT_LOC_STRINGS: NO
+        LIBRARY_SEARCH_PATHS:
+          - $(inherited)
+          - /opt/homebrew/lib
+          - /usr/local/lib
+        OTHER_LDFLAGS:
+          - $(inherited)
+          - -lsodium
         OTHER_SWIFT_FLAGS:
           - -cxx-interoperability-mode=default
       configs:

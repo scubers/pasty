@@ -28,6 +28,42 @@ target_link_libraries(cloud_drive_sync_test
         SQLite::SQLite3
 )
 
+add_executable(sodium_link_test crypto_sodium_link_test.cpp)
+
+target_include_directories(sodium_link_test
+    PRIVATE
+        ${LIBSODIUM_INCLUDE_DIRS}
+)
+
+target_link_directories(sodium_link_test
+    PRIVATE
+        ${LIBSODIUM_LIBRARY_DIRS}
+)
+
+target_link_libraries(sodium_link_test
+    PRIVATE
+        PastyCore
+        ${LIBSODIUM_LIBRARIES}
+)
+
+add_executable(encryption_test encryption_manager_test.cpp)
+
+target_include_directories(encryption_test
+    PRIVATE
+        ${LIBSODIUM_INCLUDE_DIRS}
+)
+
+target_link_directories(encryption_test
+    PRIVATE
+        ${LIBSODIUM_LIBRARY_DIRS}
+)
+
+target_link_libraries(encryption_test
+    PRIVATE
+        PastyCore
+        ${LIBSODIUM_LIBRARIES}
+)
+
 # Copy migrations for testing
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/../migrations DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
@@ -35,3 +71,5 @@ add_test(NAME history_test COMMAND pasty_test)
 add_test(NAME settings_test COMMAND settings_test)
 add_test(NAME logger_test COMMAND logger_test)
 add_test(NAME cloud_sync_test COMMAND cloud_drive_sync_test)
+add_test(NAME sodium_link_test COMMAND sodium_link_test)
+add_test(NAME encryption_test COMMAND encryption_test)

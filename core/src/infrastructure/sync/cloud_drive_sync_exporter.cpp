@@ -4,6 +4,7 @@
 #include <common/logger.h>
 
 #include <chrono>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -11,20 +12,77 @@
 #include <utility>
 
 #include <nlohmann/json.hpp>
+#include <sodium.h>
 
 namespace pasty {
+
+namespace {
+
+bool ensureSodiumInitialized() {
+    static const bool initialized = []() {
+        return sodium_init() >= 0;
+    }();
+    return initialized;
+}
+
+bool encodeBase64(const std::vector<unsigned char>& input, std::string& output) {
+    if (!ensureSodiumInitialized()) {
+        return false;
+    }
+
+    if (input.empty()) {
+        output.clear();
+        return true;
+    }
+
+    const std::size_t encodedLength = sodium_base64_ENCODED_LEN(input.size(), sodium_base64_VARIANT_ORIGINAL);
+    std::vector<char> dynamicBuffer(encodedLength, 0);
+    sodium_bin2base64(dynamicBuffer.data(),
+                      dynamicBuffer.size(),
+                      input.data(),
+                      input.size(),
+                      sodium_base64_VARIANT_ORIGINAL);
+    output.assign(dynamicBuffer.data());
+    return true;
+}
+
+}
 
 CloudDriveSyncExporter::CloudDriveSyncExporter()
     : m_currentLogFileIndex(1)
     , m_initialized(false) {
 }
 
-std::optional<CloudDriveSyncExporter> CloudDriveSyncExporter::Create(const std::string& syncRootPath, const std::string& baseDirectory) {
+CloudDriveSyncExporter::~CloudDriveSyncExporter() {
+    clearE2eeKey();
+}
+
+std::optional<CloudDriveSyncExporter> CloudDriveSyncExporter::Create(const std::string& syncRootPath,
+                                                                     const std::string& baseDirectory,
+                                                                     const std::optional<EncryptionManager::Key>& e2eeMasterKey,
+                                                                     const std::string& e2eeKeyId) {
     CloudDriveSyncExporter exporter;
     if (exporter.initialize(syncRootPath, baseDirectory)) {
+        if (e2eeMasterKey.has_value() && !e2eeKeyId.empty()) {
+            exporter.setE2eeKey(*e2eeMasterKey, e2eeKeyId);
+        }
         return std::make_optional<CloudDriveSyncExporter>(std::move(exporter));
     }
     return std::nullopt;
+}
+
+void CloudDriveSyncExporter::setE2eeKey(const EncryptionManager::Key& masterKey, const std::string& keyId) {
+    clearE2eeKey();
+    m_e2eeMasterKey = masterKey;
+    m_e2eeKeyId = keyId;
+}
+
+void CloudDriveSyncExporter::clearE2eeKey() {
+    if (m_e2eeMasterKey.has_value()) {
+        sodium_memzero(m_e2eeMasterKey->data(), m_e2eeMasterKey->size());
+        m_e2eeMasterKey.reset();
+    }
+    m_e2eeKeyId.clear();
 }
 
 bool CloudDriveSyncExporter::initialize(const std::string& syncRootPath, const std::string& baseDirectory) {
@@ -222,13 +280,55 @@ CloudDriveSyncExporter::ExportResult CloudDriveSyncExporter::exportTextItem(cons
     json["op"] = "upsert_text";
     json["item_type"] = "text";
     json["content_hash"] = item.contentHash;
-    json["text"] = item.content;
     json["content_type"] = "text/plain";
     json["size_bytes"] = item.content.size();
     json["source_app_id"] = item.sourceAppId;
     json["is_concealed"] = false;
     json["is_transient"] = false;
-    json["encryption"] = "none";
+
+    if (m_e2eeMasterKey.has_value() && !m_e2eeKeyId.empty()) {
+        EncryptionManager::Bytes plaintext(item.content.begin(), item.content.end());
+        EncryptionManager::Bytes aad(eventId.begin(), eventId.end());
+        EncryptionManager::EncryptedPayload encryptedPayload;
+
+        const bool encrypted = EncryptionManager::encrypt(*m_e2eeMasterKey, plaintext, aad, encryptedPayload);
+        if (!plaintext.empty()) {
+            sodium_memzero(plaintext.data(), plaintext.size());
+        }
+        if (!aad.empty()) {
+            sodium_memzero(aad.data(), aad.size());
+        }
+
+        if (!encrypted) {
+            PASTY_LOG_ERROR("Core.SyncExporter", "Failed to encrypt text event: %s", eventId.c_str());
+            return ExportResult::ExportFailed;
+        }
+
+        std::string nonceB64;
+        std::string ciphertextB64;
+        const bool nonceEncoded = encodeBase64(encryptedPayload.nonce, nonceB64);
+        const bool ciphertextEncoded = encodeBase64(encryptedPayload.ciphertext, ciphertextB64);
+
+        if (!encryptedPayload.nonce.empty()) {
+            sodium_memzero(encryptedPayload.nonce.data(), encryptedPayload.nonce.size());
+        }
+        if (!encryptedPayload.ciphertext.empty()) {
+            sodium_memzero(encryptedPayload.ciphertext.data(), encryptedPayload.ciphertext.size());
+        }
+
+        if (!nonceEncoded || !ciphertextEncoded) {
+            PASTY_LOG_ERROR("Core.SyncExporter", "Failed to encode encrypted payload for event: %s", eventId.c_str());
+            return ExportResult::ExportFailed;
+        }
+
+        json["encryption"] = "e2ee";
+        json["key_id"] = m_e2eeKeyId;
+        json["nonce"] = nonceB64;
+        json["ciphertext"] = ciphertextB64;
+    } else {
+        json["text"] = item.content;
+        json["encryption"] = "none";
+    }
 
     const std::string jsonLine = json.dump();
     return writeJsonlEvent(jsonLine);
@@ -278,8 +378,62 @@ CloudDriveSyncExporter::ExportResult CloudDriveSyncExporter::exportImageItem(con
 
     const std::string assetKey = item.contentHash + "." + extension;
 
-    if (!writeAssetAtomically(assetKey, imageBytes)) {
+    std::vector<std::uint8_t> assetBytesToWrite;
+    std::string nonceB64;
+    bool encryptedAsset = false;
+
+    if (m_e2eeMasterKey.has_value() && !m_e2eeKeyId.empty()) {
+        EncryptionManager::Bytes plaintext(imageBytes.begin(), imageBytes.end());
+        EncryptionManager::Bytes aad(eventId.begin(), eventId.end());
+        EncryptionManager::EncryptedPayload encryptedPayload;
+
+        const bool encrypted = EncryptionManager::encrypt(*m_e2eeMasterKey, plaintext, aad, encryptedPayload);
+        if (!plaintext.empty()) {
+            sodium_memzero(plaintext.data(), plaintext.size());
+        }
+        if (!aad.empty()) {
+            sodium_memzero(aad.data(), aad.size());
+        }
+
+        if (!encrypted) {
+            PASTY_LOG_ERROR("Core.SyncExporter", "Failed to encrypt image asset for event: %s", eventId.c_str());
+            return ExportResult::ExportFailed;
+        }
+
+        if (!encodeBase64(encryptedPayload.nonce, nonceB64)) {
+            if (!encryptedPayload.nonce.empty()) {
+                sodium_memzero(encryptedPayload.nonce.data(), encryptedPayload.nonce.size());
+            }
+            if (!encryptedPayload.ciphertext.empty()) {
+                sodium_memzero(encryptedPayload.ciphertext.data(), encryptedPayload.ciphertext.size());
+            }
+            PASTY_LOG_ERROR("Core.SyncExporter", "Failed to encode image nonce for event: %s", eventId.c_str());
+            return ExportResult::ExportFailed;
+        }
+
+        assetBytesToWrite.assign(encryptedPayload.ciphertext.begin(), encryptedPayload.ciphertext.end());
+
+        if (!encryptedPayload.nonce.empty()) {
+            sodium_memzero(encryptedPayload.nonce.data(), encryptedPayload.nonce.size());
+        }
+        if (!encryptedPayload.ciphertext.empty()) {
+            sodium_memzero(encryptedPayload.ciphertext.data(), encryptedPayload.ciphertext.size());
+        }
+
+        encryptedAsset = true;
+    } else {
+        assetBytesToWrite = imageBytes;
+    }
+
+    if (!writeAssetAtomically(assetKey, assetBytesToWrite)) {
+        if (!assetBytesToWrite.empty()) {
+            sodium_memzero(assetBytesToWrite.data(), assetBytesToWrite.size());
+        }
         return ExportResult::ExportFailed;
+    }
+
+    if (!assetBytesToWrite.empty()) {
+        sodium_memzero(assetBytesToWrite.data(), assetBytesToWrite.size());
     }
 
     using Json = nlohmann::json;
@@ -300,7 +454,13 @@ CloudDriveSyncExporter::ExportResult CloudDriveSyncExporter::exportImageItem(con
     json["source_app_id"] = item.sourceAppId;
     json["is_concealed"] = false;
     json["is_transient"] = false;
-    json["encryption"] = "none";
+    if (encryptedAsset) {
+        json["encryption"] = "e2ee";
+        json["key_id"] = m_e2eeKeyId;
+        json["nonce"] = nonceB64;
+    } else {
+        json["encryption"] = "none";
+    }
 
     const std::string jsonLine = json.dump();
     return writeJsonlEvent(jsonLine);
