@@ -1,79 +1,41 @@
 import SwiftUI
-import AppKit
 
 struct StorageLocationSettingsView: View {
     @EnvironmentObject var viewModel: SettingsViewModel
-    @State private var showingRestartAlert = false
-    @State private var errorMessage: String?
-    @State private var showingErrorAlert = false
-
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             SettingsRow(title: "Data Location", icon: "folder") {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Clipboard Data: " + viewModel.clipboardData.path)
-                        .font(DesignSystem.Typography.caption)
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
-                        .textSelection(.enabled)
+                VStack(alignment: .trailing, spacing: 8) {
                     Text("App Data: " + viewModel.appData.path)
                         .font(.system(size: 10, weight: .regular))
                         .foregroundColor(DesignSystem.Colors.textTertiary)
                         .textSelection(.enabled)
+                    
+                    Button(action: {
+                        NSWorkspace.shared.open(viewModel.appData)
+                    }) {
+                        Text("Open")
+                            .font(DesignSystem.Typography.captionBold)
+                            .foregroundColor(viewModel.settings.appearance.themeColor.toColor())
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(viewModel.settings.appearance.themeColor.toColor().opacity(0.1))
+                            .cornerRadius(4)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 4)
+                                    .stroke(viewModel.settings.appearance.themeColor.toColor().opacity(0.3), lineWidth: 1)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .onHover { inside in
+                        if inside {
+                            NSCursor.pointingHand.push()
+                        } else {
+                            NSCursor.pop()
+                        }
+                    }
                 }
             }
-
-            SettingsRow(title: "", icon: "") {
-                HStack(spacing: 8) {
-                    Button("Show in Finder") {
-                        NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: viewModel.clipboardData.path)
-                    }
-
-                    Button("Change...") {
-                        selectNewDirectory()
-                    }
-
-                    Button("恢复默认路径") {
-                        viewModel.restoreDefaultClipboardDataDirectory()
-                        showingRestartAlert = true
-                    }
-                }
-            }
         }
-        .alert("Restart Required", isPresented: $showingRestartAlert) {
-            Button("Restart Now") {
-                restartApp()
-            }
-            Button("Later", role: .cancel) {}
-        } message: {
-            Text("Pasty needs to restart to use the new storage location.")
-        }
-        .alert("Error", isPresented: $showingErrorAlert) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(errorMessage ?? "Unknown error")
-        }
-    }
-
-    private func selectNewDirectory() {
-        StorageLocationHelper.selectNewDirectory { url in
-            if let url = url {
-                validateAndSetDirectory(url)
-            }
-        }
-    }
-
-    private func validateAndSetDirectory(_ url: URL) {
-        StorageLocationHelper.validateAndSetDirectory(url, settingsViewModel: viewModel, showError: { message in
-            errorMessage = message
-            showingErrorAlert = true
-        }, showRestart: {
-            showingRestartAlert = true
-        })
-    }
-
-    private func restartApp() {
-        let url = URL(fileURLWithPath: Bundle.main.bundlePath)
-        NSWorkspace.shared.open(url)
-        NSApp.terminate(nil)
     }
 }
