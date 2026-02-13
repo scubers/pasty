@@ -1,3 +1,7 @@
+# (Outdated) Path Refactoring Tasks
+
+**NOTE: Some tasks below regarding user-configurable paths are no longer applicable. The clipboardData directory is now fixed to the default path.**
+
 ## 1. Core 层迁移路径 API
 
 - [x] 1.1 新增全局变量 `g_migration_directory` 到 store_sqlite.cpp 匿名命名空间

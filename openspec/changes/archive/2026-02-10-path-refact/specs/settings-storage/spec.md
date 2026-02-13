@@ -1,4 +1,6 @@
-# Settings Storage
+# (Outdated) Settings Storage
+
+**NOTE: This spec is outdated. The clipboardData directory is no longer user-configurable.**
 
 ## Purpose
 

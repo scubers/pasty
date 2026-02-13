@@ -1,3 +1,7 @@
+# (Outdated) Path Refactoring Design
+
+**NOTE: This document is partially outdated. The clipboardData directory is no longer user-configurable. The app now always uses the default `${appData}/ClipboardData` path, and the Settings UI for changing the location has been removed.**
+
 ## Context
 
 当前 Pasty 应用的所有持久化数据（settings.json、database、images）和迁移文件都混合存储在同一个目录 `~/Application Support/Pasty` 下。这种结构存在以下问题：
