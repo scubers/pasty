@@ -28,6 +28,11 @@ private:
 } // namespace pasty
 
 // Macros
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
+#endif
+
 #define PASTY_LOG_VERBOSE(tag, fmt, ...) \
     if (pasty::Logger::getLevel() <= pasty::LogLevel::Verbose) \
         pasty::Logger::log(pasty::LogLevel::Verbose, tag, __FILE__, __LINE__, fmt, ##__VA_ARGS__)
@@ -47,3 +52,7 @@ private:
 #define PASTY_LOG_ERROR(tag, fmt, ...) \
     if (pasty::Logger::getLevel() <= pasty::LogLevel::Error) \
         pasty::Logger::log(pasty::LogLevel::Error, tag, __FILE__, __LINE__, fmt, ##__VA_ARGS__)
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
