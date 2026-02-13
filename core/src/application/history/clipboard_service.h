@@ -35,6 +35,7 @@ public:
     std::optional<OcrTaskStatus> getOcrStatus(const std::string& id);
     std::optional<ClipboardHistoryItem> getById(const std::string& id);
     bool deleteById(const std::string& id);
+    int deleteByTypeAndContentHash(ClipboardItemType type, const std::string& contentHash);
 
     bool applyRetentionFromSettings();
     bool enforceRetention(std::int32_t maxCount);

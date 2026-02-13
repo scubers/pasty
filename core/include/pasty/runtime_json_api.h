@@ -27,6 +27,9 @@ void pasty_settings_initialize(pasty_runtime_ref runtime, int max_history_count)
 void pasty_settings_update(pasty_runtime_ref runtime, const char* key, const char* value);
 int pasty_settings_get_max_history_count(pasty_runtime_ref runtime);
 
+bool pasty_cloud_sync_import_now(pasty_runtime_ref runtime);
+bool pasty_cloud_sync_get_status_json(pasty_runtime_ref runtime, char** out_json);
+
 bool pasty_history_ingest_text(pasty_runtime_ref runtime, const char* text, const char* source_app_id);
 bool pasty_history_ingest_text_with_result(pasty_runtime_ref runtime, const char* text, const char* source_app_id, bool* out_inserted);
 

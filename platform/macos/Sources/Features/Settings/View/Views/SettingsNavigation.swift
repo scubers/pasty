@@ -6,6 +6,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
     case appearance = "Appearance"
     case ocr = "OCR"
     case shortcuts = "Shortcuts"
+    case cloudSync = "Cloud Sync"
     case about = "About"
     
     var id: String { rawValue }
@@ -17,6 +18,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .appearance: return "paintpalette.fill"
         case .ocr: return "text.viewfinder"
         case .shortcuts: return "keyboard.fill"
+        case .cloudSync: return "icloud.fill"
         case .about: return "info.circle.fill"
         }
     }

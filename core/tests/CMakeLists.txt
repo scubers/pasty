@@ -20,9 +20,18 @@ target_link_libraries(logger_test
     PastyCore
 )
 
+add_executable(cloud_drive_sync_test cloud_drive_sync_test.cpp)
+
+target_link_libraries(cloud_drive_sync_test
+    PRIVATE
+        PastyCore
+        SQLite::SQLite3
+)
+
 # Copy migrations for testing
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/../migrations DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 add_test(NAME history_test COMMAND pasty_test)
 add_test(NAME settings_test COMMAND settings_test)
 add_test(NAME logger_test COMMAND logger_test)
+add_test(NAME cloud_sync_test COMMAND cloud_drive_sync_test)

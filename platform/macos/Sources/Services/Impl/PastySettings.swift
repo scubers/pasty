@@ -7,6 +7,7 @@ struct PastySettings: Codable, Equatable {
     var ocr: OCRSettings = .default
     var appearance: AppearanceSettings = .default
     var general: GeneralSettings = .default
+    var cloudSync: CloudSyncSettings = .default
 
     static let `default` = PastySettings()
 
@@ -20,6 +21,24 @@ struct PastySettings: Codable, Equatable {
         ocr = try container.decodeIfPresent(OCRSettings.self, forKey: .ocr) ?? .default
         appearance = try container.decodeIfPresent(AppearanceSettings.self, forKey: .appearance) ?? .default
         general = try container.decodeIfPresent(GeneralSettings.self, forKey: .general) ?? .default
+        cloudSync = try container.decodeIfPresent(CloudSyncSettings.self, forKey: .cloudSync) ?? .default
+    }
+}
+
+struct CloudSyncSettings: Codable, Equatable {
+    var enabled: Bool = false
+    var rootPath: String = ""
+    var includeSensitive: Bool = false
+
+    static let `default` = CloudSyncSettings()
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled) ?? false
+        rootPath = try container.decodeIfPresent(String.self, forKey: .rootPath) ?? ""
+        includeSensitive = try container.decodeIfPresent(Bool.self, forKey: .includeSensitive) ?? false
     }
 }
 

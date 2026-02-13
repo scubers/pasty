@@ -81,12 +81,18 @@ final class SettingsStore {
 
     func updateSettings(_ update: (inout PastySettings) -> Void) {
         coordinator.updateSettings(update)
+        syncToCore()
         scheduleSave()
     }
 
     func replaceSettings(_ settings: PastySettings) {
         coordinator.setSettings(settings)
+        syncToCore()
         scheduleSave()
+    }
+
+    func syncCurrentSettingsToCore() {
+        syncToCore()
     }
 
     func setClipboardDataDirectory(_ url: URL) {
@@ -217,6 +223,21 @@ final class SettingsStore {
             maxCountStr.withCString { ptr in
                 pasty_settings_update(runtime, "history.maxCount", ptr)
             }
+        }
+
+        let cloudSync = coordinator.settings.cloudSync
+        let cloudSyncEnabled = cloudSync.enabled ? "true" : "false"
+        cloudSyncEnabled.withCString { ptr in
+            pasty_settings_update(runtime, "cloudSync.enabled", ptr)
+        }
+
+        cloudSync.rootPath.withCString { ptr in
+            pasty_settings_update(runtime, "cloudSync.rootPath", ptr)
+        }
+
+        let includeSensitive = cloudSync.includeSensitive ? "true" : "false"
+        includeSensitive.withCString { ptr in
+            pasty_settings_update(runtime, "cloudSync.includeSensitive", ptr)
         }
     }
 }

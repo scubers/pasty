@@ -16,6 +16,8 @@ struct SettingsContentContainer: View {
                 OCRSettingsView()
             case .shortcuts:
                 ShortcutsSettingsView()
+            case .cloudSync:
+                CloudSyncSettingsView()
             case .about:
                 AboutSettingsView()
             }

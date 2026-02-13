@@ -37,6 +37,7 @@ public:
     virtual bool updateOcrFailed(const std::string& id, HistoryTimestampMs nowMs) = 0;
     virtual std::optional<OcrTaskStatus> getOcrStatus(const std::string& id) = 0;
     virtual bool deleteItem(const std::string& id) = 0;
+    virtual int deleteByTypeAndContentHash(ClipboardItemType type, const std::string& contentHash) = 0;
     virtual bool enforceRetention(std::int32_t maxItems) = 0;
 };
 

@@ -239,6 +239,14 @@ bool ClipboardService::deleteById(const std::string& id) {
     return m_store->deleteItem(id);
 }
 
+int ClipboardService::deleteByTypeAndContentHash(ClipboardItemType type, const std::string& contentHash) {
+    if (!m_initialized || !m_store) {
+        return 0;
+    }
+
+    return m_store->deleteByTypeAndContentHash(type, contentHash);
+}
+
 bool ClipboardService::applyRetentionFromSettings() {
     return enforceRetention(m_settingsStore.getMaxHistoryCount());
 }

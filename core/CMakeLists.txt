@@ -18,6 +18,10 @@ set(PASTY_CORE_SOURCES
     src/application/history/clipboard_service.cpp
     src/common/logger.cpp
     src/infrastructure/settings/in_memory_settings_store.cpp
+    src/infrastructure/sync/cloud_drive_sync_exporter.cpp
+    src/infrastructure/sync/cloud_drive_sync_importer.cpp
+    src/infrastructure/sync/cloud_drive_sync_pruner.cpp
+    src/infrastructure/sync/cloud_drive_sync_state.cpp
     src/runtime/core_runtime.cpp
     src/store/sqlite_clipboard_history_store.cpp
     src/utils/runtime_json_utils.cpp

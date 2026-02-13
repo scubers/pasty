@@ -35,6 +35,8 @@ class App: NSObject, NSApplicationDelegate {
     private var localEventMonitor: Any?
     private var mouseDownMonitor: AnyCancellable?
     private var benchmarkCancellable: AnyCancellable?
+    private var cloudSyncSettingsCancellable: AnyCancellable?
+    private var cloudSyncImportTimer: AnyCancellable?
     private var lastSettingsWarningShown: String?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -100,9 +102,12 @@ class App: NSObject, NSApplicationDelegate {
 
         if coreStarted {
             LoggerService.info("Core initialized successfully")
+            settingsStore.syncCurrentSettingsToCore()
         } else {
             LoggerService.error("Core initialization failed")
         }
+
+        setupCloudSyncImportLoop()
         
         // UI Setup
         NSApp.setActivationPolicy(.accessory)
@@ -154,6 +159,10 @@ class App: NSObject, NSApplicationDelegate {
         }
         mouseDownMonitor?.cancel()
         mouseDownMonitor = nil
+        cloudSyncImportTimer?.cancel()
+        cloudSyncImportTimer = nil
+        cloudSyncSettingsCancellable?.cancel()
+        cloudSyncSettingsCancellable = nil
         if let runtime = appCoordinator.coreRuntime {
             pasty_runtime_stop(runtime)
             pasty_runtime_destroy(runtime)
@@ -282,6 +291,47 @@ class App: NSObject, NSApplicationDelegate {
             .sink { [weak self] _ in
                 self?.viewModel.send(.hidePanel)
             }
+    }
+
+    private func setupCloudSyncImportLoop() {
+        cloudSyncSettingsCancellable = appCoordinator.$settings
+            .map(\.cloudSync)
+            .removeDuplicates()
+            .sink { [weak self] cloudSync in
+                self?.updateCloudSyncImportLoop(cloudSync: cloudSync)
+            }
+    }
+
+    private func updateCloudSyncImportLoop(cloudSync: CloudSyncSettings) {
+        cloudSyncImportTimer?.cancel()
+        cloudSyncImportTimer = nil
+
+        guard cloudSync.enabled, !cloudSync.rootPath.isEmpty else {
+            return
+        }
+
+        runCloudSyncImportNow()
+
+        cloudSyncImportTimer = Timer
+            .publish(every: 60, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                self?.runCloudSyncImportNow()
+            }
+    }
+
+    private func runCloudSyncImportNow() {
+        guard let runtime = appCoordinator.coreRuntime else {
+            return
+        }
+        let runtimeAddress = UInt(bitPattern: runtime)
+
+        DispatchQueue.global(qos: .utility).async {
+            guard let runtime = UnsafeMutableRawPointer(bitPattern: runtimeAddress) else {
+                return
+            }
+            _ = pasty_cloud_sync_import_now(runtime)
+        }
     }
 
     @MainActor

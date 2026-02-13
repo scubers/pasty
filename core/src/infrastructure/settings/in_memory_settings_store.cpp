@@ -25,4 +25,42 @@ bool InMemorySettingsStore::setMaxHistoryCount(int maxHistoryCount) {
     return true;
 }
 
+bool InMemorySettingsStore::isSyncEnabled() const {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return m_syncEnabled;
+}
+
+bool InMemorySettingsStore::setSyncEnabled(bool enabled) {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_syncEnabled = enabled;
+    return true;
+}
+
+std::string InMemorySettingsStore::getSyncRootPath() const {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return m_syncRootPath;
+}
+
+bool InMemorySettingsStore::setSyncRootPath(const std::string& path) {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_syncRootPath = path;
+    return true;
+}
+
+bool InMemorySettingsStore::isSyncIncludeSensitive() const {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return m_syncIncludeSensitive;
+}
+
+bool InMemorySettingsStore::setSyncIncludeSensitive(bool include) {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_syncIncludeSensitive = include;
+    return true;
+}
+
+std::string InMemorySettingsStore::getDeviceId() const {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return m_deviceId;
+}
+
 } // namespace pasty

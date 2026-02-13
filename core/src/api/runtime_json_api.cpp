@@ -1,13 +1,15 @@
 // Pasty - Copyright (c) 2026. MIT License.
 
-#include "api/runtime_json_api.h"
+#include "runtime_json_api.h"
 
-#include "runtime/core_runtime.h"
-#include "utils/runtime_json_utils.h"
+#include "../runtime/core_runtime.h"
+#include "../utils/runtime_json_utils.h"
 
 #include <mutex>
 #include <optional>
 #include <string>
+
+#include "../thirdparty/nlohmann/json.hpp"
 
 namespace {
 
@@ -31,6 +33,43 @@ pasty::ClipboardService* clipboardService(PastyRuntime* runtime) {
         return nullptr;
     }
     return runtime->runtime->clipboardService();
+}
+
+bool parseBoolSetting(const std::string& value, bool* parsed) {
+    if (parsed == nullptr) {
+        return false;
+    }
+
+    if (value == "1" || value == "true" || value == "TRUE" || value == "yes" || value == "YES") {
+        *parsed = true;
+        return true;
+    }
+    if (value == "0" || value == "false" || value == "FALSE" || value == "no" || value == "NO") {
+        *parsed = false;
+        return true;
+    }
+    return false;
+}
+
+std::string serializeCloudSyncStatus(const pasty::CloudSyncStatus& status) {
+    using Json = nlohmann::json;
+
+    Json json;
+    json["enabled"] = status.enabled;
+    json["rootPath"] = status.rootPath;
+    json["includeSensitive"] = status.includeSensitive;
+    json["deviceId"] = status.deviceId;
+    json["stateFileErrorCount"] = status.stateFileErrorCount;
+
+    Json lastImport;
+    lastImport["eventsProcessed"] = status.lastImport.eventsProcessed;
+    lastImport["eventsApplied"] = status.lastImport.eventsApplied;
+    lastImport["eventsSkipped"] = status.lastImport.eventsSkipped;
+    lastImport["errors"] = status.lastImport.errors;
+    lastImport["success"] = status.lastImport.success;
+    json["lastImport"] = lastImport;
+
+    return json.dump();
 }
 
 } // namespace
@@ -157,14 +196,52 @@ void pasty_settings_update(pasty_runtime_ref runtime_ref, const char* key, const
     }
 
     const std::string keyValue(key);
-    if (keyValue != "history.maxCount") {
+    const std::string rawValue(value);
+    if (keyValue == "history.maxCount") {
+        try {
+            const int count = std::stoi(rawValue);
+            pasty_runtime_set_max_history_count(runtime_ref, count);
+        } catch (...) {
+        }
         return;
     }
 
-    try {
-        const int count = std::stoi(value);
-        pasty_runtime_set_max_history_count(runtime_ref, count);
-    } catch (...) {
+    PastyRuntime* runtime = castRuntime(runtime_ref);
+    if (runtime == nullptr) {
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock(runtime->mutex);
+
+    if (keyValue == "cloudSync.enabled") {
+        bool enabled = false;
+        if (!parseBoolSetting(rawValue, &enabled)) {
+            return;
+        }
+        runtime->config.cloudSyncEnabled = enabled;
+        if (runtime->runtime) {
+            runtime->runtime->setCloudSyncEnabled(enabled);
+        }
+        return;
+    }
+
+    if (keyValue == "cloudSync.rootPath") {
+        runtime->config.cloudSyncRootPath = rawValue;
+        if (runtime->runtime) {
+            runtime->runtime->setCloudSyncRootPath(rawValue);
+        }
+        return;
+    }
+
+    if (keyValue == "cloudSync.includeSensitive") {
+        bool includeSensitive = false;
+        if (!parseBoolSetting(rawValue, &includeSensitive)) {
+            return;
+        }
+        runtime->config.cloudSyncIncludeSensitive = includeSensitive;
+        if (runtime->runtime) {
+            runtime->runtime->setCloudSyncIncludeSensitive(includeSensitive);
+        }
     }
 }
 
@@ -173,6 +250,42 @@ int pasty_settings_get_max_history_count(pasty_runtime_ref runtime_ref) {
         return 0;
     }
     return pasty_runtime_get_max_history_count(runtime_ref);
+}
+
+bool pasty_cloud_sync_import_now(pasty_runtime_ref runtime_ref) {
+    PastyRuntime* runtime = castRuntime(runtime_ref);
+    if (runtime == nullptr) {
+        return false;
+    }
+
+    std::lock_guard<std::mutex> lock(runtime->mutex);
+    if (!runtime->runtime) {
+        return false;
+    }
+
+    return runtime->runtime->runCloudSyncImport();
+}
+
+bool pasty_cloud_sync_get_status_json(pasty_runtime_ref runtime_ref, char** out_json) {
+    PastyRuntime* runtime = castRuntime(runtime_ref);
+    if (runtime == nullptr || out_json == nullptr) {
+        return false;
+    }
+
+    std::lock_guard<std::mutex> lock(runtime->mutex);
+    if (!runtime->runtime) {
+        pasty::CloudSyncStatus status;
+        status.enabled = runtime->config.cloudSyncEnabled;
+        status.rootPath = runtime->config.cloudSyncRootPath;
+        status.includeSensitive = runtime->config.cloudSyncIncludeSensitive;
+        *out_json = pasty::runtime_json_utils::copyString(serializeCloudSyncStatus(status));
+        return true;
+    }
+
+    *out_json = pasty::runtime_json_utils::copyString(
+        serializeCloudSyncStatus(runtime->runtime->cloudSyncStatus())
+    );
+    return true;
 }
 
 bool pasty_history_ingest_text(pasty_runtime_ref runtime_ref, const char* text, const char* source_app_id) {
@@ -202,6 +315,9 @@ bool pasty_history_ingest_text_with_result(
     event.itemType = pasty::ClipboardItemType::Text;
     event.text = pasty::runtime_json_utils::fromCString(text);
     const pasty::ClipboardIngestResult result = service->ingestWithResult(event);
+    if (runtime->runtime) {
+        runtime->runtime->exportLocalTextIngest(event, result.inserted);
+    }
     if (out_inserted != nullptr) {
         *out_inserted = result.inserted;
     }
@@ -259,6 +375,9 @@ bool pasty_history_ingest_image_with_result(
     event.image.formatHint = pasty::runtime_json_utils::fromCString(format_hint);
     event.image.bytes.assign(bytes, bytes + byte_count);
     const pasty::ClipboardIngestResult result = service->ingestWithResult(event);
+    if (runtime->runtime) {
+        runtime->runtime->exportLocalImageIngest(event, result.inserted);
+    }
     if (out_inserted != nullptr) {
         *out_inserted = result.inserted;
     }
@@ -474,7 +593,12 @@ bool pasty_history_delete(pasty_runtime_ref runtime_ref, const char* id) {
         return false;
     }
 
-    return service->deleteById(std::string(id));
+    const std::optional<pasty::ClipboardHistoryItem> existingItem = service->getById(std::string(id));
+    const bool deleted = service->deleteById(std::string(id));
+    if (deleted && existingItem.has_value() && runtime->runtime) {
+        runtime->runtime->exportLocalDelete(*existingItem, deleted);
+    }
+    return deleted;
 }
 
 bool pasty_history_enforce_retention(pasty_runtime_ref runtime_ref, int maxCount) {

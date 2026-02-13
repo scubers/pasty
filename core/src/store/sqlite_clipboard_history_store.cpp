@@ -644,6 +644,53 @@ public:
         return enforceRetentionUnlocked(maxItems);
     }
 
+    int deleteByTypeAndContentHash(ClipboardItemType type, const std::string& contentHash) override {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (m_db == nullptr || contentHash.empty()) {
+            return 0;
+        }
+
+        const std::string typeStr = (type == ClipboardItemType::Image) ? "image" : "text";
+
+        std::vector<std::string> imagePathsToDelete;
+        {
+            sqlite3_stmt* lookup = nullptr;
+            const char* lookupSql = "SELECT image_path FROM items WHERE type = ?1 AND content_hash = ?2;";
+            if (sqlite3_prepare_v2(m_db, lookupSql, -1, &lookup, nullptr) != SQLITE_OK) {
+                return 0;
+            }
+            sqlite3_bind_text(lookup, 1, typeStr.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(lookup, 2, contentHash.c_str(), -1, SQLITE_TRANSIENT);
+            while (sqlite3_step(lookup) == SQLITE_ROW) {
+                const std::string imagePath = readTextColumn(lookup, 0);
+                if (!imagePath.empty()) {
+                    imagePathsToDelete.push_back(imagePath);
+                }
+            }
+            sqlite3_finalize(lookup);
+        }
+
+        sqlite3_stmt* statement = nullptr;
+        const char* sql = "DELETE FROM items WHERE type = ?1 AND content_hash = ?2;";
+        if (sqlite3_prepare_v2(m_db, sql, -1, &statement, nullptr) != SQLITE_OK) {
+            return 0;
+        }
+
+        sqlite3_bind_text(statement, 1, typeStr.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2, contentHash.c_str(), -1, SQLITE_TRANSIENT);
+        const bool ok = sqlite3_step(statement) == SQLITE_DONE;
+        const int deletedCount = ok ? static_cast<int>(sqlite3_changes(m_db)) : 0;
+        sqlite3_finalize(statement);
+
+        if (deletedCount > 0) {
+            for (const auto& imagePath : imagePathsToDelete) {
+                deleteAsset(imagePath);
+            }
+        }
+
+        return deletedCount;
+    }
+
 private:
     void closeUnlocked() {
         if (m_db != nullptr) {
