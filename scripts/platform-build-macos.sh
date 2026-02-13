@@ -6,7 +6,46 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 MACOS_DIR="$PROJECT_ROOT/platform/macos"
 BUILD_DIR="$PROJECT_ROOT/build/macos"
 
-CONFIG=${1:-Debug}
+VERBOSE=false
+CONFIG="Debug"
+
+show_help() {
+    echo "Usage: ./scripts/platform-build-macos.sh [options] [configuration]"
+    echo ""
+    echo "Configurations:"
+    echo "  Debug (default)"
+    echo "  Release"
+    echo ""
+    echo "Options:"
+    echo "  --verbose, -v    Show full xcodebuild output"
+    echo "  --help, -h       Show this help message"
+}
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --verbose|-v)
+            VERBOSE=true
+            shift
+            ;;
+        --help|-h)
+            show_help
+            exit 0
+            ;;
+        Debug|Release)
+            CONFIG=$1
+            shift
+            ;;
+        -*)
+            echo "Unknown option: $1"
+            show_help
+            exit 1
+            ;;
+        *)
+            CONFIG=$1
+            shift
+            ;;
+    esac
+done
 
 if [ "$CONFIG" = "Debug" ]; then
     APP_NAME="PastyDebug"
@@ -20,19 +59,31 @@ echo "App name: $APP_NAME"
 
 cd "$MACOS_DIR"
 
-echo "Generating Xcode project..."
 if ! command -v xcodegen >/dev/null 2>&1; then
     echo "Error: xcodegen not found. Please install xcodegen first."
     exit 1
 fi
-xcodegen generate
 
-echo "Building with xcodebuild..."
-xcodebuild -project Pasty.xcodeproj \
-    -scheme Pasty \
-    -configuration "$CONFIG" \
-    -derivedDataPath "$BUILD_DIR" \
-    build
+if [ "$VERBOSE" = true ]; then
+    echo "Generating Xcode project..."
+    xcodegen generate
+    echo "Building with xcodebuild..."
+    xcodebuild -project Pasty.xcodeproj \
+        -scheme Pasty \
+        -configuration "$CONFIG" \
+        -derivedDataPath "$BUILD_DIR" \
+        build
+else
+    echo "Generating Xcode project..."
+    xcodegen generate > /dev/null
+    echo "Building with xcodebuild..."
+    xcodebuild -project Pasty.xcodeproj \
+        -scheme Pasty \
+        -configuration "$CONFIG" \
+        -derivedDataPath "$BUILD_DIR" \
+        -quiet \
+        build
+fi
 
 APP_PATH="$BUILD_DIR/Build/Products/$CONFIG/${APP_NAME}.app"
 if [ -d "$APP_PATH" ]; then
