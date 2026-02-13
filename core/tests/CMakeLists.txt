@@ -28,6 +28,28 @@ target_link_libraries(cloud_drive_sync_test
         SQLite::SQLite3
 )
 
+add_executable(cloud_drive_sync_exporter_test cloud_drive_sync_exporter_test.cpp)
+
+target_link_libraries(cloud_drive_sync_exporter_test
+    PRIVATE
+        PastyCore
+)
+
+add_executable(cloud_drive_sync_importer_test cloud_drive_sync_importer_test.cpp)
+
+target_link_libraries(cloud_drive_sync_importer_test
+    PRIVATE
+        PastyCore
+        SQLite::SQLite3
+)
+
+add_executable(cloud_drive_sync_state_test cloud_drive_sync_state_test.cpp)
+
+target_link_libraries(cloud_drive_sync_state_test
+    PRIVATE
+        PastyCore
+)
+
 add_executable(sodium_link_test crypto_sodium_link_test.cpp)
 
 target_include_directories(sodium_link_test
@@ -71,5 +93,8 @@ add_test(NAME history_test COMMAND pasty_test)
 add_test(NAME settings_test COMMAND settings_test)
 add_test(NAME logger_test COMMAND logger_test)
 add_test(NAME cloud_sync_test COMMAND cloud_drive_sync_test)
+add_test(NAME cloud_sync_exporter_test COMMAND cloud_drive_sync_exporter_test)
+add_test(NAME cloud_sync_importer_test COMMAND cloud_drive_sync_importer_test)
+add_test(NAME cloud_sync_state_test COMMAND cloud_drive_sync_state_test)
 add_test(NAME sodium_link_test COMMAND sodium_link_test)
 add_test(NAME encryption_test COMMAND encryption_test)

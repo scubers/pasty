@@ -46,6 +46,9 @@ DerivedData/
 *.tmp
 Thumbs.db
 
+# Cache
+.cache/
+
 # tools
 .sisyphus/
 .coco/
