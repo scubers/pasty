@@ -93,6 +93,17 @@ bool decodeBase64(const std::string& encoded, EncryptionManager::Bytes& outBytes
     return true;
 }
 
+bool isConflictFile(const std::string& filename) {
+    if (filename.find("(conflicted copy ") != std::string::npos ||
+        filename.find(".conflicted copy ") != std::string::npos) {
+        return true;
+    }
+    if (filename.find("-conflict-") != std::string::npos) {
+        return true;
+    }
+    return false;
+}
+
 } // namespace
 
 CloudDriveSyncImporter::CloudDriveSyncImporter()
@@ -261,6 +272,10 @@ std::vector<std::string> CloudDriveSyncImporter::enumerateJsonlFiles(const std::
         if (entry.is_regular_file(ec) && !ec) {
             const std::string filename = entry.path().filename().string();
             if (filename.size() >= 6 && filename.substr(filename.size() - 6) == ".jsonl") {
+                if (isConflictFile(filename)) {
+                    PASTY_LOG_WARN("Core.SyncImporter", "Skipping conflict file: %s", filename.c_str());
+                    continue;
+                }
                 files.push_back(entry.path().string());
             }
         }
@@ -380,8 +395,7 @@ bool CloudDriveSyncImporter::parseEvent(const std::string& line, const std::stri
     }
 
     if (!json.contains("event_id") || !json.contains("device_id") || !json.contains("seq") ||
-        !json.contains("ts_ms") || !json.contains("op") || !json.contains("item_type") ||
-        !json.contains("content_hash")) {
+        !json.contains("ts_ms") || !json.contains("op")) {
         PASTY_LOG_ERROR("Core.SyncImporter", "Missing required fields at offset %lu in %s",
                         static_cast<unsigned long>(lineOffset), filePath.c_str());
         return false;
@@ -391,14 +405,32 @@ bool CloudDriveSyncImporter::parseEvent(const std::string& line, const std::stri
     event.seq = json["seq"].get<std::uint64_t>();
     event.tsMs = json["ts_ms"].get<std::int64_t>();
     event.eventId = json["event_id"].get<std::string>();
-    event.op = json["op"].get<std::string>();
-    event.itemType = json["item_type"].get<std::string>();
-    event.contentHash = json["content_hash"].get<std::string>();
 
-    if (!validateContentHash(event.contentHash)) {
-        PASTY_LOG_WARN("Core.SyncImporter", "Invalid content_hash in event %s at offset %lu",
-                       event.eventId.c_str(), static_cast<unsigned long>(lineOffset));
+    // Validate event_id format: {device_id}:{seq}
+    const std::string expectedPrefix = event.deviceId + ":";
+    if (event.eventId.rfind(expectedPrefix, 0) != 0) {
+        PASTY_LOG_WARN("Core.SyncImporter", "event_id prefix mismatch: expected '%s*', got '%s' at offset %lu in %s",
+                       expectedPrefix.c_str(), event.eventId.c_str(),
+                       static_cast<unsigned long>(lineOffset), filePath.c_str());
         return false;
+    }
+    event.op = json["op"].get<std::string>();
+
+    // For upsert events, item_type and content_hash MUST be in the outer JSON (for tombstone checks)
+    if (event.op != "delete") {
+        if (!json.contains("item_type") || !json.contains("content_hash")) {
+            PASTY_LOG_ERROR("Core.SyncImporter", "Missing item_type/content_hash for %s at offset %lu",
+                            event.op.c_str(), static_cast<unsigned long>(lineOffset));
+            return false;
+        }
+        event.itemType = json["item_type"].get<std::string>();
+        event.contentHash = json["content_hash"].get<std::string>();
+
+        if (!validateContentHash(event.contentHash)) {
+            PASTY_LOG_WARN("Core.SyncImporter", "Invalid content_hash in event %s at offset %lu",
+                           event.eventId.c_str(), static_cast<unsigned long>(lineOffset));
+            return false;
+        }
     }
 
     if (event.op == "upsert_text") {
@@ -513,7 +545,90 @@ bool CloudDriveSyncImporter::parseEvent(const std::string& line, const std::stri
         event.imageWidth = json.value("width", 0);
         event.imageHeight = json.value("height", 0);
         event.contentType = json.value("content_type", std::string());
-    } else if (event.op != "delete") {
+    } else if (event.op == "delete") {
+        const std::string encryptionMode = json.value("encryption", std::string("none"));
+        if (encryptionMode == "none") {
+            if (!json.contains("item_type") || !json.contains("content_hash")) {
+                PASTY_LOG_ERROR("Core.SyncImporter", "Missing item_type/content_hash for plaintext delete at offset %lu",
+                                static_cast<unsigned long>(lineOffset));
+                return false;
+            }
+            event.itemType = json["item_type"].get<std::string>();
+            event.contentHash = json["content_hash"].get<std::string>();
+        } else if (encryptionMode == "e2ee") {
+            if (!json.contains("key_id") || !json["key_id"].is_string() ||
+                !json.contains("nonce") || !json["nonce"].is_string() ||
+                !json.contains("ciphertext") || !json["ciphertext"].is_string()) {
+                PASTY_LOG_ERROR("Core.SyncImporter", "Missing e2ee fields for delete at offset %lu",
+                                static_cast<unsigned long>(lineOffset));
+                return false;
+            }
+
+            const std::string keyId = json["key_id"].get<std::string>();
+            if ((m_protocolE2eeEnabled && !m_e2eeMasterKey.has_value()) ||
+                m_e2eeKeyId.empty() ||
+                keyId != m_e2eeKeyId ||
+                (!m_protocolE2eeKeyId.empty() && keyId != m_protocolE2eeKeyId)) {
+                event.skipDueToMissingKey = true;
+                event.sourceAppId = json.value("source_app_id", std::string());
+                return true;
+            }
+
+            EncryptionManager::Bytes nonce;
+            EncryptionManager::Bytes ciphertext;
+            if (!decodeBase64(json["nonce"].get<std::string>(), nonce) ||
+                !decodeBase64(json["ciphertext"].get<std::string>(), ciphertext)) {
+                PASTY_LOG_ERROR("Core.SyncImporter", "Invalid e2ee base64 payload for delete at offset %lu",
+                                static_cast<unsigned long>(lineOffset));
+                return false;
+            }
+
+            EncryptionManager::Bytes aad(event.eventId.begin(), event.eventId.end());
+            EncryptionManager::Bytes plaintext;
+            const bool decrypted = EncryptionManager::decrypt(*m_e2eeMasterKey, nonce, ciphertext, aad, plaintext);
+
+            if (!nonce.empty()) {
+                sodium_memzero(nonce.data(), nonce.size());
+            }
+            if (!ciphertext.empty()) {
+                sodium_memzero(ciphertext.data(), ciphertext.size());
+            }
+            if (!aad.empty()) {
+                sodium_memzero(aad.data(), aad.size());
+            }
+
+            if (!decrypted) {
+                PASTY_LOG_ERROR("Core.SyncImporter", "Failed to decrypt e2ee delete event: %s", event.eventId.c_str());
+                return false;
+            }
+
+            try {
+                auto payloadJson = nlohmann::json::parse(plaintext.begin(), plaintext.end());
+                event.itemType = payloadJson["item_type"].get<std::string>();
+                event.contentHash = payloadJson["content_hash"].get<std::string>();
+            } catch (...) {
+                PASTY_LOG_ERROR("Core.SyncImporter", "Failed to parse decrypted delete payload for event %s", event.eventId.c_str());
+                if (!plaintext.empty()) {
+                    sodium_memzero(plaintext.data(), plaintext.size());
+                }
+                return false;
+            }
+
+            if (!plaintext.empty()) {
+                sodium_memzero(plaintext.data(), plaintext.size());
+            }
+        } else {
+            PASTY_LOG_WARN("Core.SyncImporter", "Unsupported encryption mode '%s' for delete event %s",
+                           encryptionMode.c_str(), event.eventId.c_str());
+            return false;
+        }
+
+        if (!validateContentHash(event.contentHash)) {
+            PASTY_LOG_WARN("Core.SyncImporter", "Invalid content_hash in delete event %s at offset %lu",
+                           event.eventId.c_str(), static_cast<unsigned long>(lineOffset));
+            return false;
+        }
+    } else {
         PASTY_LOG_WARN("Core.SyncImporter", "Unknown op '%s' in event %s, skipping (forward compatibility)",
                        event.op.c_str(), event.eventId.c_str());
         return false;

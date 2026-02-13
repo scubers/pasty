@@ -1,6 +1,7 @@
 #include "../src/application/history/clipboard_service.h"
 #include "../src/infrastructure/settings/in_memory_settings_store.h"
 #include "../src/infrastructure/sync/cloud_drive_sync_importer.h"
+#include "../src/infrastructure/sync/cloud_drive_sync_exporter.h"
 #include "../src/store/sqlite_clipboard_history_store.h"
 #include "../src/thirdparty/nlohmann/json.hpp"
 
@@ -76,6 +77,17 @@ nlohmann::json makeBaseEvent(const std::string& deviceId,
     event["item_type"] = itemType;
     event["content_hash"] = contentHash;
     return event;
+}
+
+pasty::ClipboardHistoryItem makeTextItem(const std::string& content,
+                                         const std::string& contentHash,
+                                         const std::string& sourceAppId) {
+    pasty::ClipboardHistoryItem item;
+    item.type = pasty::ClipboardItemType::Text;
+    item.content = content;
+    item.contentHash = contentHash;
+    item.sourceAppId = sourceAppId;
+    return item;
 }
 
 void testDeterministicMerge() {
@@ -293,10 +305,13 @@ void testConflictFileHandling() {
     const std::string logs = syncRoot + "/logs/" + remote;
     std::filesystem::create_directories(logs);
 
-    auto conflictEvent = makeBaseEvent(remote, 1, 1739414403000, "upsert_text", "text", "cdcdcdcdcdcdcdcd");
-    conflictEvent["text"] = "conflict-file-event";
+    auto validEvent = makeBaseEvent(remote, 1, 1739414403000, "upsert_text", "text", "cdcdcdcdcdcdcdcd");
+    validEvent["text"] = "valid-event";
+    writeJsonlFile(logs + "/events-0001.jsonl", validEvent.dump());
 
-    const std::string conflictFile = logs + "/events-0001 (conflicted copy).jsonl";
+    auto conflictEvent = makeBaseEvent(remote, 2, 1739414403001, "upsert_text", "text", "efefefefefefefef");
+    conflictEvent["text"] = "conflict-file-event";
+    const std::string conflictFile = logs + "/events-0001 (conflicted copy 2026-02-13).jsonl";
     writeJsonlFile(conflictFile, conflictEvent.dump());
 
     pasty::InMemorySettingsStore settings(1000);
@@ -313,7 +328,94 @@ void testConflictFileHandling() {
 
     const auto items = service.list(10, "").items;
     assert(items.size() == 1);
-    assert(items[0].content == "conflict-file-event");
+    assert(items[0].content == "valid-event");
+
+    service.shutdown();
+    cleanupTempDirectory(tempDir);
+}
+
+void testEventIdPrefixValidation() {
+    std::cout << "Running testEventIdPrefixValidation..." << std::endl;
+
+    configureMigrationDirectoryForTests();
+    const std::string tempDir = createTempDirectory("cloud-sync-import-prefix-val");
+    const std::string syncRoot = tempDir + "/sync";
+    const std::string baseDir = tempDir + "/base";
+    std::filesystem::create_directories(syncRoot);
+    std::filesystem::create_directories(baseDir);
+
+    const std::string remote = "aaaaaaaaaaaaaaaa";
+    const std::string logs = syncRoot + "/logs/" + remote;
+    std::filesystem::create_directories(logs);
+
+    auto badPrefixEvent = makeBaseEvent(remote, 1, 1739414405000, "upsert_text", "text", "1111111111111111");
+    badPrefixEvent["event_id"] = "wrong-prefix:1";
+    badPrefixEvent["text"] = "should-be-rejected";
+
+    writeJsonlFile(logs + "/events-0001.jsonl", badPrefixEvent.dump());
+
+    pasty::InMemorySettingsStore settings(1000);
+    auto service = makeService(settings);
+    assert(service.initialize(baseDir + "/history"));
+
+    auto importer = pasty::CloudDriveSyncImporter::Create(syncRoot, baseDir);
+    assert(importer.has_value());
+
+    const auto result = importer->importChanges(service);
+    assert(result.success);
+    assert(result.eventsProcessed == 0);
+    assert(result.eventsApplied == 0);
+
+    const auto items = service.list(10, "").items;
+    assert(items.empty());
+
+    service.shutdown();
+    cleanupTempDirectory(tempDir);
+}
+
+void testE2eeDeleteImport() {
+    std::cout << "Running testE2eeDeleteImport..." << std::endl;
+
+    configureMigrationDirectoryForTests();
+    const std::string tempDir = createTempDirectory("cloud-sync-import-e2ee-delete");
+    const std::string syncRoot = tempDir + "/sync";
+    const std::string baseDirExp = tempDir + "/base-exp";
+    const std::string baseDirImp = tempDir + "/base-imp";
+    std::filesystem::create_directories(syncRoot);
+    std::filesystem::create_directories(baseDirExp);
+    std::filesystem::create_directories(baseDirImp);
+
+    std::vector<std::uint8_t> keyBytes(32);
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<int> dist(0, 255);
+    for (auto& b : keyBytes) b = static_cast<std::uint8_t>(dist(gen));
+
+    pasty::EncryptionManager::Key e2eeKey;
+    std::copy(keyBytes.begin(), keyBytes.end(), e2eeKey.data());
+    const std::string keyId = "test-key-id";
+
+    {
+        auto exporter = pasty::CloudDriveSyncExporter::Create(syncRoot, baseDirExp, e2eeKey, keyId);
+        assert(exporter.has_value());
+
+        const auto item = makeTextItem("secret-content", "secrethash", "com.test.app");
+        assert(exporter->exportTextItem(item) == pasty::CloudDriveSyncExporter::ExportResult::Success);
+        assert(exporter->exportDeleteTombstone(pasty::ClipboardItemType::Text, "secrethash") == pasty::CloudDriveSyncExporter::ExportResult::Success);
+    }
+
+    pasty::InMemorySettingsStore settings(1000);
+    auto service = makeService(settings);
+    assert(service.initialize(baseDirImp + "/history"));
+
+    auto importer = pasty::CloudDriveSyncImporter::Create(syncRoot, baseDirImp, e2eeKey, keyId);
+    assert(importer.has_value());
+
+    const auto result = importer->importChanges(service);
+    assert(result.success);
+    
+    const auto items = service.list(10, "").items;
+    assert(items.empty());
 
     service.shutdown();
     cleanupTempDirectory(tempDir);
@@ -372,6 +474,8 @@ int main() {
         testConcurrentDeviceWrite();
         testConflictFileHandling();
         testAssetReadFailure();
+        testEventIdPrefixValidation();
+        testE2eeDeleteImport();
         std::cout << "=== All tests PASSED ===" << std::endl;
         return 0;
     } catch (const std::exception& e) {

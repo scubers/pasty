@@ -310,6 +310,28 @@ std::uint64_t CloudDriveSyncState::reserveNextSeq() {
     return seq;
 }
 
+bool CloudDriveSyncState::regenerateDeviceId() {
+    std::lock_guard<std::mutex> lock(*m_mutex);
+
+    const std::string oldDeviceId = m_deviceId;
+    std::string newDeviceId = generateDeviceId();
+    while (newDeviceId == oldDeviceId) {
+        newDeviceId = generateDeviceId();
+    }
+
+    m_deviceId = newDeviceId;
+    m_nextSeq = 1;
+
+    if (!saveState()) {
+        PASTY_LOG_ERROR("Core.SyncState", "Failed to persist regenerated device_id");
+        return false;
+    }
+
+    PASTY_LOG_WARN("Core.SyncState", "Regenerated device_id due to conflict: old_id=%s, new_id=%s",
+                   oldDeviceId.c_str(), m_deviceId.c_str());
+    return true;
+}
+
 bool CloudDriveSyncState::updateRemoteDeviceMaxSeq(const std::string& remoteDeviceId, std::uint64_t newSeq) {
     std::lock_guard<std::mutex> lock(*m_mutex);
 

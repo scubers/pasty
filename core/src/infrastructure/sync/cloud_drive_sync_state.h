@@ -80,6 +80,8 @@ public:
      */
     std::uint64_t reserveNextSeq();
 
+    bool regenerateDeviceId();
+
     /**
      * Update per-remote-device max_applied_seq
      *
