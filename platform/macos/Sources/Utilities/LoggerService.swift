@@ -46,6 +46,32 @@ private func coreLogCallback(level: Int32, tag: UnsafePointer<CChar>!, message: 
     DDLog.sharedInstance.log(asynchronous: true, message: logMsg)
 }
 
+class LogFormatter: NSObject, DDLogFormatter {
+    private let dateFormatter: DateFormatter
+    
+    override init() {
+        dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
+        super.init()
+    }
+    
+    func format(message logMessage: DDLogMessage) -> String? {
+        let level: String
+        switch logMessage.flag {
+        case .verbose: level = "V"
+        case .debug:   level = "D"
+        case .info:    level = "I"
+        case .warning: level = "W"
+        case .error:   level = "E"
+        default:       level = "?"
+        }
+        
+        let timestamp = dateFormatter.string(from: logMessage.timestamp)
+        let file = (logMessage.file as NSString).lastPathComponent
+        return "\(timestamp) [\(level)] [\(file):\(logMessage.line)] \(logMessage.message)"
+    }
+}
+
 class LoggerService {
     static let shared = LoggerService()
     
@@ -53,7 +79,9 @@ class LoggerService {
     
     func setup() {
         // Console logger
-        DDLog.add(DDOSLogger.sharedInstance)
+        let osLogger = DDOSLogger.sharedInstance
+        osLogger.logFormatter = LogFormatter()
+        DDLog.add(osLogger)
         
         // File logger
         let logsDir = AppPaths.appDataDirectory().appendingPathComponent("Logs")

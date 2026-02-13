@@ -2,12 +2,14 @@
 
 #include "runtime_json_api.h"
 
+#include "../common/logger.h"
 #include "../runtime/core_runtime.h"
 #include "../utils/runtime_json_utils.h"
 
 #include <mutex>
 #include <optional>
 #include <string>
+#include <cstring>
 
 #include "../thirdparty/nlohmann/json.hpp"
 
@@ -257,6 +259,7 @@ int pasty_settings_get_max_history_count(pasty_runtime_ref runtime_ref) {
 }
 
 bool pasty_cloud_sync_import_now(pasty_runtime_ref runtime_ref) {
+    PASTY_LOG_DEBUG("Core.CAPI", "pasty_cloud_sync_import_now() called");
     PastyRuntime* runtime = castRuntime(runtime_ref);
     if (runtime == nullptr) {
         return false;
@@ -271,6 +274,7 @@ bool pasty_cloud_sync_import_now(pasty_runtime_ref runtime_ref) {
 }
 
 bool pasty_cloud_sync_get_status_json(pasty_runtime_ref runtime_ref, char** out_json) {
+    PASTY_LOG_DEBUG("Core.CAPI", "pasty_cloud_sync_get_status_json() called");
     PastyRuntime* runtime = castRuntime(runtime_ref);
     if (runtime == nullptr || out_json == nullptr) {
         return false;
@@ -293,6 +297,8 @@ bool pasty_cloud_sync_get_status_json(pasty_runtime_ref runtime_ref, char** out_
 }
 
 bool pasty_cloud_sync_e2ee_initialize(pasty_runtime_ref runtime_ref, const char* passphrase) {
+    PASTY_LOG_DEBUG("Core.CAPI", "pasty_cloud_sync_e2ee_initialize() called, passphrase length: %zu",
+        passphrase ? strlen(passphrase) : 0);
     PastyRuntime* runtime = castRuntime(runtime_ref);
     if (runtime == nullptr || passphrase == nullptr || passphrase[0] == '\0') {
         return false;
@@ -314,6 +320,7 @@ bool pasty_cloud_sync_e2ee_initialize(pasty_runtime_ref runtime_ref, const char*
 }
 
 void pasty_cloud_sync_e2ee_clear(pasty_runtime_ref runtime_ref) {
+    PASTY_LOG_DEBUG("Core.CAPI", "pasty_cloud_sync_e2ee_clear() called");
     PastyRuntime* runtime = castRuntime(runtime_ref);
     if (runtime == nullptr) {
         return;

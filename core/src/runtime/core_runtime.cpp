@@ -1,4 +1,5 @@
 #include "core_runtime.h"
+#include "../common/logger.h"
 
 #include "../history/clipboard_history_store.h"
 #include "../infrastructure/settings/in_memory_settings_store.h"
@@ -162,6 +163,7 @@ bool CoreRuntime::setMaxHistoryCount(int maxHistoryCount) {
 }
 
 bool CoreRuntime::setCloudSyncEnabled(bool enabled) {
+    PASTY_LOG_INFO("Core.Runtime", "Set cloud sync enabled: %s", enabled ? "true" : "false");
     m_config.cloudSyncEnabled = enabled;
     if (!enabled) {
         m_syncExporter.reset();
@@ -170,12 +172,14 @@ bool CoreRuntime::setCloudSyncEnabled(bool enabled) {
 }
 
 bool CoreRuntime::setCloudSyncRootPath(const std::string& rootPath) {
+    PASTY_LOG_INFO("Core.Runtime", "Set cloud sync root path: %s", rootPath.c_str());
     m_config.cloudSyncRootPath = rootPath;
     m_syncExporter.reset();
     return true;
 }
 
 bool CoreRuntime::setCloudSyncIncludeSensitive(bool includeSensitive) {
+    PASTY_LOG_DEBUG("Core.Runtime", "Set cloud sync include sensitive: %s", includeSensitive ? "true" : "false");
     m_config.cloudSyncIncludeSensitive = includeSensitive;
     return true;
 }
@@ -189,9 +193,11 @@ bool CoreRuntime::ensureCloudSyncExporter() {
         return false;
     }
     if (m_syncExporter.has_value()) {
+        PASTY_LOG_DEBUG("Core.Runtime", "Cloud sync exporter already exists");
         return true;
     }
 
+    PASTY_LOG_INFO("Core.Runtime", "Creating new cloud sync exporter");
     auto exporter = CloudDriveSyncExporter::Create(
         m_config.cloudSyncRootPath,
         m_config.storageDirectory,
@@ -211,30 +217,45 @@ void CoreRuntime::applyCloudSyncE2eeToExporter() {
     }
 
     if (m_cloudSyncE2eeMasterKey.has_value() && !m_cloudSyncE2eeKeyId.empty()) {
+        PASTY_LOG_DEBUG("Core.Runtime", "Applying E2EE key to exporter (keyId: %s)", m_cloudSyncE2eeKeyId.c_str());
         m_syncExporter->setE2eeKey(*m_cloudSyncE2eeMasterKey, m_cloudSyncE2eeKeyId);
         return;
     }
 
+    PASTY_LOG_DEBUG("Core.Runtime", "Clearing E2EE key from exporter");
     m_syncExporter->clearE2eeKey();
 }
 
 bool CoreRuntime::runCloudSyncImport() {
     if (!m_started || !m_clipboardService || !m_config.cloudSyncEnabled || m_config.cloudSyncRootPath.empty()) {
+        PASTY_LOG_DEBUG("Core.Runtime", "Skipping cloud sync import (started: %s, hasService: %s, enabled: %s, hasRootPath: %s)",
+            m_started ? "true" : "false",
+            m_clipboardService ? "true" : "false",
+            m_config.cloudSyncEnabled ? "true" : "false",
+            !m_config.cloudSyncRootPath.empty() ? "true" : "false");
         m_lastImportStatus = CloudSyncImportStatus{};
         return false;
     }
 
+    PASTY_LOG_INFO("Core.Runtime", "Starting cloud sync import");
     auto importer = CloudDriveSyncImporter::Create(
         m_config.cloudSyncRootPath,
         m_config.storageDirectory,
         m_cloudSyncE2eeMasterKey,
         m_cloudSyncE2eeKeyId);
     if (!importer.has_value()) {
+        PASTY_LOG_WARN("Core.Runtime", "Failed to create cloud sync importer");
         m_lastImportStatus = CloudSyncImportStatus{};
         return false;
     }
 
     const CloudDriveSyncImporter::ImportResult importResult = importer->importChanges(*m_clipboardService);
+    PASTY_LOG_INFO("Core.Runtime", "Cloud sync import finished (success: %s, processed: %zu, applied: %zu, skipped: %zu, errors: %zu)",
+        importResult.success ? "true" : "false",
+        importResult.eventsProcessed,
+        importResult.eventsApplied,
+        importResult.eventsSkipped,
+        importResult.errors);
     CloudSyncImportStatus status;
     status.eventsProcessed = importResult.eventsProcessed;
     status.eventsApplied = importResult.eventsApplied;
@@ -259,21 +280,26 @@ bool CoreRuntime::runCloudSyncImport() {
 }
 
 bool CoreRuntime::initializeCloudSyncE2ee(const std::string& passphrase) {
+    PASTY_LOG_INFO("Core.Runtime", "Initializing cloud sync E2EE (passphrase length: %zu)", passphrase.length());
     if (!m_started || !m_config.cloudSyncEnabled || m_config.cloudSyncRootPath.empty() || passphrase.empty()) {
+        PASTY_LOG_WARN("Core.Runtime", "Initialization failed: invalid state or empty passphrase");
         return false;
     }
 
     auto protocolInfo = CloudDriveSyncProtocolInfo::Load(m_config.cloudSyncRootPath);
     if (!protocolInfo.has_value()) {
+        PASTY_LOG_DEBUG("Core.Runtime", "No protocol info found, creating new E2EE protocol info");
         if (!CloudDriveSyncProtocolInfo::CreateE2EE(
                 m_config.cloudSyncRootPath,
                 crypto_pwhash_OPSLIMIT_INTERACTIVE,
                 crypto_pwhash_MEMLIMIT_INTERACTIVE
             )) {
+            PASTY_LOG_WARN("Core.Runtime", "Failed to create E2EE protocol info");
             return false;
         }
         protocolInfo = CloudDriveSyncProtocolInfo::Load(m_config.cloudSyncRootPath);
         if (!protocolInfo.has_value()) {
+            PASTY_LOG_WARN("Core.Runtime", "Failed to load newly created protocol info");
             return false;
         }
     }
@@ -298,6 +324,7 @@ bool CoreRuntime::initializeCloudSyncE2ee(const std::string& passphrase) {
 }
 
 void CoreRuntime::clearCloudSyncE2eeKey() {
+    PASTY_LOG_INFO("Core.Runtime", "Clearing cloud sync E2EE key");
     if (m_syncExporter.has_value()) {
         m_syncExporter->clearE2eeKey();
     }

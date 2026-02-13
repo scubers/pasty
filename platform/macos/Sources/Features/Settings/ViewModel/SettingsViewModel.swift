@@ -72,10 +72,12 @@ final class SettingsViewModel: ObservableObject {
     }
 
     func refreshCloudSyncStatus() {
+        LoggerService.info("Refreshing cloud sync status")
         let canRunImport = updateCloudSyncDirectoryValidation() && settings.cloudSync.enabled
         let normalizedPath = settings.cloudSync.rootPath.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard let runtime = coordinator.coreRuntime else {
+            LoggerService.warn("Core runtime not available, skipping refresh")
             deviceId = nil
             cloudSyncErrorCount = 0
             e2eeEnabled = false
@@ -120,6 +122,8 @@ final class SettingsViewModel: ObservableObject {
                 }
             }
 
+            LoggerService.info("Cloud sync status refresh complete (e2eeEnabled: \(statusE2eeEnabled), importSucceeded: \(importSucceeded))")
+
             Task { @MainActor in
                 guard let self else {
                     return
@@ -140,8 +144,12 @@ final class SettingsViewModel: ObservableObject {
         let normalizedPath = settings.cloudSync.rootPath.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalizedPath.isEmpty else { return }
 
+        LoggerService.info("Saving passphrase to Keychain for account: \(normalizedPath)")
         if KeychainService.setPassphrase(passphrase, account: normalizedPath) {
+            LoggerService.debug("Successfully saved passphrase to Keychain")
             refreshCloudSyncStatus()
+        } else {
+            LoggerService.error("Failed to save passphrase to Keychain")
         }
     }
 
@@ -149,11 +157,15 @@ final class SettingsViewModel: ObservableObject {
         let normalizedPath = settings.cloudSync.rootPath.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalizedPath.isEmpty else { return }
 
+        LoggerService.info("Deleting passphrase from Keychain for account: \(normalizedPath)")
         if KeychainService.deletePassphrase(account: normalizedPath) {
+            LoggerService.debug("Successfully deleted passphrase from Keychain")
             if let runtime = coordinator.coreRuntime {
                 pasty_cloud_sync_e2ee_clear(runtime)
             }
             refreshCloudSyncStatus()
+        } else {
+            LoggerService.error("Failed to delete passphrase from Keychain")
         }
     }
 
@@ -172,6 +184,7 @@ final class SettingsViewModel: ObservableObject {
 
         let normalizedPath = cloudSync.rootPath.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalizedPath.isEmpty else {
+            LoggerService.debug("Cloud sync directory path is empty")
             return false
         }
 
@@ -181,6 +194,7 @@ final class SettingsViewModel: ObservableObject {
         do {
             try fileManager.createDirectory(at: url, withIntermediateDirectories: true)
         } catch {
+            LoggerService.debug("Failed to create cloud sync directory: \(error.localizedDescription)")
             return false
         }
 
@@ -188,9 +202,11 @@ final class SettingsViewModel: ObservableObject {
         do {
             try Data("ok".utf8).write(to: probeURL)
             try? fileManager.removeItem(at: probeURL)
+            LoggerService.debug("Cloud sync directory validation successful for path: \(normalizedPath)")
             return true
         } catch {
             try? fileManager.removeItem(at: probeURL)
+            LoggerService.debug("Cloud sync directory write probe failed for path: \(normalizedPath), error: \(error.localizedDescription)")
             return false
         }
     }
@@ -204,10 +220,13 @@ final class SettingsViewModel: ObservableObject {
 
         if panel.runModal() == .OK {
             if let url = panel.url {
+                LoggerService.info("User selected cloud sync directory: \(url.path)")
                 updateSettings { settings in
                     settings.cloudSync.rootPath = url.path
                 }
             }
+        } else {
+            LoggerService.info("User cancelled cloud sync directory selection")
         }
     }
 

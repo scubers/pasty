@@ -306,6 +306,7 @@ class App: NSObject, NSApplicationDelegate {
     }
 
     private func updateCloudSyncImportLoop(cloudSync: CloudSyncSettings) {
+        LoggerService.info("Stopping cloud sync import timer")
         cloudSyncImportTimer?.cancel()
         cloudSyncImportTimer = nil
 
@@ -313,6 +314,8 @@ class App: NSObject, NSApplicationDelegate {
             return
         }
 
+        LoggerService.info("Starting cloud sync import timer")
+        LoggerService.debug("Cloud sync import interval: 60 seconds")
         runCloudSyncImportNow()
 
         cloudSyncImportTimer = Timer
@@ -334,8 +337,10 @@ class App: NSObject, NSApplicationDelegate {
             guard let runtime = UnsafeMutableRawPointer(bitPattern: runtimeAddress) else {
                 return
             }
+            LoggerService.debug("Starting cloud sync import now")
             self.initializeE2EEIfPossible(runtime: runtime, cloudSync: cloudSync)
-            _ = pasty_cloud_sync_import_now(runtime)
+            let result = pasty_cloud_sync_import_now(runtime)
+            LoggerService.info("Cloud sync import finished with result: \(result)")
         }
     }
 
@@ -344,8 +349,13 @@ class App: NSObject, NSApplicationDelegate {
         let normalizedPath = cloudSync.rootPath.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalizedPath.isEmpty else { return }
 
+        LoggerService.debug("Attempting to initialize E2EE for path: \(normalizedPath)")
         if let passphrase = KeychainService.getPassphrase(account: normalizedPath), !passphrase.isEmpty {
+            LoggerService.debug("Passphrase found in keychain (length: \(passphrase.count))")
             pasty_cloud_sync_e2ee_initialize(runtime, passphrase)
+            LoggerService.info("E2EE initialized successfully")
+        } else {
+            LoggerService.debug("No passphrase found in keychain for E2EE")
         }
     }
 
