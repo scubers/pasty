@@ -58,8 +58,6 @@ cd build/core && ctest -R history_test -V        # 按名称运行
 cd build/core && ctest -R encryption_test -V     # 加密测试
 ```
 
-**测试目标 (10个)**: `history_test`, `metadata_utils_test`, `settings_test`, `logger_test`, `cloud_sync_test`, `cloud_sync_exporter_test`, `cloud_sync_importer_test`, `cloud_sync_state_test`, `sodium_link_test`, `encryption_test`
-
 ### 3.3 macOS 构建
 
 ```bash
