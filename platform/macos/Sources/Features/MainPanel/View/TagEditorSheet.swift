@@ -18,11 +18,18 @@ struct TagEditorSheet: View {
             tagsContentView
             Divider()
             suggestionsView
+            recentTagsView
             Divider()
             inputView
         }
         .frame(width: 360, height: 320)
-        .background(Color(NSColor.windowBackgroundColor))
+        .background {
+            MainPanelVisualEffectView(
+                material: MainPanelTokens.Effects.materialHudWindow,
+                blendingMode: .behindWindow
+            )
+            MainPanelTokens.Colors.surface
+        }
         .onAppear {
             requestInputFocus()
         }
@@ -90,6 +97,30 @@ struct TagEditorSheet: View {
         }
     }
 
+    @ViewBuilder
+    private var recentTagsView: some View {
+        let availableRecentTags = viewModel.state.recentTags.filter { !viewModel.state.editingTags.contains($0) }
+        if !availableRecentTags.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    Text("最近:")
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                    ForEach(availableRecentTags, id: \.self) { tag in
+                        Button {
+                            viewModel.send(.tagAdded(tag))
+                        } label: {
+                            TagPill(tag: tag)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+            }
+        }
+    }
+
     private var inputView: some View {
         HStack(spacing: 12) {
             TextField("添加标签...", text: Binding(
@@ -146,26 +177,34 @@ struct TagChip: View {
     let tag: String
     let onDelete: () -> Void
 
+    private var style: TagPillStyle {
+        TagPillPalette.style(for: tag)
+    }
+
     var body: some View {
         HStack(spacing: 4) {
             Text(tag)
-                .font(.system(size: 13))
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(style.foreground)
             Button(action: onDelete) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 10))
-                    .foregroundColor(.secondary)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(style.foreground)
             }
             .buttonStyle(.plain)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .background(Color.accentColor.opacity(0.15))
-        .foregroundColor(.primary)
-        .cornerRadius(12)
+        .background(style.background.opacity(0.2))
+        .overlay(
+            Capsule()
+                .stroke(style.background.opacity(0.4), lineWidth: 1)
+        )
+        .clipShape(Capsule())
     }
 }
 
-struct FlowLayout: Layout {
+private struct FlowLayout: Layout {
     var spacing: CGFloat = 8
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {

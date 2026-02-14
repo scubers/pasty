@@ -59,8 +59,7 @@ struct MainPanelPreviewPanel: View {
 
         return VStack(alignment: .leading, spacing: MainPanelTokens.Layout.paddingCompact) {
             if !tags.isEmpty {
-                metadataLabel(title: "Tags:", value: tags.map { "#\($0)" }.joined(separator: " "))
-                    .font(MainPanelTokens.Typography.small)
+                TagPillContainer(tags: tags)
             }
 
             if item.type == .image {

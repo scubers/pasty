@@ -168,7 +168,8 @@ public:
             "update_time_ms=excluded.update_time_ms, "
             "last_copy_time_ms=excluded.last_copy_time_ms, "
             "source_app_id=excluded.source_app_id,"
-            "metadata=excluded.metadata;";
+            // Preserve existing tags/metadata when incoming metadata is empty (dedupe re-copy)
+            "metadata=COALESCE(NULLIF(excluded.metadata, ''), items.metadata);";
 
         if (sqlite3_prepare_v2(m_db, sql, -1, &statement, nullptr) != SQLITE_OK) {
             return {};
@@ -208,7 +209,9 @@ public:
                     sqlite3_stmt* update = nullptr;
                     const char* updateSql =
                         "UPDATE items "
-                        "SET update_time_ms = ?1, last_copy_time_ms = ?2, source_app_id = ?3, metadata = ?5 "
+                        "SET update_time_ms = ?1, last_copy_time_ms = ?2, source_app_id = ?3, "
+                        // Preserve existing tags/metadata when incoming metadata is empty (dedupe re-copy)
+                        "metadata = CASE WHEN length(?5) > 0 THEN ?5 ELSE metadata END "
                         "WHERE id = ?4;";
                     if (sqlite3_prepare_v2(m_db, updateSql, -1, &update, nullptr) != SQLITE_OK) {
                         PASTY_LOG_ERROR("Core.Store", "Upsert image dedupe update prepare failed");

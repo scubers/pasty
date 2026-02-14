@@ -10,24 +10,47 @@
 
 namespace {
 
-void configureMigrationDirectoryForTests() {
+std::filesystem::path findRepoRoot() {
     const std::filesystem::path current = std::filesystem::current_path();
     const std::vector<std::filesystem::path> candidates = {
-        current / "../migrations",
         current / "core/migrations",
         current / "../core/migrations",
         current / "../../core/migrations",
         current / "../../../core/migrations",
+        current / "../../../../core/migrations",
     };
 
     for (const auto& candidate : candidates) {
-        if (std::filesystem::exists(candidate / "0001-initial-schema.sql")) {
-            pasty::setClipboardHistoryMigrationDirectory(std::filesystem::absolute(candidate).string());
-            return;
+        std::filesystem::path migrationFile = candidate / "0001-initial-schema.sql";
+        if (std::filesystem::exists(migrationFile)) {
+            // candidate is <repoRoot>/core/migrations, so repo root is candidate.parent_path().parent_path()
+            return std::filesystem::absolute(candidate).parent_path().parent_path();
         }
     }
 
-    assert(false && "Could not locate migration directory for tests");
+    std::cerr << "Current path: " << current << std::endl;
+    std::cerr << "Searched for migrations in:" << std::endl;
+    for (const auto& candidate : candidates) {
+        std::cerr << "  " << candidate << std::endl;
+    }
+    assert(false && "Could not locate repo root for tests");
+    return {};
+}
+
+std::filesystem::path getTestsOutputBaseDir() {
+    static std::filesystem::path base = [] {
+        std::filesystem::path repoRoot = findRepoRoot();
+        std::filesystem::path baseDir = repoRoot / "build" / "core-tests";
+        std::filesystem::create_directories(baseDir);
+        return baseDir;
+    }();
+    return base;
+}
+
+void configureMigrationDirectoryForTests() {
+    std::filesystem::path repoRoot = findRepoRoot();
+    std::filesystem::path migrationsDir = repoRoot / "core" / "migrations";
+    pasty::setClipboardHistoryMigrationDirectory(migrationsDir.string());
 }
 
 pasty::ClipboardService makeService(pasty::SettingsStore& settings) {
@@ -40,11 +63,12 @@ void testSearch() {
     std::cout << "Running testSearch..." << std::endl;
 
     configureMigrationDirectoryForTests();
-    std::filesystem::remove_all("test_history");
+    std::filesystem::path testDir = getTestsOutputBaseDir() / "test_history";
+    std::filesystem::remove_all(testDir);
 
     pasty::InMemorySettingsStore settings(1000);
     auto service = makeService(settings);
-    assert(service.initialize("test_history"));
+    assert(service.initialize(testDir.string()));
 
     pasty::ClipboardHistoryIngestEvent event1;
     event1.text = "Hello World";
@@ -77,11 +101,12 @@ void testSearchReturnsImagesWhenQueryIsEmpty() {
     std::cout << "Running testSearchReturnsImagesWhenQueryIsEmpty..." << std::endl;
 
     configureMigrationDirectoryForTests();
-    std::filesystem::remove_all("test_history_images");
+    std::filesystem::path testDir = getTestsOutputBaseDir() / "test_history_images";
+    std::filesystem::remove_all(testDir);
 
     pasty::InMemorySettingsStore settings(1000);
     auto service = makeService(settings);
-    assert(service.initialize("test_history_images"));
+    assert(service.initialize(testDir.string()));
 
     pasty::ClipboardHistoryIngestEvent textEvent;
     textEvent.text = "Hello World";
@@ -111,11 +136,12 @@ void testRetentionRespectsSettings() {
     std::cout << "Running testRetentionRespectsSettings..." << std::endl;
 
     configureMigrationDirectoryForTests();
-    std::filesystem::remove_all("test_history_retention");
+    std::filesystem::path testDir = getTestsOutputBaseDir() / "test_history_retention";
+    std::filesystem::remove_all(testDir);
 
     pasty::InMemorySettingsStore settings(2);
     auto service = makeService(settings);
-    assert(service.initialize("test_history_retention"));
+    assert(service.initialize(testDir.string()));
 
     pasty::ClipboardHistoryIngestEvent e1; e1.text = "1"; e1.timestampMs = 1000; assert(service.ingest(e1));
     pasty::ClipboardHistoryIngestEvent e2; e2.text = "2"; e2.timestampMs = 2000; assert(service.ingest(e2));
@@ -133,21 +159,24 @@ void testRetentionRespectsSettings() {
 void testMigrationDirectoryControlsLookup() {
     std::cout << "Running testMigrationDirectoryControlsLookup..." << std::endl;
 
+    std::filesystem::path baseDir = getTestsOutputBaseDir();
     pasty::setClipboardHistoryMigrationDirectory("/tmp/pasty-missing-migrations");
     {
-        std::filesystem::remove_all("test_history_missing_migration");
+        std::filesystem::path testDir1 = baseDir / "test_history_missing_migration";
+        std::filesystem::remove_all(testDir1);
         pasty::InMemorySettingsStore settings(1000);
         auto service = makeService(settings);
-        assert(!service.initialize("test_history_missing_migration"));
+        assert(!service.initialize(testDir1.string()));
     }
 
     configureMigrationDirectoryForTests();
     {
-        std::filesystem::remove_all("test_history_migration_ok");
+        std::filesystem::path testDir2 = baseDir / "test_history_migration_ok";
+        std::filesystem::remove_all(testDir2);
         pasty::InMemorySettingsStore settings(1000);
         auto service = makeService(settings);
-        assert(service.initialize("test_history_migration_ok"));
-        assert(std::filesystem::exists("test_history_migration_ok/history.sqlite3"));
+        assert(service.initialize(testDir2.string()));
+        assert(std::filesystem::exists(testDir2 / "history.sqlite3"));
         service.shutdown();
     }
 
@@ -158,11 +187,12 @@ void testGetTagsFromNonExistentItem() {
     std::cout << "Running testGetTagsFromNonExistentItem..." << std::endl;
 
     configureMigrationDirectoryForTests();
-    std::filesystem::remove_all("test_history_tags_nonexist");
+    std::filesystem::path testDir = getTestsOutputBaseDir() / "test_history_tags_nonexist";
+    std::filesystem::remove_all(testDir);
 
     pasty::InMemorySettingsStore settings(1000);
     auto service = makeService(settings);
-    assert(service.initialize("test_history_tags_nonexist"));
+    assert(service.initialize(testDir.string()));
 
     auto tags = service.getTags("non-existent-id");
     assert(tags.empty());
@@ -175,11 +205,12 @@ void testSetAndGetTags() {
     std::cout << "Running testSetAndGetTags..." << std::endl;
 
     configureMigrationDirectoryForTests();
-    std::filesystem::remove_all("test_history_tags_setget");
+    std::filesystem::path testDir = getTestsOutputBaseDir() / "test_history_tags_setget";
+    std::filesystem::remove_all(testDir);
 
     pasty::InMemorySettingsStore settings(1000);
     auto service = makeService(settings);
-    assert(service.initialize("test_history_tags_setget"));
+    assert(service.initialize(testDir.string()));
 
     pasty::ClipboardHistoryIngestEvent event;
     event.text = "Test content for tags";
@@ -214,11 +245,12 @@ void testSetTagsDeduplicates() {
     std::cout << "Running testSetTagsDeduplicates..." << std::endl;
 
     configureMigrationDirectoryForTests();
-    std::filesystem::remove_all("test_history_tags_dedup");
+    std::filesystem::path testDir = getTestsOutputBaseDir() / "test_history_tags_dedup";
+    std::filesystem::remove_all(testDir);
 
     pasty::InMemorySettingsStore settings(1000);
     auto service = makeService(settings);
-    assert(service.initialize("test_history_tags_dedup"));
+    assert(service.initialize(testDir.string()));
 
     pasty::ClipboardHistoryIngestEvent event;
     event.text = "Test dedup";
@@ -245,11 +277,12 @@ void testSetTagsFiltersEmpty() {
     std::cout << "Running testSetTagsFiltersEmpty..." << std::endl;
 
     configureMigrationDirectoryForTests();
-    std::filesystem::remove_all("test_history_tags_empty");
+    std::filesystem::path testDir = getTestsOutputBaseDir() / "test_history_tags_empty";
+    std::filesystem::remove_all(testDir);
 
     pasty::InMemorySettingsStore settings(1000);
     auto service = makeService(settings);
-    assert(service.initialize("test_history_tags_empty"));
+    assert(service.initialize(testDir.string()));
 
     pasty::ClipboardHistoryIngestEvent event;
     event.text = "Test empty filter";
@@ -275,11 +308,12 @@ void testSetEmptyTagsClearsAll() {
     std::cout << "Running testSetEmptyTagsClearsAll..." << std::endl;
 
     configureMigrationDirectoryForTests();
-    std::filesystem::remove_all("test_history_tags_clear");
+    std::filesystem::path testDir = getTestsOutputBaseDir() / "test_history_tags_clear";
+    std::filesystem::remove_all(testDir);
 
     pasty::InMemorySettingsStore settings(1000);
     auto service = makeService(settings);
-    assert(service.initialize("test_history_tags_clear"));
+    assert(service.initialize(testDir.string()));
 
     pasty::ClipboardHistoryIngestEvent event;
     event.text = "Test clear";
@@ -305,11 +339,12 @@ void testSetTagsDoesNotChangeLastCopyTime() {
     std::cout << "Running testSetTagsDoesNotChangeLastCopyTime..." << std::endl;
 
     configureMigrationDirectoryForTests();
-    std::filesystem::remove_all("test_history_tags_lastcopy");
+    std::filesystem::path testDir = getTestsOutputBaseDir() / "test_history_tags_lastcopy";
+    std::filesystem::remove_all(testDir);
 
     pasty::InMemorySettingsStore settings(1000);
     auto service = makeService(settings);
-    assert(service.initialize("test_history_tags_lastcopy"));
+    assert(service.initialize(testDir.string()));
 
     pasty::ClipboardHistoryIngestEvent event;
     event.text = "Test last copy time";
@@ -337,11 +372,12 @@ void testSearchMatchesTagsInMetadata() {
     std::cout << "Running testSearchMatchesTagsInMetadata..." << std::endl;
 
     configureMigrationDirectoryForTests();
-    std::filesystem::remove_all("test_history_search_tags");
+    std::filesystem::path testDir = getTestsOutputBaseDir() / "test_history_search_tags";
+    std::filesystem::remove_all(testDir);
 
     pasty::InMemorySettingsStore settings(1000);
     auto service = makeService(settings);
-    assert(service.initialize("test_history_search_tags"));
+    assert(service.initialize(testDir.string()));
 
     pasty::ClipboardHistoryIngestEvent event;
     event.text = "Body text without search token";
@@ -370,6 +406,104 @@ void testSearchMatchesTagsInMetadata() {
     std::cout << "testSearchMatchesTagsInMetadata PASSED" << std::endl;
 }
 
+void testTextDedupePreservesTags() {
+    std::cout << "Running testTextDedupePreservesTags..." << std::endl;
+
+    configureMigrationDirectoryForTests();
+    std::filesystem::path testDir = getTestsOutputBaseDir() / "test_history_dedupe_tags_text";
+    std::filesystem::remove_all(testDir);
+
+    pasty::InMemorySettingsStore settings(1000);
+    auto service = makeService(settings);
+    assert(service.initialize(testDir.string()));
+
+    pasty::ClipboardHistoryIngestEvent event1;
+    event1.text = "Duplicate text content";
+    event1.timestampMs = 1000;
+    assert(service.ingest(event1));
+
+    auto list1 = service.list(10, "");
+    assert(list1.items.size() == 1);
+    std::string itemId = list1.items[0].id;
+
+    std::vector<std::string> tags = {"work", "important"};
+    assert(service.setTags(itemId, tags));
+
+    auto tagsAfterSet = service.getTags(itemId);
+    assert(tagsAfterSet.size() == 2);
+
+    pasty::ClipboardHistoryIngestEvent event2;
+    event2.text = "Duplicate text content";
+    event2.timestampMs = 2000;
+    assert(service.ingest(event2));
+
+    auto list2 = service.list(10, "");
+    assert(list2.items.size() == 1);
+
+    auto tagsAfterDedupe = service.getTags(itemId);
+    assert(tagsAfterDedupe.size() == 2);
+    assert(tagsAfterDedupe[0] == "work");
+    assert(tagsAfterDedupe[1] == "important");
+
+    auto item = service.getById(itemId);
+    assert(item.has_value());
+    assert(item->lastCopyTimeMs == 2000);
+
+    service.shutdown();
+    std::cout << "testTextDedupePreservesTags PASSED" << std::endl;
+}
+
+void testImageDedupePreservesTags() {
+    std::cout << "Running testImageDedupePreservesTags..." << std::endl;
+
+    configureMigrationDirectoryForTests();
+    std::filesystem::path testDir = getTestsOutputBaseDir() / "test_history_dedupe_tags_image";
+    std::filesystem::remove_all(testDir);
+
+    pasty::InMemorySettingsStore settings(1000);
+    auto service = makeService(settings);
+    assert(service.initialize(testDir.string()));
+
+    pasty::ClipboardHistoryIngestEvent event1;
+    event1.itemType = pasty::ClipboardItemType::Image;
+    event1.image.bytes = {0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00};
+    event1.image.formatHint = "png";
+    event1.timestampMs = 1000;
+    assert(service.ingest(event1));
+
+    auto list1 = service.list(10, "");
+    assert(list1.items.size() == 1);
+    std::string itemId = list1.items[0].id;
+
+    std::vector<std::string> tags = {"personal", "screenshot"};
+    assert(service.setTags(itemId, tags));
+
+    auto tagsAfterSet = service.getTags(itemId);
+    assert(tagsAfterSet.size() == 2);
+
+    pasty::ClipboardHistoryIngestEvent event2;
+    event2.itemType = pasty::ClipboardItemType::Image;
+    event2.image.bytes = {0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00};
+    event2.image.formatHint = "png";
+    event2.timestampMs = 2000;
+    assert(service.ingest(event2));
+
+    auto list2 = service.list(10, "");
+    assert(list2.items.size() == 1);
+
+    auto tagsAfterDedupe = service.getTags(itemId);
+    assert(tagsAfterDedupe.size() == 2);
+    assert(tagsAfterDedupe[0] == "personal");
+    assert(tagsAfterDedupe[1] == "screenshot");
+
+    auto item = service.getById(itemId);
+    assert(item.has_value());
+    assert(item->lastCopyTimeMs == 2000);
+
+    service.shutdown();
+    std::cout << "testImageDedupePreservesTags PASSED" << std::endl;
+}
+
 int main() {
     testSearch();
     testSearchReturnsImagesWhenQueryIsEmpty();
@@ -382,5 +516,7 @@ int main() {
     testSetEmptyTagsClearsAll();
     testSetTagsDoesNotChangeLastCopyTime();
     testSearchMatchesTagsInMetadata();
+    testTextDedupePreservesTags();
+    testImageDedupePreservesTags();
     return 0;
 }

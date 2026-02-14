@@ -23,6 +23,7 @@ final class MainPanelViewModel: ObservableObject {
         var allTags: [String] = []
         var tagSuggestions: [String] = []
         var selectedSuggestionIndex = -1
+        var recentTags: [String] = []
 
         var selectedItem: ClipboardItemRow? {
             guard let selectedItemID else {
@@ -511,11 +512,19 @@ final class MainPanelViewModel: ObservableObject {
                     guard let self else {
                         return
                     }
+                    self.updateRecentTags(with: tags)
                     self.historyService.invalidateSearchCache()
                     self.refreshListFromDatabase(selectFirst: false)
                 }
             )
             .store(in: &cancellables)
+    }
+
+    private func updateRecentTags(with newTags: [String]) {
+        let trimmed = newTags.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        var updated = trimmed + state.recentTags.filter { !trimmed.contains($0) }
+        updated = Array(updated.prefix(8))
+        state.recentTags = updated
     }
 
     private func loadAllTags() {
