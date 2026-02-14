@@ -18,6 +18,7 @@ final class MainPanelViewModel: ObservableObject {
         var filterType: ClipboardItemRow.ItemType? = nil
         var totalItemCount = 0
         var isTagEditorPresented = false
+        var tagEditorTargetItemID: String? = nil
         var editingTags: [String] = []
         var allTags: [String] = []
         var tagSuggestions: [String] = []
@@ -185,16 +186,18 @@ final class MainPanelViewModel: ObservableObject {
             requestSearchFocus()
 
         case .openTagEditor:
-            guard state.selectedItem != nil else {
+            guard let selectedItemID = state.selectedItemID else {
                 return
             }
-            loadTagsForSelectedItem()
+            state.tagEditorTargetItemID = selectedItemID
+            loadTagsForTagEditorTargetItem()
             loadAllTags()
             state.isTagEditorPresented = true
             state.tagEditorFocusToken &+= 1
 
         case .closeTagEditor:
             state.isTagEditorPresented = false
+            state.tagEditorTargetItemID = nil
             state.editingTags = []
             requestSearchFocus()
 
@@ -464,30 +467,33 @@ final class MainPanelViewModel: ObservableObject {
             .store(in: &cancellables)
     }
 
-    private func loadTagsForSelectedItem() {
-        guard let selectedItem = state.selectedItem else {
+    private func loadTagsForTagEditorTargetItem() {
+        guard let targetItemID = state.tagEditorTargetItemID ?? state.selectedItemID else {
             return
         }
-        historyService.getTags(id: selectedItem.id)
+        historyService.getTags(id: targetItemID)
             .receive(on: DispatchQueue.main)
             .sink(
-                receiveCompletion: { [weak self] completion in
-                    if let self, case let .failure(error) = completion {
+                receiveCompletion: { completion in
+                    if case let .failure(error) = completion {
                         LoggerService.error("Failed to load tags: \(error.localizedDescription)")
                     }
                 },
                 receiveValue: { [weak self] tags in
-                    self?.state.editingTags = tags
+                    guard let self, self.state.tagEditorTargetItemID == targetItemID else {
+                        return
+                    }
+                    self.state.editingTags = tags
                 }
             )
             .store(in: &cancellables)
     }
 
     private func saveTagsToSelectedItem(_ tags: [String]) {
-        guard let selectedItem = state.selectedItem else {
+        guard let targetItemID = state.tagEditorTargetItemID ?? state.selectedItemID else {
             return
         }
-        historyService.setTags(id: selectedItem.id, tags: tags)
+        historyService.setTags(id: targetItemID, tags: tags)
             .receive(on: DispatchQueue.main)
             .sink(
                 receiveCompletion: { [weak self] completion in
@@ -497,6 +503,7 @@ final class MainPanelViewModel: ObservableObject {
                         self.state.errorMessage = error.localizedDescription
                     }
                     self.state.isTagEditorPresented = false
+                    self.state.tagEditorTargetItemID = nil
                     self.state.editingTags = []
                     self.requestSearchFocus()
                 },

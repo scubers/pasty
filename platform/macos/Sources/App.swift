@@ -198,6 +198,28 @@ class App: NSObject, NSApplicationDelegate {
 
     @MainActor
     private func setupMenuBar() {
+        let mainMenu = NSMenu()
+        
+        let appMenuItem = NSMenuItem()
+        appMenuItem.submenu = NSMenu(title: "Pasty")
+        appMenuItem.submenu?.addItem(NSMenuItem(title: "About Pasty", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: ""))
+        appMenuItem.submenu?.addItem(NSMenuItem.separator())
+        appMenuItem.submenu?.addItem(NSMenuItem(title: "Settings...", action: #selector(openSettings), keyEquivalent: ","))
+        appMenuItem.submenu?.addItem(NSMenuItem.separator())
+        appMenuItem.submenu?.addItem(NSMenuItem(title: "Quit Pasty", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        mainMenu.addItem(appMenuItem)
+        
+        let editMenuItem = NSMenuItem()
+        editMenuItem.submenu = NSMenu(title: "Edit")
+        editMenuItem.submenu?.addItem(NSMenuItem(title: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x"))
+        editMenuItem.submenu?.addItem(NSMenuItem(title: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c"))
+        editMenuItem.submenu?.addItem(NSMenuItem(title: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v"))
+        editMenuItem.submenu?.addItem(NSMenuItem.separator())
+        editMenuItem.submenu?.addItem(NSMenuItem(title: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a"))
+        mainMenu.addItem(editMenuItem)
+        
+        NSApp.mainMenu = mainMenu
+        
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
 
         if let button = statusItem.button {
@@ -205,20 +227,20 @@ class App: NSObject, NSApplicationDelegate {
             button.image?.isTemplate = true
         }
         
-        let menu = NSMenu()
+        let statusMenu = NSMenu()
         let openItem = NSMenuItem(title: "Open Panel", action: #selector(openPanel), keyEquivalent: "")
-        menu.addItem(openItem)
+        statusMenu.addItem(openItem)
         
-        menu.addItem(NSMenuItem.separator())
+        statusMenu.addItem(NSMenuItem.separator())
         
         let settingsItem = NSMenuItem(title: "Settings...", action: #selector(openSettings), keyEquivalent: ",")
-        menu.addItem(settingsItem)
+        statusMenu.addItem(settingsItem)
         
-        menu.addItem(NSMenuItem.separator())
+        statusMenu.addItem(NSMenuItem.separator())
         let quitItem = NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-        menu.addItem(quitItem)
+        statusMenu.addItem(quitItem)
         
-        statusItem.menu = menu
+        statusItem.menu = statusMenu
     }
     
     @MainActor
