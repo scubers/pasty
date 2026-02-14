@@ -30,6 +30,7 @@ set(PASTY_CORE_SOURCES
     src/infrastructure/sync/cloud_drive_sync_state.cpp
     src/runtime/core_runtime.cpp
     src/store/sqlite_clipboard_history_store.cpp
+    src/utils/metadata_utils.cpp
     src/utils/runtime_json_utils.cpp
 )
 

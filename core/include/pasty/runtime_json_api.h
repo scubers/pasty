@@ -81,6 +81,10 @@ bool pasty_history_get_ocr_status(pasty_runtime_ref runtime, const char* id, cha
 
 bool pasty_history_get_json(pasty_runtime_ref runtime, const char* id, char** out_json);
 
+bool pasty_history_get_tags(pasty_runtime_ref runtime, const char* id, char** out_json);
+
+bool pasty_history_set_tags(pasty_runtime_ref runtime, const char* id, const char* tags_json);
+
 void pasty_free_string(char* str);
 
 bool pasty_history_delete(pasty_runtime_ref runtime, const char* id);

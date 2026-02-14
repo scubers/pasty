@@ -101,11 +101,8 @@ public:
      */
     ExportResult exportDeleteTombstone(ClipboardItemType itemType, const std::string& contentHash);
 
-    /**
-     * Check if sync is configured and enabled
-     *
-     * @return true if sync_root is configured and writable
-     */
+    ExportResult exportTags(ClipboardItemType itemType, const std::string& contentHash, const std::vector<std::string>& tags);
+
     bool isConfigured() const;
 
 private:

@@ -623,6 +623,66 @@ bool pasty_history_get_json(pasty_runtime_ref runtime_ref, const char* id, char*
     return true;
 }
 
+bool pasty_history_get_tags(pasty_runtime_ref runtime_ref, const char* id, char** out_json) {
+    PastyRuntime* runtime = castRuntime(runtime_ref);
+    if (runtime == nullptr || id == nullptr || out_json == nullptr) {
+        return false;
+    }
+
+    std::lock_guard<std::mutex> lock(runtime->mutex);
+    auto* service = clipboardService(runtime);
+    if (service == nullptr) {
+        return false;
+    }
+
+    const std::vector<std::string> tags = service->getTags(pasty::runtime_json_utils::fromCString(id));
+
+    using Json = nlohmann::json;
+    Json json = tags;
+    *out_json = pasty::runtime_json_utils::copyString(json.dump());
+    return true;
+}
+
+bool pasty_history_set_tags(pasty_runtime_ref runtime_ref, const char* id, const char* tags_json) {
+    PastyRuntime* runtime = castRuntime(runtime_ref);
+    if (runtime == nullptr || id == nullptr || tags_json == nullptr) {
+        return false;
+    }
+
+    std::vector<std::string> tags;
+    try {
+        using Json = nlohmann::json;
+        const Json json = Json::parse(tags_json);
+        if (json.is_array()) {
+            for (const auto& tag : json) {
+                if (tag.is_string()) {
+                    tags.push_back(tag.get<std::string>());
+                }
+            }
+        }
+    } catch (...) {
+        return false;
+    }
+
+    std::lock_guard<std::mutex> lock(runtime->mutex);
+    auto* service = clipboardService(runtime);
+    if (service == nullptr) {
+        return false;
+    }
+
+    const std::string itemId = pasty::runtime_json_utils::fromCString(id);
+    const bool success = service->setTags(itemId, tags);
+
+    if (success && runtime->runtime) {
+        auto item = service->getById(itemId);
+        if (item.has_value()) {
+            runtime->runtime->exportLocalTags(*item, tags);
+        }
+    }
+
+    return success;
+}
+
 void pasty_free_string(char* str) {
     delete[] str;
 }

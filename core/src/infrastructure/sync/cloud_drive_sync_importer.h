@@ -115,7 +115,10 @@ private:
         std::string assetKey;
         std::int32_t imageWidth = 0;
         std::int32_t imageHeight = 0;
-        
+
+        // For set_tags
+        std::vector<std::string> tags;
+
         // Optional fields (forward compat)
         std::string sourceAppId;
         
@@ -143,6 +146,7 @@ private:
     bool applyUpsertText(const ParsedEvent& event, ClipboardService& clipboardService);
     bool applyUpsertImage(const ParsedEvent& event, ClipboardService& clipboardService);
     bool applyDelete(const ParsedEvent& event, ClipboardService& clipboardService);
+    bool applySetTags(const ParsedEvent& event, ClipboardService& clipboardService);
     
     // Constants
     static constexpr int kSchemaVersion = 1;

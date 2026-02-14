@@ -159,7 +159,8 @@ final class MainPanelWindowController: NSWindowController, NSWindowDelegate, InA
               panel.isKeyWindow,
               NSApp.keyWindow === panel,
               panel.attachedSheet == nil,
-              viewModel.state.pendingDeleteItem == nil else {
+              viewModel.state.pendingDeleteItem == nil,
+              !viewModel.state.isTagEditorPresented else {
             return false
         }
 
@@ -190,6 +191,9 @@ final class MainPanelWindowController: NSWindowController, NSWindowDelegate, InA
             return true
         case (2, true): // cmd+d
             viewModel.send(.prepareDeleteSelected)
+            return true
+        case (17, true): // cmd+t
+            viewModel.send(.openTagEditor)
             return true
         default:
             return false

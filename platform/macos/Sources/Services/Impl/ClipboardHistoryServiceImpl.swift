@@ -176,6 +176,77 @@ final class ClipboardHistoryServiceImpl: ClipboardHistoryService {
         cacheLock.unlock()
     }
 
+    func getTags(id: String) -> AnyPublisher<[String], Error> {
+        return Future { promise in
+            self.workQueue.async {
+                guard let runtime = self.coordinator.coreRuntime else {
+                    promise(.failure(NSError(domain: "ClipboardHistoryError", code: -10, userInfo: [NSLocalizedDescriptionKey: "Core runtime unavailable"])))
+                    return
+                }
+
+                var outJson: UnsafeMutablePointer<CChar>? = nil
+                guard pasty_history_get_tags(runtime, id, &outJson) else {
+                    promise(.failure(NSError(domain: "ClipboardHistoryError", code: -1, userInfo: nil)))
+                    return
+                }
+
+                guard let jsonPtr = outJson else {
+                    promise(.success([]))
+                    return
+                }
+
+                defer {
+                    pasty_free_string(jsonPtr)
+                }
+
+                let jsonString = String(cString: jsonPtr)
+                guard let data = jsonString.data(using: .utf8) else {
+                    promise(.failure(NSError(domain: "ClipboardHistoryError", code: -3, userInfo: [NSLocalizedDescriptionKey: "Invalid UTF8"])))
+                    return
+                }
+
+                do {
+                    let tags = try JSONDecoder().decode([String].self, from: data)
+                    promise(.success(tags))
+                } catch {
+                    promise(.failure(error))
+                }
+            }
+        }
+        .eraseToAnyPublisher()
+    }
+
+    func setTags(id: String, tags: [String]) -> AnyPublisher<Void, Error> {
+        return Future { promise in
+            self.workQueue.async {
+                guard let runtime = self.coordinator.coreRuntime else {
+                    promise(.failure(NSError(domain: "ClipboardHistoryError", code: -10, userInfo: [NSLocalizedDescriptionKey: "Core runtime unavailable"])))
+                    return
+                }
+
+                do {
+                    let tagsJson = try JSONEncoder().encode(tags)
+                    let tagsJsonString = String(data: tagsJson, encoding: .utf8) ?? "[]"
+
+                    let success = tagsJsonString.withCString { tagsPtr in
+                        id.withCString { idPtr in
+                            pasty_history_set_tags(runtime, idPtr, tagsPtr)
+                        }
+                    }
+
+                    if success {
+                        promise(.success(()))
+                    } else {
+                        promise(.failure(NSError(domain: "ClipboardHistoryError", code: -6, userInfo: [NSLocalizedDescriptionKey: "Set tags failed"])))
+                    }
+                } catch {
+                    promise(.failure(error))
+                }
+            }
+        }
+        .eraseToAnyPublisher()
+    }
+
     private func cachedValue(for key: CacheKey) -> [ClipboardItemRow]? {
         cacheLock.lock()
         let value = searchCache[key]

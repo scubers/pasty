@@ -67,6 +67,7 @@ public:
     bool exportLocalTextIngest(const ClipboardHistoryIngestEvent& event, bool inserted);
     bool exportLocalImageIngest(const ClipboardHistoryIngestEvent& event, bool inserted);
     bool exportLocalDelete(const ClipboardHistoryItem& deletedItem, bool deleted);
+    bool exportLocalTags(const ClipboardHistoryItem& item, const std::vector<std::string>& tags);
 
 private:
     bool syncExportConfigured() const;

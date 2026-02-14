@@ -2,7 +2,6 @@ import Cocoa
 import SwiftUI
 import Combine
 import QuartzCore
-import KeyboardShortcuts
 import PastyCore
 
 @main
@@ -38,6 +37,10 @@ class App: NSObject, NSApplicationDelegate {
     private var cloudSyncSettingsCancellable: AnyCancellable?
     private var cloudSyncImportTimer: AnyCancellable?
     private var lastSettingsWarningShown: String?
+    @MainActor
+    private var tagEditorHotkeyOwner: TagEditorHotkeyOwner?
+    @MainActor
+    private var tagEditorHotkeyToken: InAppHotkeyPermissionToken?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Initialize Logger
@@ -166,6 +169,9 @@ class App: NSObject, NSApplicationDelegate {
         cloudSyncImportTimer = nil
         cloudSyncSettingsCancellable?.cancel()
         cloudSyncSettingsCancellable = nil
+        tagEditorHotkeyToken?.resign()
+        tagEditorHotkeyToken = nil
+        tagEditorHotkeyOwner = nil
         if let runtime = appCoordinator.coreRuntime {
             pasty_runtime_stop(runtime)
             pasty_runtime_destroy(runtime)
@@ -242,6 +248,44 @@ class App: NSObject, NSApplicationDelegate {
                     return
                 }
                 self.showDeleteConfirmation()
+            }
+            .store(in: &cancellables)
+
+        viewModel.$state
+            .map(\.isTagEditorPresented)
+            .removeDuplicates()
+            .sink { [weak self] isTagEditorPresented in
+                guard let self else {
+                    return
+                }
+
+                if isTagEditorPresented {
+                    if self.tagEditorHotkeyOwner == nil {
+                        self.tagEditorHotkeyOwner = TagEditorHotkeyOwner(
+                            isTagEditorPresented: { [weak self] in
+                                self?.viewModel.state.isTagEditorPresented == true
+                            },
+                            onClose: { [weak self] in
+                                self?.viewModel.send(.closeTagEditor)
+                            },
+                            onSave: { [weak self] in
+                                guard self != nil else {
+                                    return
+                                }
+                                NotificationCenter.default.post(name: .tagEditorSaveHotkeyTriggered, object: nil)
+                            }
+                        )
+                    }
+
+                    if let owner = self.tagEditorHotkeyOwner {
+                        self.tagEditorHotkeyToken?.resign()
+                        self.tagEditorHotkeyToken = InAppHotkeyPermissionManager.shared.request(owner: owner)
+                    }
+                } else {
+                    self.tagEditorHotkeyToken?.resign()
+                    self.tagEditorHotkeyToken = nil
+                    self.tagEditorHotkeyOwner = nil
+                }
             }
             .store(in: &cancellables)
     }

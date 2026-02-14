@@ -2,6 +2,7 @@
 
 #include "history/clipboard_history_store.h"
 #include "ports/settings_store.h"
+#include "utils/metadata_utils.h"
 
 #include <memory>
 #include <optional>
@@ -34,8 +35,12 @@ public:
     bool updateOcrFailed(const std::string& id);
     std::optional<OcrTaskStatus> getOcrStatus(const std::string& id);
     std::optional<ClipboardHistoryItem> getById(const std::string& id);
+    std::optional<ClipboardHistoryItem> getByTypeAndContentHash(ClipboardItemType type, const std::string& contentHash);
     bool deleteById(const std::string& id);
     int deleteByTypeAndContentHash(ClipboardItemType type, const std::string& contentHash);
+
+    std::vector<std::string> getTags(const std::string& id);
+    bool setTags(const std::string& id, const std::vector<std::string>& tags);
 
     bool applyRetentionFromSettings();
     bool enforceRetention(std::int32_t maxCount);

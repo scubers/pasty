@@ -231,6 +231,14 @@ std::optional<ClipboardHistoryItem> ClipboardService::getById(const std::string&
     return m_store->getItem(id);
 }
 
+std::optional<ClipboardHistoryItem> ClipboardService::getByTypeAndContentHash(ClipboardItemType type, const std::string& contentHash) {
+    if (!m_initialized || !m_store) {
+        return std::nullopt;
+    }
+
+    return m_store->getItemByTypeAndContentHash(type, contentHash);
+}
+
 bool ClipboardService::deleteById(const std::string& id) {
     if (!m_initialized || !m_store) {
         return false;
@@ -245,6 +253,40 @@ int ClipboardService::deleteByTypeAndContentHash(ClipboardItemType type, const s
     }
 
     return m_store->deleteByTypeAndContentHash(type, contentHash);
+}
+
+std::vector<std::string> ClipboardService::getTags(const std::string& id) {
+    if (!m_initialized || !m_store || id.empty()) {
+        return {};
+    }
+
+    auto item = m_store->getItem(id);
+    if (!item) {
+        return {};
+    }
+
+    return metadata_utils::parseTags(item->metadata);
+}
+
+bool ClipboardService::setTags(const std::string& id, const std::vector<std::string>& tags) {
+    if (!m_initialized || !m_store || id.empty()) {
+        return false;
+    }
+
+    auto item = m_store->getItem(id);
+    if (!item) {
+        return false;
+    }
+
+    auto currentTags = metadata_utils::parseTags(item->metadata);
+    if (metadata_utils::tagsEqual(currentTags, tags)) {
+        return true;
+    }
+
+    std::string newMetadata = metadata_utils::serializeTags(tags);
+    HistoryTimestampMs updateTimeMs = currentTimeMs();
+
+    return m_store->updateItemMetadata(id, newMetadata, updateTimeMs);
 }
 
 bool ClipboardService::applyRetentionFromSettings() {

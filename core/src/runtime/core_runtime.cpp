@@ -404,6 +404,15 @@ bool CoreRuntime::exportLocalDelete(const ClipboardHistoryItem& deletedItem, boo
         == CloudDriveSyncExporter::ExportResult::Success;
 }
 
+bool CoreRuntime::exportLocalTags(const ClipboardHistoryItem& item, const std::vector<std::string>& tags) {
+    if (!ensureCloudSyncExporter() || !m_syncExporter.has_value()) {
+        return false;
+    }
+
+    return m_syncExporter->exportTags(item.type, item.contentHash, tags)
+        == CloudDriveSyncExporter::ExportResult::Success;
+}
+
 std::string CoreRuntime::loadSyncDeviceId() const {
     auto state = CloudDriveSyncState::LoadOrCreate(m_config.storageDirectory);
     if (!state.has_value()) {

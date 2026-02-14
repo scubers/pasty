@@ -7,4 +7,6 @@ protocol ClipboardHistoryService {
     func delete(id: String) -> AnyPublisher<Void, Error>
     func clearAll() -> AnyPublisher<Void, Error>
     func invalidateSearchCache()
+    func getTags(id: String) -> AnyPublisher<[String], Error>
+    func setTags(id: String, tags: [String]) -> AnyPublisher<Void, Error>
 }

@@ -49,5 +49,15 @@ struct MainPanelView: View {
             x: MainPanelTokens.Effects.panelShadow.x,
             y: MainPanelTokens.Effects.panelShadow.y
         )
+        .sheet(isPresented: Binding(
+            get: { viewModel.state.isTagEditorPresented },
+            set: { _ in viewModel.send(.closeTagEditor) }
+        )) {
+            TagEditorSheet(focusToken: Binding(
+                get: { viewModel.state.tagEditorFocusToken },
+                set: { _ in }
+            ))
+                .environmentObject(viewModel)
+        }
     }
 }

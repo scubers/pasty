@@ -1,3 +1,10 @@
+add_executable(metadata_utils_test metadata_utils_test.cpp)
+
+target_link_libraries(metadata_utils_test
+    PRIVATE
+        PastyCore
+)
+
 add_executable(pasty_test clipboard_history_test.cpp)
 
 target_link_libraries(pasty_test
@@ -90,6 +97,7 @@ target_link_libraries(encryption_test
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/../migrations DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 add_test(NAME history_test COMMAND pasty_test)
+add_test(NAME metadata_utils_test COMMAND metadata_utils_test)
 add_test(NAME settings_test COMMAND settings_test)
 add_test(NAME logger_test COMMAND logger_test)
 add_test(NAME cloud_sync_test COMMAND cloud_drive_sync_test)

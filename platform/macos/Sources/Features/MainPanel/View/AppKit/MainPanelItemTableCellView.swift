@@ -43,10 +43,12 @@ final class MainPanelItemTableCellView: NSTableCellView {
 
         let appInfo = AppInfoProvider.shared.info(for: item.sourceAppId)
         let timestamp = item.timestamp.formatted(date: .omitted, time: .shortened)
+        let tags = MainPanelItemMetadata.tags(from: item.metadata)
+        let tagsSuffix = tags.isEmpty ? "" : " • " + tags.map { "#\($0)" }.joined(separator: " ")
 
         appIconView.image = appInfo.icon
         appIconView.isHidden = (appInfo.icon == nil)
-        subtitleLabel.stringValue = "\(appInfo.name) • \(timestamp)"
+        subtitleLabel.stringValue = "\(appInfo.name) • \(timestamp)\(tagsSuffix)"
 
         if selected {
             layer?.backgroundColor = nsColor.withAlphaComponent(0.12).cgColor

@@ -55,7 +55,14 @@ struct MainPanelPreviewPanel: View {
     }
 
     private func content(for item: ClipboardItemRow) -> some View {
-        VStack(alignment: .leading, spacing: MainPanelTokens.Layout.paddingCompact) {
+        let tags = MainPanelItemMetadata.tags(from: item.metadata)
+
+        return VStack(alignment: .leading, spacing: MainPanelTokens.Layout.paddingCompact) {
+            if !tags.isEmpty {
+                metadataLabel(title: "Tags:", value: tags.map { "#\($0)" }.joined(separator: " "))
+                    .font(MainPanelTokens.Typography.small)
+            }
+
             if item.type == .image {
                 ZStack(alignment: .topTrailing) {
                     if let nsImage = imageLoader.image {

@@ -315,6 +315,56 @@ public:
         return result;
     }
 
+    std::optional<ClipboardHistoryItem> getItemByTypeAndContentHash(ClipboardItemType type, const std::string& contentHash) override {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (m_db == nullptr || contentHash.empty()) {
+            return std::nullopt;
+        }
+
+        const std::string typeStr = (type == ClipboardItemType::Image) ? "image" : "text";
+
+        sqlite3_stmt* statement = nullptr;
+        const char* sql =
+            "SELECT id, type, content, image_path, image_width, image_height, image_format, "
+            "create_time_ms, update_time_ms, last_copy_time_ms, source_app_id, content_hash, metadata, "
+            "ocr_status, ocr_text, ocr_retry_count, ocr_next_retry_at "
+            "FROM items "
+            "WHERE type = ?1 AND content_hash = ?2 LIMIT 1;";
+
+        if (sqlite3_prepare_v2(m_db, sql, -1, &statement, nullptr) != SQLITE_OK) {
+            return std::nullopt;
+        }
+
+        sqlite3_bind_text(statement, 1, typeStr.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2, contentHash.c_str(), -1, SQLITE_TRANSIENT);
+
+        std::optional<ClipboardHistoryItem> result;
+        if (sqlite3_step(statement) == SQLITE_ROW) {
+            ClipboardHistoryItem item;
+            item.id = readTextColumn(statement, 0);
+            item.type = readTextColumn(statement, 1) == "image" ? ClipboardItemType::Image : ClipboardItemType::Text;
+            item.content = readTextColumn(statement, 2);
+            item.imagePath = readTextColumn(statement, 3);
+            item.imageWidth = sqlite3_column_int(statement, 4);
+            item.imageHeight = sqlite3_column_int(statement, 5);
+            item.imageFormat = readTextColumn(statement, 6);
+            item.createTimeMs = sqlite3_column_int64(statement, 7);
+            item.updateTimeMs = sqlite3_column_int64(statement, 8);
+            item.lastCopyTimeMs = sqlite3_column_int64(statement, 9);
+            item.sourceAppId = readTextColumn(statement, 10);
+            item.contentHash = readTextColumn(statement, 11);
+            item.metadata = readTextColumn(statement, 12);
+            item.ocrStatus = ocrStatusFromInt(sqlite3_column_int(statement, 13));
+            item.ocrText = readTextColumn(statement, 14);
+            item.ocrRetryCount = sqlite3_column_int(statement, 15);
+            item.ocrNextRetryAtMs = sqlite3_column_int64(statement, 16);
+            result = item;
+        }
+
+        sqlite3_finalize(statement);
+        return result;
+    }
+
     ClipboardHistoryListResult listItems(std::int32_t limit, const std::string& cursor) override {
         std::lock_guard<std::mutex> lock(m_mutex);
         ClipboardHistoryListResult result;
@@ -386,7 +436,8 @@ public:
             "create_time_ms, update_time_ms, last_copy_time_ms, source_app_id, content_hash, metadata, "
             "ocr_status, ocr_text, ocr_retry_count, ocr_next_retry_at "
             "FROM items "
-            "WHERE (COALESCE(content, '') LIKE ?1 ";
+            "WHERE (COALESCE(content, '') LIKE ?1 "
+            "OR COALESCE(metadata, '') LIKE ?1 ";
         
         if (options.includeOcr) {
             sql += "OR COALESCE(ocr_text, '') LIKE ?1";
@@ -689,6 +740,35 @@ public:
         }
 
         return deletedCount;
+    }
+
+    bool updateItemMetadata(const std::string& id, const std::string& metadata, HistoryTimestampMs updateTimeMs) override {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (m_db == nullptr || id.empty()) {
+            return false;
+        }
+
+        sqlite3_stmt* statement = nullptr;
+        const char* sql =
+            "UPDATE items "
+            "SET metadata = ?1, update_time_ms = ?2 "
+            "WHERE id = ?3;";
+
+        if (sqlite3_prepare_v2(m_db, sql, -1, &statement, nullptr) != SQLITE_OK) {
+            return false;
+        }
+
+        sqlite3_bind_text(statement, 1, metadata.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int64(statement, 2, updateTimeMs);
+        sqlite3_bind_text(statement, 3, id.c_str(), -1, SQLITE_TRANSIENT);
+
+        const bool ok = sqlite3_step(statement) == SQLITE_DONE && sqlite3_changes(m_db) > 0;
+        sqlite3_finalize(statement);
+
+        if (!ok) {
+            PASTY_LOG_ERROR("Core.Store", "Update metadata failed. ID: %s", id.c_str());
+        }
+        return ok;
     }
 
 private:

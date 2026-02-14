@@ -628,6 +628,32 @@ bool CloudDriveSyncImporter::parseEvent(const std::string& line, const std::stri
                            event.eventId.c_str(), static_cast<unsigned long>(lineOffset));
             return false;
         }
+    } else if (event.op == "set_tags") {
+        if (!json.contains("item_type") || !json.contains("content_hash") || !json.contains("tags")) {
+            PASTY_LOG_ERROR("Core.SyncImporter", "Missing item_type/content_hash/tags for set_tags at offset %lu",
+                            static_cast<unsigned long>(lineOffset));
+            return false;
+        }
+        event.itemType = json["item_type"].get<std::string>();
+        event.contentHash = json["content_hash"].get<std::string>();
+
+        if (!validateContentHash(event.contentHash)) {
+            PASTY_LOG_WARN("Core.SyncImporter", "Invalid content_hash in set_tags event %s at offset %lu",
+                           event.eventId.c_str(), static_cast<unsigned long>(lineOffset));
+            return false;
+        }
+
+        if (!json["tags"].is_array()) {
+            PASTY_LOG_ERROR("Core.SyncImporter", "tags field is not an array in set_tags event %s at offset %lu",
+                           event.eventId.c_str(), static_cast<unsigned long>(lineOffset));
+            return false;
+        }
+
+        for (const auto& tag : json["tags"]) {
+            if (tag.is_string()) {
+                event.tags.push_back(tag.get<std::string>());
+            }
+        }
     } else {
         PASTY_LOG_WARN("Core.SyncImporter", "Unknown op '%s' in event %s, skipping (forward compatibility)",
                        event.op.c_str(), event.eventId.c_str());
@@ -733,6 +759,8 @@ CloudDriveSyncImporter::ImportResult CloudDriveSyncImporter::applyEvents(std::ve
                 continue;
             }
             applied = applyUpsertImage(event, clipboardService);
+        } else if (event.op == "set_tags") {
+            applied = applySetTags(event, clipboardService);
         } else {
             PASTY_LOG_WARN("Core.SyncImporter", "Skipping unknown op '%s' in apply", event.op.c_str());
             result.eventsSkipped++;
@@ -875,6 +903,29 @@ bool CloudDriveSyncImporter::applyDelete(const ParsedEvent& event, ClipboardServ
                         event.itemType.c_str(), event.contentHash.c_str());
         return true;
     }
+}
+
+bool CloudDriveSyncImporter::applySetTags(const ParsedEvent& event, ClipboardService& clipboardService) {
+    auto item = clipboardService.getByTypeAndContentHash(
+        (event.itemType == "image") ? ClipboardItemType::Image : ClipboardItemType::Text,
+        event.contentHash
+    );
+
+    if (!item) {
+        PASTY_LOG_DEBUG("Core.SyncImporter", "Skipping set_tags: item not found. type=%s, hash=%s",
+                        event.itemType.c_str(), event.contentHash.c_str());
+        return false;
+    }
+
+    bool success = clipboardService.setTags(item->id, event.tags);
+    if (success) {
+        PASTY_LOG_INFO("Core.SyncImporter", "Applied set_tags to item. id=%s, tags_count=%zu",
+                       item->id.c_str(), event.tags.size());
+    } else {
+        PASTY_LOG_ERROR("Core.SyncImporter", "Failed to apply set_tags to item. id=%s",
+                        item->id.c_str());
+    }
+    return success;
 }
 
 } // namespace pasty
