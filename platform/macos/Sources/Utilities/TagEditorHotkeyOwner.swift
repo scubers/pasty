@@ -25,13 +25,13 @@ final class TagEditorHotkeyOwner: InAppHotkeyOwner {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
 
         switch event.keyCode {
-        case 53:
+        case 53: // Escape
             onClose()
             return true
-        case 36 where flags.contains(.command):
+        case 36 where flags.contains(.command): // Return
             onSave()
             return true
-        case 76 where flags.contains(.command):
+        case 76 where flags.contains(.command): // Enter (numpad)
             onSave()
             return true
         default:

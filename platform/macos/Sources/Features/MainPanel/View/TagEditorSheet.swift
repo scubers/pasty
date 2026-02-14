@@ -136,13 +136,8 @@ struct TagEditorSheet: View {
             .background(Color(NSColor.textBackgroundColor))
             .cornerRadius(6)
             .onSubmit {
-                if viewModel.state.selectedSuggestionIndex >= 0 {
-                    viewModel.send(.selectTagSuggestion(viewModel.state.selectedSuggestionIndex))
-                } else {
-                    addTag()
-                }
+                addTag()
             }
-
             Button("Save") {
                 saveAndClose()
             }

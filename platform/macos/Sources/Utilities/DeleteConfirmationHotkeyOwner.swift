@@ -22,11 +22,11 @@ final class DeleteConfirmationHotkeyOwner: InAppHotkeyOwner {
 
     func handleInAppHotkey(_ event: NSEvent) -> Bool {
         switch event.keyCode {
-        case 53:
+        case 53: // Escape
             onCancel()
             alert?.window.orderOut(nil)
             return true
-        case 36:
+        case 36: // Return
             onConfirm()
             alert?.window.orderOut(nil)
             return true

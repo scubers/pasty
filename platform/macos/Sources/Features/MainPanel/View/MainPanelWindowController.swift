@@ -174,25 +174,25 @@ final class MainPanelWindowController: NSWindowController, NSWindowDelegate, InA
         }
 
         switch (event.keyCode, isCommandPressed) {
-        case (53, _): // esc
+        case (53, _): // Escape
             viewModel.send(.togglePanel)
             return true
-        case (126, _): // up
+        case (126, _): // Up Arrow
             viewModel.send(.moveSelectionUp)
             return true
-        case (125, _): // down
+        case (125, _): // Down Arrow
             viewModel.send(.moveSelectionDown)
             return true
-        case (36, true): // cmd+enter
+        case (36, true): // Command + Return
             viewModel.send(.copySelected)
             return true
-        case (36, false): // enter
+        case (36, false): // Return
             viewModel.send(.pasteSelectedAndClose)
             return true
-        case (2, true): // cmd+d
+        case (2, true): // Command + D
             viewModel.send(.prepareDeleteSelected)
             return true
-        case (17, true): // cmd+t
+        case (17, true): // Command + T
             viewModel.send(.openTagEditor)
             return true
         default:
@@ -203,7 +203,8 @@ final class MainPanelWindowController: NSWindowController, NSWindowDelegate, InA
     private func shouldBypassForTextComposition(_ event: NSEvent) -> Bool {
         // While an IME candidate list is active, Enter/Esc/Arrow keys should be
         // consumed by the input method instead of panel-level shortcuts.
-        let compositionSensitiveKeyCodes: Set<UInt16> = [36, 76, 53, 125, 126]
+        // Escape, Return, Enter (numpad), Down Arrow, Up Arrow
+        let compositionSensitiveKeyCodes: Set<UInt16> = [53, 36, 76, 125, 126]
         guard compositionSensitiveKeyCodes.contains(event.keyCode) else {
             return false
         }
