@@ -3,6 +3,16 @@ import SwiftUI
 struct AboutSettingsView: View {
     @EnvironmentObject var viewModel: SettingsViewModel
 
+    private var versionText: String {
+        if let shortVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String {
+            return "Version \(shortVersion)"
+        } else if let bundleVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String {
+            return "Version \(bundleVersion)"
+        } else {
+            return "Version -"
+        }
+    }
+
     var body: some View {
         VStack(spacing: 20) {
             Spacer()
@@ -19,17 +29,17 @@ struct AboutSettingsView: View {
                     .font(DesignSystem.Typography.largeTitle)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
                 
-                Text("Version 2.0.0")
+                Text(versionText)
                     .font(DesignSystem.Typography.body)
                     .foregroundColor(DesignSystem.Colors.textSecondary)
             }
             
-            VStack(spacing: 16) {
-                LinkButton(title: "Website", url: "https://pasty.app")
-                LinkButton(title: "GitHub", url: "https://github.com/scubers/pasty")
-                LinkButton(title: "Privacy Policy", url: "https://pasty.app/privacy")
-            }
-            .padding(.top, 20)
+//            VStack(spacing: 16) {
+//                LinkButton(title: "Website", url: "https://pasty.app")
+//                LinkButton(title: "GitHub", url: "https://github.com/scubers/pasty")
+//                LinkButton(title: "Privacy Policy", url: "https://pasty.app/privacy")
+//            }
+//            .padding(.top, 20)
             
             Spacer()
             

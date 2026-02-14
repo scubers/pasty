@@ -26,7 +26,7 @@ struct SettingsView: View {
             SettingsContentContainer(selection: selectedTab)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(width: 800, height: 550)
+//        .frame(width: 800, height: 550)
         .background {
             DesignSystem.Colors.backgroundStart
             VisualEffectBlur(
@@ -36,7 +36,7 @@ struct SettingsView: View {
             .opacity(viewModel.blurIntensity)
         }
         .overlay(
-            Rectangle()
+            RoundedRectangle(cornerRadius: 12)
                 .stroke(DesignSystem.Colors.border, lineWidth: 1)
         )
         .ignoresSafeArea()

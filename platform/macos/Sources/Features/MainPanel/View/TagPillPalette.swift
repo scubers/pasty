@@ -25,8 +25,8 @@ enum TagPillPalette {
         TagPillStyle(background: Color(hex: 0xBE4BDB), foreground: Color(hex: 0xFFFFFF)), // 10 Magenta
         TagPillStyle(background: Color(hex: 0xF06595), foreground: Color(hex: 0xFFFFFF)), // 11 Pink
         TagPillStyle(background: Color(hex: 0xA47148), foreground: Color(hex: 0xFFFFFF)), // 12 Brown
-        TagPillStyle(background: Color(hex: 0x868E96), foreground: Color(hex: 0xFFFFFF)), // 13 Gray
-        TagPillStyle(background: Color(hex: 0x343A40), foreground: Color(hex: 0xFFFFFF)), // 14 Dark Gray
+        TagPillStyle(background: Color(hex: 0x00BFFF), foreground: Color(hex: 0xFFFFFF)), // 13 Deep Sky blue
+        TagPillStyle(background: Color(hex: 0x3BC9DB), foreground: Color(hex: 0xFFFFFF)), // 14 Cyan blue
         TagPillStyle(background: Color(hex: 0x15AABF), foreground: Color(hex: 0xFFFFFF)), // 15 Cyan
     ]
 

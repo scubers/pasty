@@ -28,7 +28,7 @@ struct TagEditorSheet: View {
                 material: MainPanelTokens.Effects.materialHudWindow,
                 blendingMode: .behindWindow
             )
-            MainPanelTokens.Colors.surface
+            MainPanelTokens.Colors.surface.opacity(0.1)
         }
         .onAppear {
             requestInputFocus()
@@ -43,7 +43,7 @@ struct TagEditorSheet: View {
 
     private var headerView: some View {
         HStack {
-            Text("编辑标签")
+            Text("Edit tags")
                 .font(.headline)
             Spacer()
             Button(action: { viewModel.send(.closeTagEditor) }) {
@@ -73,7 +73,7 @@ struct TagEditorSheet: View {
         if !viewModel.state.tagSuggestions.isEmpty {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    Text("建议:")
+                    Text("Sugesstion")
                         .font(.system(size: 12))
                         .foregroundColor(.secondary)
                     ForEach(Array(viewModel.state.tagSuggestions.enumerated()), id: \.element) { index, tag in
@@ -103,7 +103,7 @@ struct TagEditorSheet: View {
         if !availableRecentTags.isEmpty {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    Text("最近:")
+                    Text("Recent")
                         .font(.system(size: 12))
                         .foregroundColor(.secondary)
                     ForEach(availableRecentTags, id: \.self) { tag in
@@ -123,7 +123,7 @@ struct TagEditorSheet: View {
 
     private var inputView: some View {
         HStack(spacing: 12) {
-            TextField("添加标签...", text: Binding(
+            TextField("Add tags...", text: Binding(
                 get: { inputText },
                 set: { newValue in
                     inputText = newValue
@@ -143,7 +143,7 @@ struct TagEditorSheet: View {
                 }
             }
 
-            Button("保存") {
+            Button("Save") {
                 saveAndClose()
             }
             .buttonStyle(.borderedProminent)
