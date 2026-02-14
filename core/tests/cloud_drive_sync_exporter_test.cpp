@@ -110,16 +110,18 @@ void testLoopPrevention() {
     auto exporter = pasty::CloudDriveSyncExporter::Create(syncRoot, baseDir);
     assert(exporter.has_value());
 
-    const std::string loopSource = "pasty-sync:remote-device";
-    const auto textItem = makeTextItem("hello", "hash-loop-text", loopSource);
-    const auto imageItem = makeImageItem("hash-loop-image", loopSource);
+    // Cloud-synced items should not be re-exported (loop prevention via originType)
+    const auto textItem = makeTextItem("hello", "hash-loop-text", "com.remote.app");
+    const auto imageItem = makeImageItem("hash-loop-image", "com.remote.app");
+    const_cast<pasty::ClipboardHistoryItem&>(textItem).originType = pasty::OriginType::CloudSync;
+    const_cast<pasty::ClipboardHistoryItem&>(imageItem).originType = pasty::OriginType::CloudSync;
     const std::vector<std::uint8_t> imageBytes = {0x89, 0x50, 0x4E, 0x47, 0x01};
 
     const auto textResult = exporter->exportTextItem(textItem);
     const auto imageResult = exporter->exportImageItem(imageItem, imageBytes);
 
-    assert(textResult == pasty::CloudDriveSyncExporter::ExportResult::SkippedLoopPrevention);
-    assert(imageResult == pasty::CloudDriveSyncExporter::ExportResult::SkippedLoopPrevention);
+    assert(textResult == pasty::CloudDriveSyncExporter::ExportResult::SkippedNonLocalOrigin);
+    assert(imageResult == pasty::CloudDriveSyncExporter::ExportResult::SkippedNonLocalOrigin);
 
     cleanupTempDirectory(tempDir);
 }
@@ -342,6 +344,45 @@ void testDeviceIdConflictDetection() {
     cleanupTempDirectory(tempDir);
 }
 
+void testIncludeSourceAppIdDisabled() {
+    std::cout << "Running testIncludeSourceAppIdDisabled..." << std::endl;
+
+    configureMigrationDirectoryForTests();
+    const std::string tempDir = createTempDirectory("cloud-sync-export-source-app-id");
+    const std::string syncRoot = tempDir + "/sync";
+    const std::string baseDir = tempDir + "/base";
+
+    auto exporter = pasty::CloudDriveSyncExporter::Create(syncRoot, baseDir);
+    assert(exporter.has_value());
+
+    exporter->setIncludeSourceAppId(false);
+
+    const auto textItem = makeTextItem("hello world", "hash-source-app-text", "com.test.app");
+    const auto textResult = exporter->exportTextItem(textItem);
+    assert(textResult == pasty::CloudDriveSyncExporter::ExportResult::Success);
+
+    const auto imageItem = makeImageItem("hash-source-app-image", "com.test.app");
+    const std::vector<std::uint8_t> imageBytes = {0x89, 0x50, 0x4E, 0x47, 0x01};
+    const auto imageResult = exporter->exportImageItem(imageItem, imageBytes);
+    assert(imageResult == pasty::CloudDriveSyncExporter::ExportResult::Success);
+
+    const std::filesystem::path deviceLogsDir = getSingleDeviceLogsDir(syncRoot);
+    const std::filesystem::path log1 = deviceLogsDir / "events-0001.jsonl";
+    assert(std::filesystem::exists(log1));
+
+    std::ifstream file(log1);
+    std::string line;
+    while (std::getline(file, line)) {
+        if (!line.empty()) {
+            const nlohmann::json eventJson = nlohmann::json::parse(line, nullptr, false);
+            assert(!eventJson.is_discarded());
+            assert(eventJson.value("source_app_id", std::string("__MISSING__")) == "");
+        }
+    }
+
+    cleanupTempDirectory(tempDir);
+}
+
 }
 
 int main() {
@@ -355,6 +396,7 @@ int main() {
         testDeleteTombstoneExport();
         testE2eeDeleteExport();
         testDeviceIdConflictDetection();
+        testIncludeSourceAppIdDisabled();
         std::cout << "=== All tests PASSED ===" << std::endl;
         return 0;
     } catch (const std::exception& e) {

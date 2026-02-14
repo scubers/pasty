@@ -29,6 +29,7 @@ struct CloudSyncSettings: Codable, Equatable {
     var enabled: Bool = false
     var rootPath: String = ""
     var includeSensitive: Bool = false
+    var includeSourceAppId: Bool = true
 
     static let `default` = CloudSyncSettings()
 
@@ -39,6 +40,7 @@ struct CloudSyncSettings: Codable, Equatable {
         enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled) ?? false
         rootPath = try container.decodeIfPresent(String.self, forKey: .rootPath) ?? ""
         includeSensitive = try container.decodeIfPresent(Bool.self, forKey: .includeSensitive) ?? false
+        includeSourceAppId = try container.decodeIfPresent(Bool.self, forKey: .includeSourceAppId) ?? true
     }
 }
 

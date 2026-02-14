@@ -249,6 +249,17 @@ void pasty_settings_update(pasty_runtime_ref runtime_ref, const char* key, const
             runtime->runtime->setCloudSyncIncludeSensitive(includeSensitive);
         }
     }
+
+    if (keyValue == "cloudSync.includeSourceAppId") {
+        bool includeSourceAppId = false;
+        if (!parseBoolSetting(rawValue, &includeSourceAppId)) {
+            return;
+        }
+        runtime->config.cloudSyncIncludeSourceAppId = includeSourceAppId;
+        if (runtime->runtime) {
+            runtime->runtime->setCloudSyncIncludeSourceAppId(includeSourceAppId);
+        }
+    }
 }
 
 int pasty_settings_get_max_history_count(pasty_runtime_ref runtime_ref) {

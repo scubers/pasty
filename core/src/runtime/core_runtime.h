@@ -20,6 +20,7 @@ struct CoreRuntimeConfig {
     bool cloudSyncEnabled = false;
     std::string cloudSyncRootPath;
     bool cloudSyncIncludeSensitive = false;
+    bool cloudSyncIncludeSourceAppId = true;
 };
 
 struct CloudSyncImportStatus {
@@ -58,6 +59,7 @@ public:
     bool setCloudSyncEnabled(bool enabled);
     bool setCloudSyncRootPath(const std::string& rootPath);
     bool setCloudSyncIncludeSensitive(bool includeSensitive);
+    bool setCloudSyncIncludeSourceAppId(bool includeSourceAppId);
 
     bool runCloudSyncImport();
     bool initializeCloudSyncE2ee(const std::string& passphrase);

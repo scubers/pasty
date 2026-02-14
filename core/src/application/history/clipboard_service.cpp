@@ -136,6 +136,8 @@ ClipboardIngestResult ClipboardService::ingestWithResult(const ClipboardHistoryI
     item.updateTimeMs = eventTimeMs;
     item.lastCopyTimeMs = eventTimeMs;
     item.sourceAppId = event.sourceAppId;
+    item.originType = event.originType;
+    item.originDeviceId = event.originDeviceId;
 
     if (event.itemType == ClipboardItemType::Image) {
         item.contentHash = computeImageHash(event.image.bytes);

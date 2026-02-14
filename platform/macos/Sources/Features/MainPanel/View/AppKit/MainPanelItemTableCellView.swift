@@ -8,6 +8,11 @@ final class MainPanelItemTableCellView: NSTableCellView {
     private let iconView = NSImageView()
     private let titleLabel = NSTextField(labelWithString: "")
     private let appIconView = NSImageView()
+    private let colorBlockView: NSView = {
+        let view = NSView()
+        view.wantsLayer = true
+        return view
+    }()
     private let subtitleLabel = NSTextField(labelWithString: "")
     private var cancellables = Set<AnyCancellable>()
 
@@ -44,8 +49,16 @@ final class MainPanelItemTableCellView: NSTableCellView {
         let appInfo = AppInfoProvider.shared.info(for: item.sourceAppId)
         let timestamp = item.timestamp.formatted(date: .omitted, time: .shortened)
 
-        appIconView.image = appInfo.icon
-        appIconView.isHidden = (appInfo.icon == nil)
+        if appInfo.isResolved {
+            appIconView.image = appInfo.icon
+            appIconView.isHidden = (appInfo.icon == nil)
+            colorBlockView.isHidden = true
+        } else {
+            appIconView.isHidden = true
+            colorBlockView.isHidden = false
+            let paletteColor = TagPillPalette.color(for: item.sourceAppId)
+            colorBlockView.layer?.backgroundColor = NSColor(paletteColor).cgColor
+        }
         subtitleLabel.stringValue = "\(appInfo.name) • \(timestamp)"
 
         if selected {
@@ -104,10 +117,14 @@ final class MainPanelItemTableCellView: NSTableCellView {
         appIconView.imageScaling = .scaleProportionallyUpOrDown
         appIconView.isHidden = true
 
+        colorBlockView.layer?.cornerRadius = 3
+        colorBlockView.isHidden = true
+
         addSubview(markerView)
         addSubview(iconView)
         addSubview(titleLabel)
         addSubview(appIconView)
+        addSubview(colorBlockView)
         addSubview(subtitleLabel)
 
         markerView.snp.makeConstraints { make in
@@ -129,6 +146,12 @@ final class MainPanelItemTableCellView: NSTableCellView {
         }
 
         appIconView.snp.makeConstraints { make in
+            make.leading.equalTo(iconView.snp.trailing).offset(8)
+            make.centerY.equalTo(subtitleLabel.snp.centerY)
+            make.width.height.equalTo(12)
+        }
+
+        colorBlockView.snp.makeConstraints { make in
             make.leading.equalTo(iconView.snp.trailing).offset(8)
             make.centerY.equalTo(subtitleLabel.snp.centerY)
             make.width.height.equalTo(12)

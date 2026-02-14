@@ -184,6 +184,15 @@ bool CoreRuntime::setCloudSyncIncludeSensitive(bool includeSensitive) {
     return true;
 }
 
+bool CoreRuntime::setCloudSyncIncludeSourceAppId(bool includeSourceAppId) {
+    PASTY_LOG_DEBUG("Core.Runtime", "Set cloud sync include source app id: %s", includeSourceAppId ? "true" : "false");
+    m_config.cloudSyncIncludeSourceAppId = includeSourceAppId;
+    if (m_syncExporter.has_value()) {
+        m_syncExporter->setIncludeSourceAppId(includeSourceAppId);
+    }
+    return true;
+}
+
 bool CoreRuntime::syncExportConfigured() const {
     return m_started && m_clipboardService && m_config.cloudSyncEnabled && !m_config.cloudSyncRootPath.empty();
 }
@@ -207,6 +216,7 @@ bool CoreRuntime::ensureCloudSyncExporter() {
         return false;
     }
 
+    exporter->setIncludeSourceAppId(m_config.cloudSyncIncludeSourceAppId);
     m_syncExporter = std::move(*exporter);
     return true;
 }

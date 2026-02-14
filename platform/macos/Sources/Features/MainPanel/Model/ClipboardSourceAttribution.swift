@@ -29,7 +29,7 @@ final class AppInfoProvider {
 
     func info(for bundleIdentifier: String) -> AppInfo {
         guard !bundleIdentifier.isEmpty else {
-            return AppInfo(name: "Unknown", icon: nil)
+            return AppInfo(name: "Unknown", icon: nil, isResolved: false)
         }
 
         cacheLock.lock()
@@ -47,9 +47,9 @@ final class AppInfoProvider {
 
             icon.size = NSSize(width: 16, height: 16)
 
-            result = AppInfo(name: name, icon: icon)
+            result = AppInfo(name: name, icon: icon, isResolved: true)
         } else {
-            result = AppInfo(name: bundleIdentifier, icon: nil)
+            result = AppInfo(name: "Unknown", icon: nil, isResolved: false)
         }
 
         cacheLock.lock()
@@ -81,9 +81,11 @@ final class AppInfoProvider {
 struct AppInfo {
     let name: String
     let icon: NSImage?
+    let isResolved: Bool
 
-    init(name: String, icon: NSImage?) {
+    init(name: String, icon: NSImage?, isResolved: Bool = true) {
         self.name = name
         self.icon = icon
+        self.isResolved = isResolved
     }
 }

@@ -22,7 +22,7 @@ namespace pasty {
  * - Delete tombstone events
  * - Log file rotation at 10 MiB
  * - Atomic asset writes (temp + rename)
- * - Loop prevention (skips events from pasty-sync: sourceAppId)
+ * - Loop prevention (only exports items with originType == LocalCopy)
  * - Size caps (25 MiB images, 1 MiB event lines)
  *
  * Thread-safety: Not thread-safe; caller must ensure synchronization.
@@ -40,7 +40,7 @@ public:
      */
     enum class ExportResult {
         Success,
-        SkippedLoopPrevention,
+        SkippedNonLocalOrigin,
         SkippedImageTooLarge,
         SkippedEventTooLarge,
         SyncNotConfigured,
@@ -62,12 +62,13 @@ public:
 
     void setE2eeKey(const EncryptionManager::Key& masterKey, const std::string& keyId);
     void clearE2eeKey();
+    void setIncludeSourceAppId(bool includeSourceAppId);
 
     /**
      * Export a text clipboard item
      *
      * Writes a JSONL upsert_text event to the log file.
-     * Skips if sourceAppId starts with "pasty-sync:".
+     * Skips if item.originType != LocalCopy (non-local items not exported).
      * Skips if JSONL line would exceed 1 MiB.
      *
      * @param item The clipboard history item to export
@@ -79,7 +80,7 @@ public:
      * Export an image clipboard item
      *
      * Writes a JSONL upsert_image event and asset file.
-     * Skips if sourceAppId starts with "pasty-sync:".
+     * Skips if item.originType != LocalCopy (non-local items not exported).
      * Skips if image bytes > 25 MiB.
      * Skips if JSONL line would exceed 1 MiB.
      * Asset written atomically as <content_hash>.<ext>
@@ -123,7 +124,6 @@ private:
     static constexpr std::uint64_t kMaxEventLineBytes = 1048576;    // 1 MiB
     static constexpr std::uint64_t kLogFileRotationBytes = 10485760; // 10 MiB
     static constexpr int kSchemaVersion = 1;
-    static constexpr const char* kLoopPrefix = "pasty-sync:";
 
     std::string m_syncRootPath;
     std::string m_logsPath;
@@ -174,6 +174,7 @@ private:
 
     std::optional<EncryptionManager::Key> m_e2eeMasterKey;
     std::string m_e2eeKeyId;
+    bool m_includeSourceAppId = true;
     
     bool m_initialized;
 };

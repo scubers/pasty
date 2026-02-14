@@ -139,6 +139,10 @@ void CloudDriveSyncExporter::clearE2eeKey() {
     m_e2eeKeyId.clear();
 }
 
+void CloudDriveSyncExporter::setIncludeSourceAppId(bool includeSourceAppId) {
+    m_includeSourceAppId = includeSourceAppId;
+}
+
 bool CloudDriveSyncExporter::initialize(const std::string& syncRootPath, const std::string& baseDirectory) {
     if (syncRootPath.empty() || baseDirectory.empty()) {
         return false;
@@ -247,16 +251,6 @@ bool CloudDriveSyncExporter::detectDeviceIdConflict() const {
                 PASTY_LOG_ERROR("Core.SyncExporter", "Detected device_id conflict in %s: local=%s, event=%s",
                                 files[fileIndex].c_str(), localDeviceId.c_str(), eventDeviceId.c_str());
                 return true;
-            }
-
-            const std::string sourceAppId = json.value("source_app_id", std::string());
-            if (sourceAppId.rfind(kLoopPrefix, 0) == 0) {
-                const std::string forwardedDeviceId = sourceAppId.substr(std::strlen(kLoopPrefix));
-                if (!forwardedDeviceId.empty() && forwardedDeviceId != localDeviceId) {
-                    PASTY_LOG_ERROR("Core.SyncExporter", "Detected source_app_id conflict in %s: local=%s, source=%s",
-                                    files[fileIndex].c_str(), localDeviceId.c_str(), sourceAppId.c_str());
-                    return true;
-                }
             }
         }
     }
@@ -403,9 +397,10 @@ CloudDriveSyncExporter::ExportResult CloudDriveSyncExporter::exportTextItem(cons
         return ExportResult::SyncNotConfigured;
     }
 
-    if (item.sourceAppId.compare(0, strlen(kLoopPrefix), kLoopPrefix) == 0) {
-        PASTY_LOG_DEBUG("Core.SyncExporter", "Skipping loop prevention: sourceAppId=%s", item.sourceAppId.c_str());
-        return ExportResult::SkippedLoopPrevention;
+    if (item.originType != OriginType::LocalCopy) {
+        PASTY_LOG_DEBUG("Core.SyncExporter", "Skipping non-local origin: originType=%d, contentHash=%s",
+                        static_cast<int>(item.originType), item.contentHash.c_str());
+        return ExportResult::SkippedNonLocalOrigin;
     }
 
     const std::uint64_t seq = m_stateManager->reserveNextSeq();
@@ -431,7 +426,7 @@ CloudDriveSyncExporter::ExportResult CloudDriveSyncExporter::exportTextItem(cons
     json["content_hash"] = item.contentHash;
     json["content_type"] = "text/plain";
     json["size_bytes"] = item.content.size();
-    json["source_app_id"] = item.sourceAppId;
+    json["source_app_id"] = m_includeSourceAppId ? item.sourceAppId : std::string();
     json["is_concealed"] = false;
     json["is_transient"] = false;
 
@@ -488,9 +483,10 @@ CloudDriveSyncExporter::ExportResult CloudDriveSyncExporter::exportImageItem(con
         return ExportResult::SyncNotConfigured;
     }
 
-    if (item.sourceAppId.compare(0, strlen(kLoopPrefix), kLoopPrefix) == 0) {
-        PASTY_LOG_DEBUG("Core.SyncExporter", "Skipping loop prevention: sourceAppId=%s", item.sourceAppId.c_str());
-        return ExportResult::SkippedLoopPrevention;
+    if (item.originType != OriginType::LocalCopy) {
+        PASTY_LOG_DEBUG("Core.SyncExporter", "Skipping non-local origin: originType=%d, contentHash=%s",
+                        static_cast<int>(item.originType), item.contentHash.c_str());
+        return ExportResult::SkippedNonLocalOrigin;
     }
 
     if (imageBytes.size() > kMaxImageBytes) {
@@ -600,7 +596,7 @@ CloudDriveSyncExporter::ExportResult CloudDriveSyncExporter::exportImageItem(con
     json["height"] = item.imageHeight;
     json["content_type"] = "image/" + extension;
     json["size_bytes"] = imageBytes.size();
-    json["source_app_id"] = item.sourceAppId;
+    json["source_app_id"] = m_includeSourceAppId ? item.sourceAppId : std::string();
     json["is_concealed"] = false;
     json["is_transient"] = false;
     if (encryptedAsset) {

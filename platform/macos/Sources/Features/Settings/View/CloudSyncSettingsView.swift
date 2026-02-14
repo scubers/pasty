@@ -41,6 +41,15 @@ struct CloudSyncSettingsView: View {
                     PastyToggle(isOn: viewModel.binding(\.cloudSync.includeSensitive), activeColor: .red)
                 }
 
+                SettingsRow(title: "Include Source App", icon: "app") {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        PastyToggle(isOn: viewModel.binding(\.cloudSync.includeSourceAppId), activeColor: themeColor)
+                        Text("Hides app attribution when off")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                }
+
                 Divider()
                     .padding(.vertical, 12)
 

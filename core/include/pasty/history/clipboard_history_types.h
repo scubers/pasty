@@ -4,6 +4,7 @@
 #define PASTY_HISTORY_TYPES_H
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -22,6 +23,11 @@ enum class OcrStatus {
     Processing = 1,
     Completed = 2,
     Failed = 3,
+};
+
+enum class OriginType {
+    LocalCopy,
+    CloudSync,
 };
 
 struct ClipboardImagePayload {
@@ -44,6 +50,8 @@ struct ClipboardHistoryIngestEvent {
     std::string text;
     ClipboardImagePayload image;
     ClipboardEventFlags flags;
+    OriginType originType = OriginType::LocalCopy;
+    std::optional<std::string> originDeviceId;
 };
 
 struct ClipboardHistoryItem {
@@ -64,6 +72,8 @@ struct ClipboardHistoryItem {
     std::string ocrText;
     std::int32_t ocrRetryCount = 0;
     HistoryTimestampMs ocrNextRetryAtMs = 0;
+    OriginType originType = OriginType::LocalCopy;
+    std::optional<std::string> originDeviceId;
 };
 
 struct OcrTask {

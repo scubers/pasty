@@ -112,12 +112,15 @@ void testDeterministicMerge() {
 
     auto cSeq2 = makeBaseEvent(remoteA, 2, ts, "upsert_text", "text", "aaaaaaaaaaaaaaaa");
     cSeq2["text"] = samePayload;
+    cSeq2["source_app_id"] = "com.app.A";
 
     auto cSeq1 = makeBaseEvent(remoteA, 1, ts, "upsert_text", "text", "aaaaaaaaaaaaaaaa");
     cSeq1["text"] = samePayload;
+    cSeq1["source_app_id"] = "com.app.A";
 
     auto dSeq1 = makeBaseEvent(remoteB, 1, ts, "upsert_text", "text", "aaaaaaaaaaaaaaaa");
     dSeq1["text"] = samePayload;
+    dSeq1["source_app_id"] = "com.app.B";
 
     writeJsonlFile(logsA + "/events-0001.jsonl", cSeq2.dump());
     writeJsonlFile(logsA + "/events-0001.jsonl", cSeq1.dump());
@@ -138,7 +141,10 @@ void testDeterministicMerge() {
     const auto items = service.list(10, "").items;
     assert(items.size() == 1);
     assert(items[0].content == samePayload);
-    assert(items[0].sourceAppId == "pasty-sync:" + remoteB);
+    assert(items[0].sourceAppId == "com.app.B");
+    assert(items[0].originType == pasty::OriginType::CloudSync);
+    assert(items[0].originDeviceId.has_value());
+    assert(items[0].originDeviceId.value() == remoteB);
 
     service.shutdown();
     cleanupTempDirectory(tempDir);
@@ -262,9 +268,11 @@ void testConcurrentDeviceWrite() {
 
     auto older = makeBaseEvent(olderDevice, 1, 1739414401000, "upsert_text", "text", "abababababababab");
     older["text"] = "shared-content";
+    older["source_app_id"] = "com.app.older";
 
     auto newer = makeBaseEvent(newerDevice, 1, 1739414402000, "upsert_text", "text", "abababababababab");
     newer["text"] = "shared-content";
+    newer["source_app_id"] = "com.app.newer";
 
     writeJsonlFile(olderLogs + "/events-0001.jsonl", older.dump());
     writeJsonlFile(newerLogs + "/events-0001.jsonl", newer.dump());
@@ -284,7 +292,10 @@ void testConcurrentDeviceWrite() {
     const auto items = service.list(10, "").items;
     assert(items.size() == 1);
     assert(items[0].content == "shared-content");
-    assert(items[0].sourceAppId == "pasty-sync:" + newerDevice);
+    assert(items[0].sourceAppId == "com.app.newer");
+    assert(items[0].originType == pasty::OriginType::CloudSync);
+    assert(items[0].originDeviceId.has_value());
+    assert(items[0].originDeviceId.value() == newerDevice);
     assert(items[0].lastCopyTimeMs == 1739414402000);
 
     service.shutdown();
@@ -462,6 +473,64 @@ void testAssetReadFailure() {
     cleanupTempDirectory(tempDir);
 }
 
+void testLocalCopyWinsPrecedence() {
+    std::cout << "Running testLocalCopyWinsPrecedence..." << std::endl;
+
+    configureMigrationDirectoryForTests();
+    const std::string tempDir = createTempDirectory("cloud-sync-import-local-copy-wins");
+    const std::string syncRoot = tempDir + "/sync";
+    const std::string baseDir = tempDir + "/base";
+    std::filesystem::create_directories(syncRoot);
+    std::filesystem::create_directories(baseDir);
+
+    pasty::InMemorySettingsStore settings(1000);
+    auto service = makeService(settings);
+    assert(service.initialize(baseDir + "/history"));
+
+    pasty::ClipboardHistoryIngestEvent ingestEvent;
+    ingestEvent.itemType = pasty::ClipboardItemType::Text;
+    ingestEvent.text = "local-content-wins";
+    ingestEvent.sourceAppId = "com.local.app";
+    ingestEvent.timestampMs = 1739414500000;
+
+    const auto ingestResult = service.ingestWithResult(ingestEvent);
+    assert(ingestResult.ok);
+    assert(ingestResult.inserted);
+
+    const auto localItems = service.list(10, "").items;
+    assert(localItems.size() == 1);
+    const std::string contentHash = localItems[0].contentHash;
+    assert(!contentHash.empty());
+
+    const std::string remote = "ffffffffffffffff";
+    const std::string logs = syncRoot + "/logs/" + remote;
+    std::filesystem::create_directories(logs);
+
+    auto remoteEvent = makeBaseEvent(remote, 1, 1739414600000, "upsert_text", "text", contentHash);
+    remoteEvent["text"] = "local-content-wins";
+    remoteEvent["source_app_id"] = "com.remote.app";
+
+    writeJsonlFile(logs + "/events-0001.jsonl", remoteEvent.dump());
+
+    auto importer = pasty::CloudDriveSyncImporter::Create(syncRoot, baseDir);
+    assert(importer.has_value());
+
+    const auto importResult = importer->importChanges(service);
+    assert(importResult.success);
+    assert(importResult.eventsProcessed == 1);
+    assert(importResult.eventsApplied == 0);
+    assert(importResult.eventsSkipped == 1);
+
+    const auto itemsAfterImport = service.list(10, "").items;
+    assert(itemsAfterImport.size() == 1);
+    assert(itemsAfterImport[0].originType == pasty::OriginType::LocalCopy);
+    assert(!itemsAfterImport[0].originDeviceId.has_value());
+    assert(itemsAfterImport[0].sourceAppId == "com.local.app");
+
+    service.shutdown();
+    cleanupTempDirectory(tempDir);
+}
+
 }
 
 int main() {
@@ -476,6 +545,7 @@ int main() {
         testAssetReadFailure();
         testEventIdPrefixValidation();
         testE2eeDeleteImport();
+        testLocalCopyWinsPrecedence();
         std::cout << "=== All tests PASSED ===" << std::endl;
         return 0;
     } catch (const std::exception& e) {

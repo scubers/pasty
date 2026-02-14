@@ -205,5 +205,10 @@ final class SettingsStore {
         includeSensitive.withCString { ptr in
             pasty_settings_update(runtime, "cloudSync.includeSensitive", ptr)
         }
+
+        let includeSourceAppId = cloudSync.includeSourceAppId ? "true" : "false"
+        includeSourceAppId.withCString { ptr in
+            pasty_settings_update(runtime, "cloudSync.includeSourceAppId", ptr)
+        }
     }
 }

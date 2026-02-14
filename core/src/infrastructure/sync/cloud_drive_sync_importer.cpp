@@ -722,6 +722,13 @@ CloudDriveSyncImporter::ImportResult CloudDriveSyncImporter::applyEvents(std::ve
             continue;
         }
 
+        // Safety check: skip events from local device (should not happen)
+        if (event.deviceId == m_stateManager->deviceId()) {
+            PASTY_LOG_WARN("Core.SyncImporter", "Skipping event from local device (should not happen): event_id=%s", event.eventId.c_str());
+            result.eventsSkipped++;
+            continue;
+        }
+
         bool applied = false;
 
         if (event.op == "delete") {
@@ -742,6 +749,12 @@ CloudDriveSyncImporter::ImportResult CloudDriveSyncImporter::applyEvents(std::ve
                 result.eventsSkipped++;
                 continue;
             }
+            auto existingItem = clipboardService.getByTypeAndContentHash(ClipboardItemType::Text, event.contentHash);
+            if (existingItem && existingItem->originType == OriginType::LocalCopy) {
+                PASTY_LOG_DEBUG("Core.SyncImporter", "Skipping upsert_text: local_copy item exists with same hash=%s", event.contentHash.c_str());
+                result.eventsSkipped++;
+                continue;
+            }
             applied = applyUpsertText(event, clipboardService);
         } else if (event.op == "upsert_image") {
             TombstoneKey key{ClipboardItemType::Image, event.contentHash};
@@ -755,6 +768,12 @@ CloudDriveSyncImporter::ImportResult CloudDriveSyncImporter::applyEvents(std::ve
             if (m_stateManager->shouldSkipUpsertDueToTombstone(event.itemType, event.contentHash, event.tsMs)) {
                 PASTY_LOG_DEBUG("Core.SyncImporter", "Skipping upsert due to persisted tombstone: type=%s, hash=%s, event_ts=%lld",
                                 event.itemType.c_str(), event.contentHash.c_str(), static_cast<long long>(event.tsMs));
+                result.eventsSkipped++;
+                continue;
+            }
+            auto existingItem = clipboardService.getByTypeAndContentHash(ClipboardItemType::Image, event.contentHash);
+            if (existingItem && existingItem->originType == OriginType::LocalCopy) {
+                PASTY_LOG_DEBUG("Core.SyncImporter", "Skipping upsert_image: local_copy item exists with same hash=%s", event.contentHash.c_str());
                 result.eventsSkipped++;
                 continue;
             }
@@ -792,9 +811,11 @@ CloudDriveSyncImporter::ImportResult CloudDriveSyncImporter::applyEvents(std::ve
 bool CloudDriveSyncImporter::applyUpsertText(const ParsedEvent& event, ClipboardService& clipboardService) {
     ClipboardHistoryIngestEvent ingestEvent;
     ingestEvent.timestampMs = event.tsMs;
-    ingestEvent.sourceAppId = kLoopPrefix + event.deviceId;
+    ingestEvent.sourceAppId = event.sourceAppId;
     ingestEvent.itemType = (event.itemType == "image") ? ClipboardItemType::Image : ClipboardItemType::Text;
     ingestEvent.text = event.text;
+    ingestEvent.originType = OriginType::CloudSync;
+    ingestEvent.originDeviceId = event.deviceId;
 
     ClipboardIngestResult result = clipboardService.ingestWithResult(ingestEvent);
     if (!result.ok) {
@@ -858,8 +879,10 @@ bool CloudDriveSyncImporter::applyUpsertImage(const ParsedEvent& event, Clipboar
 
     ClipboardHistoryIngestEvent ingestEvent;
     ingestEvent.timestampMs = event.tsMs;
-    ingestEvent.sourceAppId = kLoopPrefix + event.deviceId;
+    ingestEvent.sourceAppId = event.sourceAppId;
     ingestEvent.itemType = ClipboardItemType::Image;
+    ingestEvent.originType = OriginType::CloudSync;
+    ingestEvent.originDeviceId = event.deviceId;
     if (encryptedAsset) {
         ingestEvent.image.bytes.assign(decryptedBytes.begin(), decryptedBytes.end());
     } else {

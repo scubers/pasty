@@ -78,6 +78,14 @@ int ocrStatusToInt(OcrStatus status) {
     return static_cast<int>(status);
 }
 
+OriginType originTypeFromString(const std::string& value) {
+    return (value == "cloud_sync") ? OriginType::CloudSync : OriginType::LocalCopy;
+}
+
+std::string originTypeToString(OriginType type) {
+    return (type == OriginType::CloudSync) ? "cloud_sync" : "local_copy";
+}
+
 class SQLiteClipboardHistoryStore final : public ClipboardHistoryStore {
 public:
     SQLiteClipboardHistoryStore()
@@ -161,15 +169,17 @@ public:
             "INSERT INTO items ("
             "id, type, content, image_path, image_width, image_height, image_format, "
             "create_time_ms, update_time_ms, last_copy_time_ms, source_app_id, content_hash, metadata, "
-            "ocr_status, ocr_text, ocr_retry_count, ocr_next_retry_at"
-            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "ocr_status, ocr_text, ocr_retry_count, ocr_next_retry_at, "
+            "origin_type, origin_device_id"
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
             "ON CONFLICT(type, content_hash) DO UPDATE SET "
             "content=excluded.content, "
             "update_time_ms=excluded.update_time_ms, "
             "last_copy_time_ms=excluded.last_copy_time_ms, "
             "source_app_id=excluded.source_app_id,"
-            // Preserve existing tags/metadata when incoming metadata is empty (dedupe re-copy)
-            "metadata=COALESCE(NULLIF(excluded.metadata, ''), items.metadata);";
+            "metadata=COALESCE(NULLIF(excluded.metadata, ''), items.metadata),"
+            "origin_type=excluded.origin_type,"
+            "origin_device_id=excluded.origin_device_id;";
 
         if (sqlite3_prepare_v2(m_db, sql, -1, &statement, nullptr) != SQLITE_OK) {
             return {};
@@ -210,8 +220,8 @@ public:
                     const char* updateSql =
                         "UPDATE items "
                         "SET update_time_ms = ?1, last_copy_time_ms = ?2, source_app_id = ?3, "
-                        // Preserve existing tags/metadata when incoming metadata is empty (dedupe re-copy)
-                        "metadata = CASE WHEN length(?5) > 0 THEN ?5 ELSE metadata END "
+                        "metadata = CASE WHEN length(?5) > 0 THEN ?5 ELSE metadata END, "
+                        "origin_type = ?6, origin_device_id = ?7 "
                         "WHERE id = ?4;";
                     if (sqlite3_prepare_v2(m_db, updateSql, -1, &update, nullptr) != SQLITE_OK) {
                         PASTY_LOG_ERROR("Core.Store", "Upsert image dedupe update prepare failed");
@@ -222,6 +232,12 @@ public:
                     sqlite3_bind_text(update, 3, item.sourceAppId.c_str(), -1, SQLITE_TRANSIENT);
                     sqlite3_bind_text(update, 4, existingId.c_str(), -1, SQLITE_TRANSIENT);
                     sqlite3_bind_text(update, 5, item.metadata.c_str(), -1, SQLITE_TRANSIENT);
+                    sqlite3_bind_text(update, 6, originTypeToString(item.originType).c_str(), -1, SQLITE_TRANSIENT);
+                    if (item.originDeviceId.has_value() && !item.originDeviceId->empty()) {
+                        sqlite3_bind_text(update, 7, item.originDeviceId->c_str(), -1, SQLITE_TRANSIENT);
+                    } else {
+                        sqlite3_bind_null(update, 7);
+                    }
                     const bool updated = sqlite3_step(update) == SQLITE_DONE;
                     sqlite3_finalize(update);
                     if (!updated) {
@@ -247,8 +263,9 @@ public:
             "INSERT INTO items ("
             "id, type, content, image_path, image_width, image_height, image_format, "
             "create_time_ms, update_time_ms, last_copy_time_ms, source_app_id, content_hash, metadata, "
-            "ocr_status, ocr_text, ocr_retry_count, ocr_next_retry_at"
-            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+            "ocr_status, ocr_text, ocr_retry_count, ocr_next_retry_at, "
+            "origin_type, origin_device_id"
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
 
         if (sqlite3_prepare_v2(m_db, sql, -1, &statement, nullptr) != SQLITE_OK) {
             deleteAsset(relativePath);
@@ -281,7 +298,8 @@ public:
         const char* sql =
             "SELECT id, type, content, image_path, image_width, image_height, image_format, "
             "create_time_ms, update_time_ms, last_copy_time_ms, source_app_id, content_hash, metadata, "
-            "ocr_status, ocr_text, ocr_retry_count, ocr_next_retry_at "
+            "ocr_status, ocr_text, ocr_retry_count, ocr_next_retry_at, "
+            "origin_type, origin_device_id "
             "FROM items "
             "WHERE id = ?1;";
 
@@ -311,6 +329,11 @@ public:
             item.ocrText = readTextColumn(statement, 14);
             item.ocrRetryCount = sqlite3_column_int(statement, 15);
             item.ocrNextRetryAtMs = sqlite3_column_int64(statement, 16);
+            item.originType = originTypeFromString(readTextColumn(statement, 17));
+            const auto* deviceIdText = sqlite3_column_text(statement, 18);
+            if (deviceIdText != nullptr) {
+                item.originDeviceId = reinterpret_cast<const char*>(deviceIdText);
+            }
             result = item;
         }
 
@@ -330,7 +353,8 @@ public:
         const char* sql =
             "SELECT id, type, content, image_path, image_width, image_height, image_format, "
             "create_time_ms, update_time_ms, last_copy_time_ms, source_app_id, content_hash, metadata, "
-            "ocr_status, ocr_text, ocr_retry_count, ocr_next_retry_at "
+            "ocr_status, ocr_text, ocr_retry_count, ocr_next_retry_at, "
+            "origin_type, origin_device_id "
             "FROM items "
             "WHERE type = ?1 AND content_hash = ?2 LIMIT 1;";
 
@@ -361,6 +385,11 @@ public:
             item.ocrText = readTextColumn(statement, 14);
             item.ocrRetryCount = sqlite3_column_int(statement, 15);
             item.ocrNextRetryAtMs = sqlite3_column_int64(statement, 16);
+            item.originType = originTypeFromString(readTextColumn(statement, 17));
+            const auto* deviceIdText = sqlite3_column_text(statement, 18);
+            if (deviceIdText != nullptr) {
+                item.originDeviceId = reinterpret_cast<const char*>(deviceIdText);
+            }
             result = item;
         }
 
@@ -382,7 +411,8 @@ public:
         const char* sql =
             "SELECT id, type, content, image_path, image_width, image_height, image_format, "
             "create_time_ms, update_time_ms, last_copy_time_ms, source_app_id, content_hash, metadata, "
-            "ocr_status, ocr_text, ocr_retry_count, ocr_next_retry_at "
+            "ocr_status, ocr_text, ocr_retry_count, ocr_next_retry_at, "
+            "origin_type, origin_device_id "
             "FROM items "
             "WHERE (?1 = 0 OR last_copy_time_ms < ?1) "
             "ORDER BY last_copy_time_ms DESC "
@@ -414,6 +444,11 @@ public:
             item.ocrText = readTextColumn(statement, 14);
             item.ocrRetryCount = sqlite3_column_int(statement, 15);
             item.ocrNextRetryAtMs = sqlite3_column_int64(statement, 16);
+            item.originType = originTypeFromString(readTextColumn(statement, 17));
+            const auto* deviceIdText = sqlite3_column_text(statement, 18);
+            if (deviceIdText != nullptr) {
+                item.originDeviceId = reinterpret_cast<const char*>(deviceIdText);
+            }
             result.items.push_back(item);
         }
 
@@ -437,7 +472,8 @@ public:
         std::string sql =
             "SELECT id, type, content, image_path, image_width, image_height, image_format, "
             "create_time_ms, update_time_ms, last_copy_time_ms, source_app_id, content_hash, metadata, "
-            "ocr_status, ocr_text, ocr_retry_count, ocr_next_retry_at "
+            "ocr_status, ocr_text, ocr_retry_count, ocr_next_retry_at, "
+            "origin_type, origin_device_id "
             "FROM items "
             "WHERE (COALESCE(content, '') LIKE ?1 "
             "OR COALESCE(metadata, '') LIKE ?1 ";
@@ -487,6 +523,11 @@ public:
             item.ocrText = readTextColumn(statement, 14);
             item.ocrRetryCount = sqlite3_column_int(statement, 15);
             item.ocrNextRetryAtMs = sqlite3_column_int64(statement, 16);
+            item.originType = originTypeFromString(readTextColumn(statement, 17));
+            const auto* deviceIdText = sqlite3_column_text(statement, 18);
+            if (deviceIdText != nullptr) {
+                item.originDeviceId = reinterpret_cast<const char*>(deviceIdText);
+            }
             if (item.type == ClipboardItemType::Text && !item.content.empty()) {
                 item.content = truncateUtf8(item.content, previewLength);
             }
@@ -870,6 +911,7 @@ private:
             [&]() { return applyMigration(2, "0002-add-search-index.sql"); },
             [&]() { return applyMigration(3, "0003-add-metadata.sql"); },
             [&]() { return applyMigration(4, "0004-add-ocr-support.sql"); },
+            [&]() { return applyMigration(5, "0005-add-origin-tracking.sql"); },
         };
 
         for (size_t i = currentVersion; i < migrations.size(); ++i) {
@@ -987,6 +1029,12 @@ private:
         }
         sqlite3_bind_int(statement, 16, item.ocrRetryCount);
         sqlite3_bind_int64(statement, 17, item.ocrNextRetryAtMs);
+        sqlite3_bind_text(statement, 18, originTypeToString(item.originType).c_str(), -1, SQLITE_TRANSIENT);
+        if (item.originDeviceId.has_value() && !item.originDeviceId->empty()) {
+            sqlite3_bind_text(statement, 19, item.originDeviceId->c_str(), -1, SQLITE_TRANSIENT);
+        } else {
+            sqlite3_bind_null(statement, 19);
+        }
     }
 
     static std::string readTextColumn(sqlite3_stmt* statement, int column) {
