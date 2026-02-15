@@ -70,6 +70,7 @@ public:
     bool exportLocalImageIngest(const ClipboardHistoryIngestEvent& event, bool inserted);
     bool exportLocalDelete(const ClipboardHistoryItem& deletedItem, bool deleted);
     bool exportLocalTags(const ClipboardHistoryItem& item, const std::vector<std::string>& tags);
+    bool exportLocalPinned(const ClipboardHistoryItem& item, bool pinned);
 
 private:
     bool syncExportConfigured() const;

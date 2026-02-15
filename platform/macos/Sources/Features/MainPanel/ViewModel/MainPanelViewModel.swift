@@ -65,6 +65,7 @@ final class MainPanelViewModel: ObservableObject {
         case tagRemoved(String)
         case tagInputChanged(String)
         case selectTagSuggestion(Int)
+        case togglePinSelected
     }
 
     @Published private(set) var state = State()
@@ -218,6 +219,8 @@ final class MainPanelViewModel: ObservableObject {
             updateTagSuggestions(query: query)
         case let .selectTagSuggestion(index):
             selectTagSuggestionAt(index: index)
+        case .togglePinSelected:
+            togglePinSelected()
         }
     }
 
@@ -562,5 +565,28 @@ final class MainPanelViewModel: ObservableObject {
         }
         state.tagSuggestions = []
         state.selectedSuggestionIndex = -1
+    }
+
+    private func togglePinSelected() {
+        guard let selectedItem = state.selectedItem else {
+            return
+        }
+        let newPinned = !(selectedItem.pinned == true)
+        historyService.setPinned(id: selectedItem.id, pinned: newPinned)
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { [weak self] completion in
+                    if case let .failure(error) = completion {
+                        LoggerService.error("Failed to set pinned: \(error.localizedDescription)")
+                        self?.state.errorMessage = error.localizedDescription
+                    }
+                },
+                receiveValue: { [weak self] in
+                    guard let self else { return }
+                    self.historyService.invalidateSearchCache()
+                    self.refreshListFromDatabase(selectFirst: false)
+                }
+            )
+            .store(in: &cancellables)
     }
 }

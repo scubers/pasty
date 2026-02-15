@@ -45,6 +45,11 @@ public:
     bool applyRetentionFromSettings();
     bool enforceRetention(std::int32_t maxCount);
 
+    bool setPinned(const std::string& id, bool pinned);
+    bool setPinned(const std::string& id, bool pinned, HistoryTimestampMs pinnedUpdateTimeMs);
+    std::optional<bool> getPinned(const std::string& id);
+    bool deleteItem(const std::string& id);
+
 private:
     std::unique_ptr<ClipboardHistoryStore> m_store;
     SettingsStore& m_settingsStore;

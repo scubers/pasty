@@ -12,6 +12,7 @@ struct ClipboardItemRow: Identifiable, Equatable, Decodable {
     let ocrStatus: OcrStatus?
     let ocrText: String?
     let metadata: String?
+    let pinned: Bool?
     
     var timestamp: Date {
         Date(timeIntervalSince1970: TimeInterval(createTimeMs) / 1000.0)
@@ -41,5 +42,6 @@ struct ClipboardItemRow: Identifiable, Equatable, Decodable {
         case ocrStatus
         case ocrText
         case metadata
+        case pinned
     }
 }

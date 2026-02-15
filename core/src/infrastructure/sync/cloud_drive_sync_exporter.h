@@ -104,6 +104,8 @@ public:
 
     ExportResult exportTags(ClipboardItemType itemType, const std::string& contentHash, const std::vector<std::string>& tags);
 
+    ExportResult exportPinned(ClipboardItemType itemType, const std::string& contentHash, bool pinned);
+
     bool isConfigured() const;
 
 private:

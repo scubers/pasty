@@ -42,6 +42,8 @@ public:
     virtual bool enforceRetention(std::int32_t maxItems) = 0;
 
     virtual bool updateItemMetadata(const std::string& id, const std::string& metadata, HistoryTimestampMs updateTimeMs) = 0;
+    virtual bool setPinnedById(const std::string& id, bool pinned, HistoryTimestampMs updateTimeMs) = 0;
+    virtual std::optional<bool> getPinnedById(const std::string& id) = 0;
 };
 
 std::unique_ptr<ClipboardHistoryStore> createClipboardHistoryStore();

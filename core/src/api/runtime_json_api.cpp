@@ -694,6 +694,31 @@ bool pasty_history_set_tags(pasty_runtime_ref runtime_ref, const char* id, const
     return success;
 }
 
+bool pasty_history_set_pinned(pasty_runtime_ref runtime_ref, const char* id, bool pinned) {
+    PastyRuntime* runtime = castRuntime(runtime_ref);
+    if (runtime == nullptr || id == nullptr) {
+        return false;
+    }
+
+    std::lock_guard<std::mutex> lock(runtime->mutex);
+    auto* service = clipboardService(runtime);
+    if (service == nullptr) {
+        return false;
+    }
+
+    const std::string itemId = pasty::runtime_json_utils::fromCString(id);
+    const bool success = service->setPinned(itemId, pinned);
+
+    if (success && runtime->runtime) {
+        auto item = service->getById(itemId);
+        if (item.has_value()) {
+            runtime->runtime->exportLocalPinned(*item, pinned);
+        }
+    }
+
+    return success;
+}
+
 void pasty_free_string(char* str) {
     delete[] str;
 }

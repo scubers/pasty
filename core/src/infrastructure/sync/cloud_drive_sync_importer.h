@@ -119,6 +119,9 @@ private:
         // For set_tags
         std::vector<std::string> tags;
 
+        // For set_pinned
+        bool pinned = false;
+
         // Optional fields (forward compat)
         std::string sourceAppId;
         
@@ -147,6 +150,7 @@ private:
     bool applyUpsertImage(const ParsedEvent& event, ClipboardService& clipboardService);
     bool applyDelete(const ParsedEvent& event, ClipboardService& clipboardService);
     bool applySetTags(const ParsedEvent& event, ClipboardService& clipboardService);
+    bool applySetPinned(const ParsedEvent& event, ClipboardService& clipboardService);
     
     // Constants
     static constexpr int kSchemaVersion = 1;

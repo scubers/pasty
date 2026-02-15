@@ -85,6 +85,8 @@ bool pasty_history_get_tags(pasty_runtime_ref runtime, const char* id, char** ou
 
 bool pasty_history_set_tags(pasty_runtime_ref runtime, const char* id, const char* tags_json);
 
+bool pasty_history_set_pinned(pasty_runtime_ref runtime, const char* id, bool pinned);
+
 void pasty_free_string(char* str);
 
 bool pasty_history_delete(pasty_runtime_ref runtime, const char* id);

@@ -195,6 +195,9 @@ final class MainPanelWindowController: NSWindowController, NSWindowDelegate, InA
         case (17, true): // Command + T
             viewModel.send(.openTagEditor)
             return true
+        case (35, true): // Command + P
+            viewModel.send(.togglePinSelected)
+            return true
         default:
             return false
         }

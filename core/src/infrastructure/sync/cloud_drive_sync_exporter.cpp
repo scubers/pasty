@@ -733,6 +733,45 @@ CloudDriveSyncExporter::ExportResult CloudDriveSyncExporter::exportTags(
     return writeJsonlEvent(jsonLine);
 }
 
+CloudDriveSyncExporter::ExportResult CloudDriveSyncExporter::exportPinned(
+    ClipboardItemType itemType,
+    const std::string& contentHash,
+    bool pinned) {
+
+    if (!m_initialized) {
+        return ExportResult::SyncNotConfigured;
+    }
+
+    const std::uint64_t seq = m_stateManager->reserveNextSeq();
+    if (seq == 0) {
+        return ExportResult::ExportFailed;
+    }
+
+    const std::string deviceId = m_stateManager->deviceId();
+    const std::string eventId = deviceId + ":" + std::to_string(seq);
+
+    const std::int64_t nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+
+    const std::string itemTypeStr = (itemType == ClipboardItemType::Image) ? "image" : "text";
+
+    using Json = nlohmann::json;
+    Json json;
+    json["schema_version"] = kSchemaVersion;
+    json["event_id"] = eventId;
+    json["device_id"] = deviceId;
+    json["seq"] = seq;
+    json["ts_ms"] = nowMs;
+    json["op"] = "set_pinned";
+    json["item_type"] = itemTypeStr;
+    json["content_hash"] = contentHash;
+    json["pinned"] = pinned;
+    json["encryption"] = "none";
+
+    const std::string jsonLine = json.dump();
+    return writeJsonlEvent(jsonLine);
+}
+
 bool CloudDriveSyncExporter::isConfigured() const {
     return m_initialized;
 }

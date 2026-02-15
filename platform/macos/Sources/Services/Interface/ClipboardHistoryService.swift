@@ -9,4 +9,5 @@ protocol ClipboardHistoryService {
     func invalidateSearchCache()
     func getTags(id: String) -> AnyPublisher<[String], Error>
     func setTags(id: String, tags: [String]) -> AnyPublisher<Void, Error>
+    func setPinned(id: String, pinned: Bool) -> AnyPublisher<Void, Error>
 }

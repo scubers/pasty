@@ -303,4 +303,43 @@ bool ClipboardService::enforceRetention(std::int32_t maxCount) {
     return m_store->enforceRetention(maxCount);
 }
 
+bool ClipboardService::setPinned(const std::string& id, bool pinned) {
+    if (!m_initialized || !m_store || id.empty()) {
+        return false;
+    }
+
+    return m_store->setPinnedById(id, pinned, currentTimeMs());
+}
+
+bool ClipboardService::setPinned(const std::string& id, bool pinned, HistoryTimestampMs pinnedUpdateTimeMs) {
+    if (!m_initialized || !m_store || id.empty()) {
+        return false;
+    }
+
+    // First, get the current item to check its existing pinnedUpdateTimeMs
+    auto item = m_store->getItem(id);
+    if (!item) {
+        return false;
+    }
+
+    // LWW: only update if new timestamp is later than existing
+    if (pinnedUpdateTimeMs <= item->pinnedUpdateTimeMs) {
+        return true; // No update needed, but consider success
+    }
+
+    return m_store->setPinnedById(id, pinned, pinnedUpdateTimeMs);
+}
+
+std::optional<bool> ClipboardService::getPinned(const std::string& id) {
+    if (!m_initialized || !m_store || id.empty()) {
+        return std::nullopt;
+    }
+
+    return m_store->getPinnedById(id);
+}
+
+bool ClipboardService::deleteItem(const std::string& id) {
+    return deleteById(id);
+}
+
 } // namespace pasty

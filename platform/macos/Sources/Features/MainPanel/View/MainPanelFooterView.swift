@@ -6,6 +6,7 @@ struct MainPanelFooterView: View {
     var body: some View {
         HStack(spacing: MainPanelTokens.Layout.paddingCompact) {
             Text("↑↓ select ·")
+            Text("⌘+P pin ·")
             Text("⌘+D delete ·")
             Text("⌘+↩ copy ·")
             Text("↩ paste ·")

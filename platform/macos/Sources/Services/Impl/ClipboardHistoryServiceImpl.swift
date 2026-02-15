@@ -247,6 +247,30 @@ final class ClipboardHistoryServiceImpl: ClipboardHistoryService {
         .eraseToAnyPublisher()
     }
 
+    func setPinned(id: String, pinned: Bool) -> AnyPublisher<Void, Error> {
+        return Future { promise in
+            self.workQueue.async {
+                guard let runtime = self.coordinator.coreRuntime else {
+                    promise(.failure(NSError(domain: "ClipboardHistoryError", code: -10, userInfo: [NSLocalizedDescriptionKey: "Core runtime unavailable"])))
+                    return
+                }
+
+                let success = id.withCString { idPtr in
+                    pasty_history_set_pinned(runtime, idPtr, pinned)
+                }
+
+                if success {
+                    LoggerService.info("Set pinned for item: \(id) to \(pinned)")
+                    promise(.success(()))
+                } else {
+                    LoggerService.error("Failed to set pinned for item: \(id)")
+                    promise(.failure(NSError(domain: "ClipboardHistoryError", code: -7, userInfo: [NSLocalizedDescriptionKey: "Set pinned failed"])))
+                }
+            }
+        }
+        .eraseToAnyPublisher()
+    }
+
     private func cachedValue(for key: CacheKey) -> [ClipboardItemRow]? {
         cacheLock.lock()
         let value = searchCache[key]

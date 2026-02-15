@@ -531,6 +531,109 @@ void testLocalCopyWinsPrecedence() {
     cleanupTempDirectory(tempDir);
 }
 
+void testSetPinnedImport() {
+    std::cout << "Running testSetPinnedImport..." << std::endl;
+
+    configureMigrationDirectoryForTests();
+    const std::string tempDir = createTempDirectory("cloud-sync-import-set-pinned");
+    const std::string syncRoot = tempDir + "/sync";
+    const std::string baseDir = tempDir + "/base";
+    std::filesystem::create_directories(syncRoot);
+    std::filesystem::create_directories(baseDir);
+
+    const std::string remote = "aaaaaaaaaaaaaaaa";
+    const std::string logs = syncRoot + "/logs/" + remote;
+    std::filesystem::create_directories(logs);
+
+    // First, create a local text item
+    pasty::InMemorySettingsStore settings(1000);
+    auto service = makeService(settings);
+    assert(service.initialize(baseDir + "/history"));
+
+    // Ingest a text item locally
+    pasty::ClipboardHistoryIngestEvent ingestEvent;
+    ingestEvent.itemType = pasty::ClipboardItemType::Text;
+    ingestEvent.text = "test-pinned-content";
+    ingestEvent.sourceAppId = "com.test.app";
+    ingestEvent.timestampMs = 1739414700000;
+
+    auto ingestResult = service.ingestWithResult(ingestEvent);
+    assert(ingestResult.ok);
+    assert(ingestResult.inserted);
+
+    const auto items = service.list(10, "").items;
+    assert(items.size() == 1);
+    const std::string contentHash = items[0].contentHash;
+    assert(!contentHash.empty());
+
+    // Test 1: set_pinned on existing item
+    auto setPinnedEvent1 = makeBaseEvent(remote, 1, 1739414701000, "set_pinned", "text", contentHash);
+    setPinnedEvent1["pinned"] = true;
+    writeJsonlFile(logs + "/events-0001.jsonl", setPinnedEvent1.dump());
+
+    // Import
+    auto importer = pasty::CloudDriveSyncImporter::Create(syncRoot, baseDir);
+    assert(importer.has_value());
+    auto result = importer->importChanges(service);
+    assert(result.success);
+    assert(result.eventsApplied == 1);
+
+    // Verify pinned is set
+    auto item1 = service.getByTypeAndContentHash(pasty::ClipboardItemType::Text, contentHash);
+    assert(item1.has_value());
+    assert(item1->pinned);
+
+    // Test 2: set_pinned on non-existing item (should be skipped)
+    auto setPinnedEvent2 = makeBaseEvent(remote, 2, 1739414702000, "set_pinned", "text", "bbbbbbbbbbbbbbbb");
+    setPinnedEvent2["pinned"] = false;
+    writeJsonlFile(logs + "/events-0001.jsonl", setPinnedEvent2.dump());
+
+    importer = pasty::CloudDriveSyncImporter::Create(syncRoot, baseDir);
+    assert(importer.has_value());
+    result = importer->importChanges(service);
+    assert(result.success);
+    assert(result.eventsApplied == 0);
+    assert(result.eventsSkipped == 1);
+
+    // Verify pinned is still true
+    auto item2 = service.getByTypeAndContentHash(pasty::ClipboardItemType::Text, contentHash);
+    assert(item2.has_value());
+    assert(item2->pinned);
+
+    // Test 3: LWW - old timestamp should not overwrite
+    auto setPinnedEvent3 = makeBaseEvent(remote, 3, 1739414700500, "set_pinned", "text", contentHash);
+    setPinnedEvent3["pinned"] = false;
+    writeJsonlFile(logs + "/events-0001.jsonl", setPinnedEvent3.dump());
+
+    importer = pasty::CloudDriveSyncImporter::Create(syncRoot, baseDir);
+    assert(importer.has_value());
+    result = importer->importChanges(service);
+    assert(result.success);
+    // Since LWW is handled in ClipboardService::setPinned, it should return true but not change, so not counted as applied?
+    // Let's check the item's state directly
+    auto item3 = service.getByTypeAndContentHash(pasty::ClipboardItemType::Text, contentHash);
+    assert(item3.has_value());
+    assert(item3->pinned); // Still true!
+
+    // Test 4: Newer timestamp should overwrite
+    auto setPinnedEvent4 = makeBaseEvent(remote, 4, 1739414703000, "set_pinned", "text", contentHash);
+    setPinnedEvent4["pinned"] = false;
+    writeJsonlFile(logs + "/events-0001.jsonl", setPinnedEvent4.dump());
+
+    importer = pasty::CloudDriveSyncImporter::Create(syncRoot, baseDir);
+    assert(importer.has_value());
+    result = importer->importChanges(service);
+    assert(result.success);
+
+    // Verify pinned is now false
+    auto item4 = service.getByTypeAndContentHash(pasty::ClipboardItemType::Text, contentHash);
+    assert(item4.has_value());
+    assert(!item4->pinned);
+
+    service.shutdown();
+    cleanupTempDirectory(tempDir);
+}
+
 }
 
 int main() {
@@ -546,6 +649,7 @@ int main() {
         testEventIdPrefixValidation();
         testE2eeDeleteImport();
         testLocalCopyWinsPrecedence();
+        testSetPinnedImport();
         std::cout << "=== All tests PASSED ===" << std::endl;
         return 0;
     } catch (const std::exception& e) {

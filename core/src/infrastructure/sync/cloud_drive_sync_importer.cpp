@@ -654,6 +654,22 @@ bool CloudDriveSyncImporter::parseEvent(const std::string& line, const std::stri
                 event.tags.push_back(tag.get<std::string>());
             }
         }
+    } else if (event.op == "set_pinned") {
+        if (!json.contains("item_type") || !json.contains("content_hash") || !json.contains("pinned")) {
+            PASTY_LOG_ERROR("Core.SyncImporter", "Missing item_type/content_hash/pinned for set_pinned at offset %lu",
+                            static_cast<unsigned long>(lineOffset));
+            return false;
+        }
+        event.itemType = json["item_type"].get<std::string>();
+        event.contentHash = json["content_hash"].get<std::string>();
+
+        if (!validateContentHash(event.contentHash)) {
+            PASTY_LOG_WARN("Core.SyncImporter", "Invalid content_hash in set_pinned event %s at offset %lu",
+                           event.eventId.c_str(), static_cast<unsigned long>(lineOffset));
+            return false;
+        }
+
+        event.pinned = json["pinned"].get<bool>();
     } else {
         PASTY_LOG_WARN("Core.SyncImporter", "Unknown op '%s' in event %s, skipping (forward compatibility)",
                        event.op.c_str(), event.eventId.c_str());
@@ -780,6 +796,8 @@ CloudDriveSyncImporter::ImportResult CloudDriveSyncImporter::applyEvents(std::ve
             applied = applyUpsertImage(event, clipboardService);
         } else if (event.op == "set_tags") {
             applied = applySetTags(event, clipboardService);
+        } else if (event.op == "set_pinned") {
+            applied = applySetPinned(event, clipboardService);
         } else {
             PASTY_LOG_WARN("Core.SyncImporter", "Skipping unknown op '%s' in apply", event.op.c_str());
             result.eventsSkipped++;
@@ -946,7 +964,30 @@ bool CloudDriveSyncImporter::applySetTags(const ParsedEvent& event, ClipboardSer
                        item->id.c_str(), event.tags.size());
     } else {
         PASTY_LOG_ERROR("Core.SyncImporter", "Failed to apply set_tags to item. id=%s",
-                        item->id.c_str());
+                       item->id.c_str());
+    }
+    return success;
+}
+
+bool CloudDriveSyncImporter::applySetPinned(const ParsedEvent& event, ClipboardService& clipboardService) {
+    auto item = clipboardService.getByTypeAndContentHash(
+        (event.itemType == "image") ? ClipboardItemType::Image : ClipboardItemType::Text,
+        event.contentHash
+    );
+
+    if (!item) {
+        PASTY_LOG_DEBUG("Core.SyncImporter", "Skipping set_pinned: item not found. type=%s, hash=%s",
+                        event.itemType.c_str(), event.contentHash.c_str());
+        return false;
+    }
+
+    bool success = clipboardService.setPinned(item->id, event.pinned, event.tsMs);
+    if (success) {
+        PASTY_LOG_INFO("Core.SyncImporter", "Applied set_pinned to item. id=%s, pinned=%d",
+                       item->id.c_str(), event.pinned);
+    } else {
+        PASTY_LOG_ERROR("Core.SyncImporter", "Failed to apply set_pinned to item. id=%s",
+                       item->id.c_str());
     }
     return success;
 }

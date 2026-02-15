@@ -74,6 +74,8 @@ struct ClipboardHistoryItem {
     HistoryTimestampMs ocrNextRetryAtMs = 0;
     OriginType originType = OriginType::LocalCopy;
     std::optional<std::string> originDeviceId;
+    bool pinned = false;
+    HistoryTimestampMs pinnedUpdateTimeMs = 0;
 };
 
 struct OcrTask {

@@ -383,6 +383,49 @@ void testIncludeSourceAppIdDisabled() {
     cleanupTempDirectory(tempDir);
 }
 
+void testSetPinnedExport() {
+    std::cout << "Running testSetPinnedExport..." << std::endl;
+
+    configureMigrationDirectoryForTests();
+    const std::string tempDir = createTempDirectory("cloud-sync-export-set-pinned");
+    const std::string syncRoot = tempDir + "/sync";
+    const std::string baseDir = tempDir + "/base";
+
+    auto exporter = pasty::CloudDriveSyncExporter::Create(syncRoot, baseDir);
+    assert(exporter.has_value());
+
+    const std::string contentHash = "deadbeefpinnedhash";
+    const auto result = exporter->exportPinned(pasty::ClipboardItemType::Text, contentHash, true);
+    assert(result == pasty::CloudDriveSyncExporter::ExportResult::Success);
+
+    const std::filesystem::path deviceLogsDir = getSingleDeviceLogsDir(syncRoot);
+    const std::filesystem::path log1 = deviceLogsDir / "events-0001.jsonl";
+    assert(std::filesystem::exists(log1));
+
+    const std::string lastLine = readLastLine(log1);
+    assert(!lastLine.empty());
+
+    const nlohmann::json eventJson = nlohmann::json::parse(lastLine, nullptr, false);
+    assert(!eventJson.is_discarded());
+    assert(eventJson.value("op", std::string()) == "set_pinned");
+    assert(eventJson.value("item_type", std::string()) == "text");
+    assert(eventJson.value("content_hash", std::string()) == contentHash);
+    assert(eventJson.value("pinned", false) == true);
+    assert(eventJson.value("encryption", std::string()) == "none");
+
+    // Test pinned=false
+    const auto result2 = exporter->exportPinned(pasty::ClipboardItemType::Image, "imagepinnedhash", false);
+    assert(result2 == pasty::CloudDriveSyncExporter::ExportResult::Success);
+
+    const std::string lastLine2 = readLastLine(log1);
+    const nlohmann::json eventJson2 = nlohmann::json::parse(lastLine2, nullptr, false);
+    assert(eventJson2.value("op", std::string()) == "set_pinned");
+    assert(eventJson2.value("item_type", std::string()) == "image");
+    assert(eventJson2.value("pinned", true) == false);
+
+    cleanupTempDirectory(tempDir);
+}
+
 }
 
 int main() {
@@ -397,6 +440,7 @@ int main() {
         testE2eeDeleteExport();
         testDeviceIdConflictDetection();
         testIncludeSourceAppIdDisabled();
+        testSetPinnedExport();
         std::cout << "=== All tests PASSED ===" << std::endl;
         return 0;
     } catch (const std::exception& e) {

@@ -504,6 +504,68 @@ void testImageDedupePreservesTags() {
     std::cout << "testImageDedupePreservesTags PASSED" << std::endl;
 }
 
+void testPinnedItemCannotBeDeletedById() {
+    std::cout << "Running testPinnedItemCannotBeDeletedById..." << std::endl;
+
+    configureMigrationDirectoryForTests();
+    std::filesystem::path testDir = getTestsOutputBaseDir() / "test_pinned_delete_by_id";
+    std::filesystem::remove_all(testDir);
+
+    pasty::InMemorySettingsStore settings(1000);
+    auto service = makeService(settings);
+    assert(service.initialize(testDir.string()));
+
+    pasty::ClipboardHistoryIngestEvent event;
+    event.text = "Pinned content";
+    event.timestampMs = 1000;
+    assert(service.ingest(event));
+
+    auto list = service.list(10, "");
+    assert(list.items.size() == 1);
+    std::string itemId = list.items[0].id;
+
+    assert(service.setPinned(itemId, true));
+
+    bool deleteResult = service.deleteItem(itemId);
+    assert(deleteResult == false);
+
+    auto itemAfterDelete = service.getById(itemId);
+    assert(itemAfterDelete.has_value());
+
+    service.shutdown();
+    std::cout << "testPinnedItemCannotBeDeletedById PASSED" << std::endl;
+}
+
+void testRetentionSkipsPinnedItems() {
+    std::cout << "Running testRetentionSkipsPinnedItems..." << std::endl;
+
+    configureMigrationDirectoryForTests();
+    std::filesystem::path testDir = getTestsOutputBaseDir() / "test_retention_skips_pinned";
+    std::filesystem::remove_all(testDir);
+
+    pasty::InMemorySettingsStore settings(2);
+    auto service = makeService(settings);
+    assert(service.initialize(testDir.string()));
+
+    pasty::ClipboardHistoryIngestEvent e1; e1.text = "Item 1"; e1.timestampMs = 1000; assert(service.ingest(e1));
+    
+    auto list1 = service.list(10, "");
+    assert(list1.items.size() == 1);
+    std::string item1Id = list1.items[0].id;
+    
+    assert(service.setPinned(item1Id, true));
+
+    pasty::ClipboardHistoryIngestEvent e2; e2.text = "Item 2"; e2.timestampMs = 2000; assert(service.ingest(e2));
+    pasty::ClipboardHistoryIngestEvent e3; e3.text = "Item 3"; e3.timestampMs = 3000; assert(service.ingest(e3));
+    pasty::ClipboardHistoryIngestEvent e4; e4.text = "Item 4"; e4.timestampMs = 4000; assert(service.ingest(e4));
+
+    auto itemAfterRetention = service.getById(item1Id);
+    assert(itemAfterRetention.has_value());
+
+    service.shutdown();
+    std::cout << "testRetentionSkipsPinnedItems PASSED" << std::endl;
+}
+
 int main() {
     testSearch();
     testSearchReturnsImagesWhenQueryIsEmpty();
@@ -518,5 +580,7 @@ int main() {
     testSearchMatchesTagsInMetadata();
     testTextDedupePreservesTags();
     testImageDedupePreservesTags();
+    testPinnedItemCannotBeDeletedById();
+    testRetentionSkipsPinnedItems();
     return 0;
 }

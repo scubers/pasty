@@ -423,6 +423,15 @@ bool CoreRuntime::exportLocalTags(const ClipboardHistoryItem& item, const std::v
         == CloudDriveSyncExporter::ExportResult::Success;
 }
 
+bool CoreRuntime::exportLocalPinned(const ClipboardHistoryItem& item, bool pinned) {
+    if (!ensureCloudSyncExporter() || !m_syncExporter.has_value()) {
+        return false;
+    }
+
+    return m_syncExporter->exportPinned(item.type, item.contentHash, pinned)
+        == CloudDriveSyncExporter::ExportResult::Success;
+}
+
 std::string CoreRuntime::loadSyncDeviceId() const {
     auto state = CloudDriveSyncState::LoadOrCreate(m_config.storageDirectory);
     if (!state.has_value()) {

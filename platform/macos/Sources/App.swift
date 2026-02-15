@@ -437,8 +437,22 @@ class App: NSObject, NSApplicationDelegate {
 
     @MainActor
     private func showDeleteConfirmation() {
-        guard viewModel.state.pendingDeleteItem != nil,
+        guard let pendingDeleteItem = viewModel.state.pendingDeleteItem,
               let window = windowController.window else {
+            return
+        }
+
+        // Check if item is pinned - if so, show info alert instead
+        if pendingDeleteItem.pinned == true {
+            let alert = NSAlert()
+            alert.alertStyle = .informational
+            alert.messageText = "Cannot Delete Pinned Item"
+            alert.informativeText = "Pinned item cannot be deleted. Press Cmd+P to unpin first."
+            alert.addButton(withTitle: "OK")
+            
+            alert.beginSheetModal(for: window) { [weak self] _ in
+                self?.viewModel.send(.cancelDelete)
+            }
             return
         }
 

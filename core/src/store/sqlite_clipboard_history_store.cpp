@@ -299,7 +299,7 @@ public:
             "SELECT id, type, content, image_path, image_width, image_height, image_format, "
             "create_time_ms, update_time_ms, last_copy_time_ms, source_app_id, content_hash, metadata, "
             "ocr_status, ocr_text, ocr_retry_count, ocr_next_retry_at, "
-            "origin_type, origin_device_id "
+            "origin_type, origin_device_id, pinned, pinned_update_time_ms "
             "FROM items "
             "WHERE id = ?1;";
 
@@ -334,6 +334,8 @@ public:
             if (deviceIdText != nullptr) {
                 item.originDeviceId = reinterpret_cast<const char*>(deviceIdText);
             }
+            item.pinned = sqlite3_column_int(statement, 19) != 0;
+            item.pinnedUpdateTimeMs = sqlite3_column_int64(statement, 20);
             result = item;
         }
 
@@ -354,7 +356,7 @@ public:
             "SELECT id, type, content, image_path, image_width, image_height, image_format, "
             "create_time_ms, update_time_ms, last_copy_time_ms, source_app_id, content_hash, metadata, "
             "ocr_status, ocr_text, ocr_retry_count, ocr_next_retry_at, "
-            "origin_type, origin_device_id "
+            "origin_type, origin_device_id, pinned, pinned_update_time_ms "
             "FROM items "
             "WHERE type = ?1 AND content_hash = ?2 LIMIT 1;";
 
@@ -390,6 +392,8 @@ public:
             if (deviceIdText != nullptr) {
                 item.originDeviceId = reinterpret_cast<const char*>(deviceIdText);
             }
+            item.pinned = sqlite3_column_int(statement, 19) != 0;
+            item.pinnedUpdateTimeMs = sqlite3_column_int64(statement, 20);
             result = item;
         }
 
@@ -747,6 +751,27 @@ public:
 
         const std::string typeStr = (type == ClipboardItemType::Image) ? "image" : "text";
 
+        // Check if any item with this type/hash is pinned
+        bool hasPinned = false;
+        {
+            sqlite3_stmt* checkStmt = nullptr;
+            const char* checkSql = "SELECT 1 FROM items WHERE type = ?1 AND content_hash = ?2 AND pinned = 1 LIMIT 1;";
+            if (sqlite3_prepare_v2(m_db, checkSql, -1, &checkStmt, nullptr) != SQLITE_OK) {
+                return 0;
+            }
+            sqlite3_bind_text(checkStmt, 1, typeStr.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(checkStmt, 2, contentHash.c_str(), -1, SQLITE_TRANSIENT);
+            if (sqlite3_step(checkStmt) == SQLITE_ROW) {
+                hasPinned = true;
+            }
+            sqlite3_finalize(checkStmt);
+        }
+
+        if (hasPinned) {
+            PASTY_LOG_INFO("Core.Store", "Not deleting items with pinned entry. Hash: %s", contentHash.c_str());
+            return 0;
+        }
+
         std::vector<std::string> imagePathsToDelete;
         {
             sqlite3_stmt* lookup = nullptr;
@@ -815,6 +840,59 @@ public:
         return ok;
     }
 
+    bool setPinnedById(const std::string& id, bool pinned, HistoryTimestampMs updateTimeMs) override {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (m_db == nullptr || id.empty()) {
+            return false;
+        }
+
+        sqlite3_stmt* statement = nullptr;
+        const char* sql =
+            "UPDATE items "
+            "SET pinned = ?1, pinned_update_time_ms = ?2 "
+            "WHERE id = ?3;";
+
+        if (sqlite3_prepare_v2(m_db, sql, -1, &statement, nullptr) != SQLITE_OK) {
+            return false;
+        }
+
+        sqlite3_bind_int(statement, 1, pinned ? 1 : 0);
+        sqlite3_bind_int64(statement, 2, updateTimeMs);
+        sqlite3_bind_text(statement, 3, id.c_str(), -1, SQLITE_TRANSIENT);
+
+        const bool ok = sqlite3_step(statement) == SQLITE_DONE && sqlite3_changes(m_db) > 0;
+        sqlite3_finalize(statement);
+
+        if (!ok) {
+            PASTY_LOG_ERROR("Core.Store", "Set pinned failed. ID: %s", id.c_str());
+        }
+        return ok;
+    }
+
+    std::optional<bool> getPinnedById(const std::string& id) override {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (m_db == nullptr || id.empty()) {
+            return std::nullopt;
+        }
+
+        sqlite3_stmt* statement = nullptr;
+        const char* sql = "SELECT pinned FROM items WHERE id = ?1 LIMIT 1;";
+
+        if (sqlite3_prepare_v2(m_db, sql, -1, &statement, nullptr) != SQLITE_OK) {
+            return std::nullopt;
+        }
+
+        sqlite3_bind_text(statement, 1, id.c_str(), -1, SQLITE_TRANSIENT);
+
+        std::optional<bool> result;
+        if (sqlite3_step(statement) == SQLITE_ROW) {
+            result = sqlite3_column_int(statement, 0) != 0;
+        }
+
+        sqlite3_finalize(statement);
+        return result;
+    }
+
 private:
     void closeUnlocked() {
         if (m_db != nullptr) {
@@ -828,18 +906,25 @@ private:
             return false;
         }
 
+        bool isPinned = false;
         std::string imagePath;
         {
             sqlite3_stmt* lookup = nullptr;
-            const char* lookupSql = "SELECT image_path FROM items WHERE id = ?1;";
+            const char* lookupSql = "SELECT image_path, pinned FROM items WHERE id = ?1;";
             if (sqlite3_prepare_v2(m_db, lookupSql, -1, &lookup, nullptr) != SQLITE_OK) {
                 return false;
             }
             sqlite3_bind_text(lookup, 1, id.c_str(), -1, SQLITE_TRANSIENT);
             if (sqlite3_step(lookup) == SQLITE_ROW) {
                 imagePath = readTextColumn(lookup, 0);
+                isPinned = sqlite3_column_int(lookup, 1) != 0;
             }
             sqlite3_finalize(lookup);
+        }
+
+        if (isPinned) {
+            PASTY_LOG_INFO("Core.Store", "Not deleting pinned item. ID: %s", id.c_str());
+            return false;
         }
 
         sqlite3_stmt* statement = nullptr;
@@ -871,9 +956,25 @@ private:
 
         m_itemsLimit = maxItems;
 
+        sqlite3_stmt* countStmt = nullptr;
+        const char* countSql = "SELECT COUNT(*) FROM items WHERE pinned = 0;";
+        if (sqlite3_prepare_v2(m_db, countSql, -1, &countStmt, nullptr) != SQLITE_OK) {
+            return false;
+        }
+        int unpinnedCount = 0;
+        if (sqlite3_step(countStmt) == SQLITE_ROW) {
+            unpinnedCount = sqlite3_column_int(countStmt, 0);
+        }
+        sqlite3_finalize(countStmt);
+
+        if (unpinnedCount <= maxItems) {
+            return true;
+        }
+
         sqlite3_stmt* statement = nullptr;
         const char* sql =
             "SELECT id FROM items "
+            "WHERE pinned = 0 "
             "ORDER BY last_copy_time_ms DESC "
             "LIMIT -1 OFFSET ?1;";
 
@@ -912,6 +1013,7 @@ private:
             [&]() { return applyMigration(3, "0003-add-metadata.sql"); },
             [&]() { return applyMigration(4, "0004-add-ocr-support.sql"); },
             [&]() { return applyMigration(5, "0005-add-origin-tracking.sql"); },
+            [&]() { return applyMigration(6, "0006-add-pinned-field.sql"); },
         };
 
         for (size_t i = currentVersion; i < migrations.size(); ++i) {

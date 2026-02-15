@@ -6,6 +6,7 @@ final class MainPanelItemTableCellView: NSTableCellView {
     private let coordinator: AppCoordinator
     private let markerView = NSView()
     private let iconView = NSImageView()
+    private let pinIconView = NSImageView()
     private let titleLabel = NSTextField(labelWithString: "")
     private let appIconView = NSImageView()
     private let colorBlockView: NSView = {
@@ -32,6 +33,7 @@ final class MainPanelItemTableCellView: NSTableCellView {
         let nsColor = NSColor(themeColor)
 
         iconView.image = NSImage(systemSymbolName: item.type == .image ? "photo" : "text.alignleft", accessibilityDescription: nil)
+        pinIconView.isHidden = !(item.pinned == true)
         if item.type == .image {
             let fallback = "Image[\(item.imageWidth ?? 0) x \(item.imageHeight ?? 0)]"
             if let ocrText = item.ocrText?.trimmingCharacters(in: .whitespacesAndNewlines), !ocrText.isEmpty {
@@ -95,6 +97,10 @@ final class MainPanelItemTableCellView: NSTableCellView {
         iconView.contentTintColor = NSColor(calibratedWhite: 0.70, alpha: 1)
         iconView.imageScaling = .scaleProportionallyUpOrDown
 
+        pinIconView.image = NSImage(systemSymbolName: "pin.fill", accessibilityDescription: nil)
+        pinIconView.contentTintColor = NSColor(calibratedWhite: 0.70, alpha: 1)
+        pinIconView.imageScaling = .scaleProportionallyUpOrDown
+
         titleLabel.lineBreakMode = .byTruncatingTail
         titleLabel.font = NSFont.systemFont(ofSize: 15, weight: .medium)
         titleLabel.textColor = NSColor(calibratedWhite: 0.92, alpha: 1)
@@ -122,6 +128,7 @@ final class MainPanelItemTableCellView: NSTableCellView {
 
         addSubview(markerView)
         addSubview(iconView)
+        addSubview(pinIconView)
         addSubview(titleLabel)
         addSubview(appIconView)
         addSubview(colorBlockView)
@@ -138,8 +145,14 @@ final class MainPanelItemTableCellView: NSTableCellView {
             make.width.height.equalTo(18)
         }
 
+        pinIconView.snp.makeConstraints { make in
+            make.leading.equalTo(iconView.snp.trailing).offset(4)
+            make.centerY.equalToSuperview()
+            make.width.height.equalTo(14)
+        }
+
         titleLabel.snp.makeConstraints { make in
-            make.leading.equalTo(iconView.snp.trailing).offset(8)
+            make.leading.equalTo(pinIconView.snp.trailing).offset(4)
             make.trailing.equalToSuperview().inset(8)
             make.height.equalTo(18)
             make.bottom.equalTo(self.snp.centerY)
